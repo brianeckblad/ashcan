@@ -215,6 +215,46 @@
               - "    aws_secret_access_key: <secret shown above>"
           when: _vault_encrypted.stdout == 'yes' and not _vpass_stat.stat.exists
 
+    # ── Step 6: Switch AWS CLI to the new deployer user ───────────────────
+    # Credentials are already in memory — configure immediately so all
+    # subsequent playbooks (provision-app, setup-secrets-manager, etc.) run
+    # as the deployer user without any manual intervention.
+    - name: "Step 6 — Configure AWS CLI as {{ iam_user_name }}"
+      when: new_key is changed
+      block:
+        - name: Set aws_access_key_id in CLI profile
+          command: aws configure set aws_access_key_id {{ new_key.access_key.access_key_id }}
+          changed_when: true
+          no_log: true
+
+        - name: Set aws_secret_access_key in CLI profile
+          command: aws configure set aws_secret_access_key {{ new_key.secret_access_key }}
+          changed_when: true
+          no_log: true
+
+        - name: Set default region in CLI profile
+          command: aws configure set region {{ aws_region }}
+          changed_when: true
+
+        - name: Set output format in CLI profile
+          command: aws configure set output json
+          changed_when: true
+
+        - name: Verify new identity
+          command: aws sts get-caller-identity
+          register: _new_identity
+          changed_when: false
+
+        - name: Confirm CLI switched to deployer user
+          debug:
+            msg:
+              - "✓ AWS CLI is now configured as the deployer user."
+              - ""
+              - "  Identity: {{ (_new_identity.stdout | from_json).Arn }}"
+              - ""
+              - "  You can now run provision-app.yml and setup.yml directly."
+              - "  Delete the temporary root access key in AWS Console."
+
     - name: Access key already exists
       debug:
         msg:

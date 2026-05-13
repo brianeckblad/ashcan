@@ -214,28 +214,33 @@ cd deployment
 ansible-playbook playbooks/create-iam-user.yml --vault-password-file ~/.vault_pass
 ```
 
-This creates `{app_name}-deployer` with these permissions:
-`AmazonS3FullAccess`, `IAMFullAccess`, `SecretsManagerReadWrite`, `CloudWatchLogsFullAccess`, and an inline `CloudWatchAlarmPolicy`.
+This one playbook does everything needed before provisioning:
 
-The playbook then writes the generated Access Key ID and Secret Key directly back into
-`vault.yml` (under `aws_access_key_id` and `aws_secret_access_key`) and re-encrypts it.
-The credentials are stored in the vault and do not need to be recorded anywhere else.
+1. Creates `{app_name}-deployer` with `AmazonS3FullAccess`, `IAMFullAccess`, `SecretsManagerReadWrite`, `CloudWatchLogsFullAccess`, and an inline `CloudWatchAlarmPolicy`
+2. Saves `aws_access_key_id` and `aws_secret_access_key` into `vault.yml` (re-encrypted)
+3. Calls `aws configure set` to switch the local AWS CLI to the new deployer user immediately
 
-> Requires `~/.vault_pass`. If the vault password file is missing, the credentials are
-> printed once and you must add them to `vault.yml` manually before the next step.
+When the playbook finishes, the terminal session is already authenticated as the deployer user. No manual `aws configure` step is needed.
 
-### Step 5: Configure the AWS CLI with deployer credentials
+> Requires `~/.vault_pass`. If missing, credentials are printed once and must be added to vault manually, and `configure-aws-cli.yml` must be run manually.
+
+### Step 5: Verify the deployer identity (optional)
 
 ```bash
-cd deployment
+aws sts get-caller-identity
+# Arn should show: arn:aws:iam::ACCOUNT_ID:user/{app_name}-deployer
+```
+
+Then **delete the temporary root access key** in the AWS Console.
+
+All subsequent playbooks (`provision-app.yml`, `setup.yml`, `update.yml`) now run as the deployer user automatically. `provision-app.yml` includes a preflight check that fails if it detects root credentials, so you cannot accidentally provision as root.
+
+On any future machine, run `configure-aws-cli.yml` to restore the AWS CLI from vault:
+
+```bash
 ansible-playbook playbooks/configure-aws-cli.yml --vault-password-file ~/.vault_pass
 ```
 
-The playbook reads `aws_access_key_id`, `aws_secret_access_key`, and `aws_region` from the vault and calls `aws configure set` for each. It finishes with `aws sts get-caller-identity` so you can confirm the correct user is active.
-
-Then **delete the temporary root access key** in the AWS Console. All subsequent playbooks run as the deployer user.
-
-On any future machine, run the same playbook — the credentials are always in the vault.
 
 ---
 

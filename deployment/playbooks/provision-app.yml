@@ -4,6 +4,8 @@
 # Does NOT provision the server itself (handled by the shared server team).
 #
 # Run this ONCE to bootstrap a new application instance.
+# Must be run as the {app_name}-deployer IAM user, NOT as root.
+# create-iam-user.yml switches the AWS CLI automatically — run it first.
 #
 # Usage:
 #   ansible-playbook playbooks/provision-app.yml --vault-password-file ~/.vault_pass
@@ -12,6 +14,55 @@
 #   ansible-playbook playbooks/create-s3-bucket.yml --vault-password-file ~/.vault_pass
 #   ansible-playbook playbooks/create-iam-policies.yml --vault-password-file ~/.vault_pass
 #   ansible-playbook playbooks/setup-secrets-manager.yml --vault-password-file ~/.vault_pass
+
+# ==============================================================================
+# Preflight: confirm we are running as the deployer user, not root
+# ==============================================================================
+
+- name: Preflight — verify deployer identity
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+  vars:
+    _expected_user: "{{ app_deploy_user | default(app_name + '-deployer') }}"
+  tasks:
+    - name: Get current AWS caller identity
+      command: aws sts get-caller-identity
+      register: _caller
+      changed_when: false
+
+    - name: Parse identity ARN
+      set_fact:
+        _caller_arn: "{{ (_caller.stdout | from_json).Arn }}"
+
+    - name: Fail if running as root account
+      fail:
+        msg: |
+          AWS CLI is currently configured as: {{ _caller_arn }}
+
+          provision-app.yml must run as the deployer user ({{ _expected_user }}),
+          not as a root or admin account.
+
+          Switch first:
+            ansible-playbook playbooks/configure-aws-cli.yml --vault-password-file ~/.vault_pass
+
+          Or run create-iam-user.yml if the deployer user does not exist yet — it
+          switches the CLI automatically on completion.
+      when: "'root' in _caller_arn"
+
+    - name: Warn if not the expected deployer user
+      debug:
+        msg:
+          - "⚠️  Current identity ({{ _caller_arn }}) does not match expected deployer"
+          - "   user ({{ _expected_user }}). Continuing, but verify this is intentional."
+      when: _expected_user not in _caller_arn and 'root' not in _caller_arn
+
+    - name: Confirm deployer identity
+      debug:
+        msg: "✓ Running as {{ _caller_arn }}"
+      when: _expected_user in _caller_arn
 
 # ==============================================================================
 # Overview
