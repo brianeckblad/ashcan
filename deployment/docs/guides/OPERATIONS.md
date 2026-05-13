@@ -99,7 +99,7 @@ cd deployment
 
 ```bash
 # Via SSH
-ssh ubuntu@YOUR_SERVER_IP
+ssh ubuntu@$server_host
 sudo tail -f /var/log/apps/{app_name}/error.log
 
 # Via deployment script
@@ -272,7 +272,7 @@ sudo grep "IP BLOCKED" /var/log/apps/{app_name}/app.log | tail -20
 
 ```bash
 # Connect to server
-ssh ubuntu@YOUR_SERVER_IP
+ssh ubuntu@$server_host
 
 # Disk usage
 df -h
@@ -297,7 +297,7 @@ ps aux | grep defunct
 - Disk usage < 80%
 - Memory usage < 80%
 - Load average < number of CPUs
-- Gunicorn workers running (4 workers typical)
+- 1 gunicorn worker + 4 threads running (`ps aux | grep gunicorn` shows one process)
 
 **If resources high:**
 - Disk > 85%: Clean up logs, old backups
@@ -328,7 +328,7 @@ aws s3 ls s3://your-bucket-name/backups/$(date +%Y%m%d)/ --recursive --human-rea
 ### Check Disk Space
 
 ```bash
-ssh ubuntu@YOUR_SERVER_IP
+ssh ubuntu@$server_host
 
 # Check disk usage
 df -h
@@ -434,7 +434,7 @@ echo | openssl s_client -servername yourdomain.com -connect yourdomain.com:443 2
 
 ```bash
 # Connect to server
-ssh ubuntu@YOUR_SERVER_IP
+ssh ubuntu@$server_host
 
 # Check certbot status
 sudo certbot certificates
@@ -458,7 +458,7 @@ If automatic renewal fails or you need to renew early:
 
 ```bash
 # Connect to server
-ssh ubuntu@YOUR_SERVER_IP
+ssh ubuntu@$server_host
 
 # Stop nginx (required for standalone renewal)
 sudo systemctl stop nginx
@@ -576,7 +576,7 @@ echo "0 6 * * * /usr/bin/certbot certificates | grep 'VALID: [0-9] days' && echo
 ### Update System Packages
 
 ```bash
-ssh ubuntu@YOUR_SERVER_IP
+ssh ubuntu@$server_host
 
 # Update packages
 sudo apt-get update
@@ -644,7 +644,7 @@ ansible-playbook playbooks/secret-rotate.yml -e secret_key=ebay_production_token
 curl https://yourdomain.com/api/ebay/test
 
 # Or manual test
-ssh ubuntu@YOUR_SERVER_IP
+ssh ubuntu@$server_host
 # Test eBay API calls with new token
 ```
 
@@ -743,19 +743,13 @@ curl https://yourdomain.com/health
 ### Hotfix Deployment
 
 ```bash
-# 1. Create hotfix branch
-git checkout -b hotfix/critical-bug
-# Make fix
-git commit -m "Fix critical bug"
+# Make the fix locally, test it, then deploy directly to main
+git add .
+git commit -m "fix: critical bug description"
+git push origin main
 
-# 2. Deploy directly
 cd deployment
 ./scripts/app-deploy.sh update
-
-# 3. Merge back to main
-git checkout main
-git merge hotfix/critical-bug
-git push
 ```
 
 ### Rollback to Previous Version
@@ -772,25 +766,6 @@ cd deployment
 curl https://yourdomain.com/health
 ```
 
-### Database Migrations
-
-```bash
-# 1. Connect to server
-ssh ubuntu@YOUR_SERVER_IP
-
-# 2. Backup database
-cd /opt/{app_name}
-python -c "from app import backup; backup.create_backup()"
-
-# 3. Run migrations
-flask db upgrade
-
-# 4. Verify
-flask db current
-
-# 5. Restart application
-sudo supervisorctl restart {app_name}
-```
 
 ---
 
@@ -1100,11 +1075,8 @@ aws logs filter-log-events \
 #### Connect to Instance
 
 ```bash
-# Via SSM Session Manager (no SSH key needed)
-ssh ubuntu@YOUR_SERVER_IP
-
-# Via SSH (if port 22 is open)
-ssh -i ~/.ssh/app-key.pem ubuntu@<instance-ip>
+# Connect via SSH
+ssh ubuntu@$server_host
 ```
 
 #### Check Instance Status
@@ -1253,16 +1225,9 @@ aws secretsmanager describe-secret --secret-id app-item-listing-tool/production
 
 ### Setting Up Alerts
 
-```bash
-# Create alerts for your email
-./scripts/cloudwatch-alarms-setup.sh your-email@example.com
-```
-
-**Alarms created:**
-- High error rate (>5% for 10 minutes)
-- High request rate (>10,000/minute)
-- EC2 CPU high (>80% for 15 minutes)
-- Disk space critical (>85%)
+CloudWatch alarms are configured via `setup-monitoring.yml`. If you need to add or
+adjust alarms after deployment, use the AWS Console (CloudWatch → Alarms → Create alarm)
+or the AWS CLI directly with `aws cloudwatch put-metric-alarm`.
 
 ### Log Analysis
 
@@ -1306,7 +1271,7 @@ time_total:       %{time_total}\n
 
 ```bash
 # Full backup
-ssh ubuntu@YOUR_SERVER_IP
+ssh ubuntu@$server_host
 sudo /opt/app-scripts/backup-all.sh
 
 # Verify backup in S3
@@ -1325,7 +1290,7 @@ aws s3 sync \
   /tmp/restore/
 
 # 3. Stop application
-ssh ubuntu@YOUR_SERVER_IP
+ssh ubuntu@$server_host
 sudo supervisorctl stop {app_name}
 
 # 4. Restore files
@@ -1604,7 +1569,7 @@ ansible-playbook -i inventories playbooks/update.yml
 ### Check Certificate Expiry
 
 ```bash
-ssh -i ~/.ssh/{app_name}-key.pem ubuntu@YOUR_SERVER_IP
+ssh ubuntu@$server_host
 
 # Check when certificate expires
 sudo certbot certificates
@@ -1632,7 +1597,7 @@ sudo certbot renew --dry-run
 ### Manual Renewal
 
 ```bash
-ssh -i ~/.ssh/{app_name}-key.pem ubuntu@YOUR_SERVER_IP
+ssh ubuntu@$server_host
 
 # Renew certificate
 sudo certbot renew
@@ -1673,18 +1638,15 @@ Checklist:
 
 ```bash
 # Download application files
-scp -r -i ~/.ssh/${app_name}-key.pem \
-  ubuntu@YOUR_SERVER_IP:/opt/${app_name} \
+scp -r ubuntu@$server_host:/opt/${app_name} \
   ./backup-${app_name}-$(date +%Y%m%d)/
 
 # Backup logs
-scp -r -i ~/.ssh/${app_name}-key.pem \
-  ubuntu@YOUR_SERVER_IP:/var/log/apps/${app_name} \
+scp -r ubuntu@$server_host:/var/log/apps/${app_name} \
   ./backup-logs-$(date +%Y%m%d)/
 
 # Backup instance data (CSV, preferences, uploads)
-scp -r -i ~/.ssh/${app_name}-key.pem \
-  ubuntu@YOUR_SERVER_IP:/opt/${app_name}/instance \
+scp -r ubuntu@$server_host:/opt/${app_name}/instance \
   ./backup-config-$(date +%Y%m%d)/
 ```
 
