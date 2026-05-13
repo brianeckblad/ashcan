@@ -1,0 +1,470 @@
+---
+# Application deployment: code, dependencies, config, services.
+# Run on the shared server after AWS resources are provisioned.
+# Prerequisite: provision-app.yml must be run first (S3, IAM, Secrets Manager).
+#
+# Usage: ansible-playbook playbooks/setup.yml --vault-password-file ~/.vault_pass
+#
+# On a shared server this playbook is safe to run multiple times (idempotent)
+# and does not touch other applications on the same host.
+
+- name: Deploy Application
+  hosts: all
+  become: yes
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+
+  tasks:
+
+    # =========================================================================
+    # VALIDATION
+    # =========================================================================
+
+    - name: Validate SSL prerequisites
+      block:
+        - name: Check server_name is configured
+          fail:
+            msg: >
+              server_name must be set to a real domain in group_vars/vault.yml (currently '{{ server_name }}').
+              SSL certificates require a domain name. Set server_name and ssl_email before deploying.
+          when: server_name is not defined or server_name == '_' or server_name == ''
+
+        - name: Check ssl_email is configured
+          fail:
+            msg: >
+              ssl_email must be set in group_vars/vault.yml.
+              Let's Encrypt requires an email for certificate notifications.
+          when: ssl_email is not defined or ssl_email == ''
+
+    - name: Check if gunicorn port is already in use by a different app
+      shell: |
+        ss -tlnp 2>/dev/null | grep ':{{ gunicorn_port }} ' | grep -v '{{ service_name }}' || true
+      register: port_check
+      changed_when: false
+      failed_when: false
+
+    - name: Fail if port is already bound by a different process
+      fail:
+        msg: >
+          Port {{ gunicorn_port }} is already in use on this server (not by {{ service_name }}).
+          Set a unique gunicorn_port in vault.yml for each app on this server.
+          Common convention: first app=8000, second=8001, third=8002, etc.
+          Currently bound: {{ port_check.stdout }}
+      when: port_check.stdout | trim != ''
+
+    # =========================================================================
+    # USERS AND DIRECTORIES
+    # =========================================================================
+
+    - name: Create shared application group
+      group:
+        name: "{{ app_name }}"
+        state: present
+
+    - name: Create dedicated application user (no shell, no SSH)
+      user:
+        name: "{{ app_runtime_user }}"
+        comment: "{{ app_display_name }} Application User (no login)"
+        shell: /usr/sbin/nologin
+        system: yes
+        create_home: no
+        groups: "{{ app_name }}"
+        append: yes
+        state: present
+      when: app_runtime_user != server_admin_user
+
+    - name: Add admin user to application group
+      user:
+        name: "{{ server_admin_user }}"
+        groups: "{{ app_name }}"
+        append: yes
+
+    - name: Create application base directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ server_admin_user }}"
+        group: "{{ app_name }}"
+        mode: '2775'
+
+    - name: Create instance directory
+      file:
+        path: "{{ app_dir }}/instance"
+        state: directory
+        owner: "{{ server_admin_user }}"
+        group: "{{ app_name }}"
+        mode: '2775'
+
+    - name: Create log directory
+      file:
+        path: "{{ log_dir }}"
+        state: directory
+        owner: "{{ app_runtime_user }}"
+        group: "{{ app_name }}"
+        mode: '2775'
+
+    # =========================================================================
+    # CODE DEPLOYMENT
+    # =========================================================================
+
+    - name: Mark app directory as git safe.directory
+      become_user: "{{ server_admin_user }}"
+      command: git config --global --add safe.directory {{ app_dir }}
+      changed_when: false
+
+    - name: Check if git repo is initialized
+      stat:
+        path: "{{ app_dir }}/.git"
+      register: git_dir_exists
+
+    - name: Initialize git repo in application directory
+      become_user: "{{ server_admin_user }}"
+      shell: |
+        cd {{ app_dir }}
+        git init
+        git remote add origin '{{ git_repo }}'
+        git fetch origin
+        git checkout -f {{ git_branch }}
+      when: not git_dir_exists.stat.exists
+
+    - name: Update application code from git
+      become_user: "{{ server_admin_user }}"
+      git:
+        repo: "{{ git_repo }}"
+        dest: "{{ app_dir }}"
+        version: "{{ git_branch }}"
+        force: yes
+      when: git_dir_exists.stat.exists
+
+    - name: Create Python virtual environment
+      become_user: "{{ server_admin_user }}"
+      command: python3 -m venv {{ venv_dir }}
+      args:
+        creates: "{{ venv_dir }}/bin/activate"
+
+    - name: Upgrade pip in virtual environment
+      become_user: "{{ server_admin_user }}"
+      pip:
+        name: pip
+        state: latest
+        virtualenv: "{{ venv_dir }}"
+
+    - name: Check if root requirements.txt exists
+      stat:
+        path: "{{ app_dir }}/requirements.txt"
+      register: root_requirements_file
+
+    - name: Install Python dependencies
+      become_user: "{{ server_admin_user }}"
+      pip:
+        requirements: "{{ app_dir }}/requirements.txt"
+        virtualenv: "{{ venv_dir }}"
+      when: root_requirements_file.stat.exists
+
+    - name: Install gunicorn in virtual environment
+      become_user: "{{ server_admin_user }}"
+      pip:
+        name: gunicorn
+        virtualenv: "{{ venv_dir }}"
+        state: present
+
+
+    - name: Create supervisor configuration
+      template:
+        src: ../templates/supervisor.conf.j2
+        dest: /etc/supervisor/conf.d/{{ service_name }}.conf
+        mode: '0644'
+      notify: restart supervisor
+
+    - name: Check if SSL certificate exists on server
+      stat:
+        path: "/etc/letsencrypt/live/{{ server_name }}/fullchain.pem"
+      register: ssl_cert_check
+
+    # Rate-limit zones go in conf.d — NOT in sites-available.
+    # Zones in sites-available are re-declared on every nginx reload, causing
+    # "duplicate zone" errors when two apps are hosted on the same server.
+    - name: Deploy nginx rate-limit zones (conf.d — loaded once, never duplicated)
+      template:
+        src: ../templates/nginx-rate-limits.conf.j2
+        dest: /etc/nginx/conf.d/{{ app_name }}-rate-limits.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart nginx
+
+    - name: Create nginx site configuration
+      template:
+        src: ../templates/nginx.conf.j2
+        dest: /etc/nginx/sites-available/{{ service_name }}
+        mode: '0644'
+      vars:
+        has_ssl: "{{ ssl_cert_check.stat.exists }}"
+      notify: restart nginx
+
+    - name: Enable nginx site
+      file:
+        src: /etc/nginx/sites-available/{{ service_name }}
+        dest: /etc/nginx/sites-enabled/{{ service_name }}
+        state: link
+      notify: restart nginx
+
+    # Only remove the nginx default site when this is the ONLY enabled site.
+    # On a shared server with multiple apps, removing another app's site would
+    # take that app offline.
+    - name: Count currently enabled nginx sites (excluding this app)
+      find:
+        paths: /etc/nginx/sites-enabled
+        file_type: any
+        excludes: "{{ service_name }}"
+      register: other_nginx_sites
+
+    - name: Remove default nginx site (only when this is the sole site on the server)
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      when: other_nginx_sites.matched == 0
+      notify: restart nginx
+      failed_when: false
+
+
+    - name: Install logrotate configuration
+    - name: Install logrotate configuration
+      template:
+        src: ../templates/logrotate.conf.j2
+        dest: /etc/logrotate.d/{{ app_name }}
+        mode: '0644'
+        owner: root
+        group: root
+
+    - name: Verify logrotate configuration syntax
+      command: logrotate -d /etc/logrotate.d/{{ app_name }}
+      changed_when: false
+      failed_when: false
+
+    - name: Ensure app scripts directory has proper permissions
+      file:
+        path: "{{ app_dir }}/app/scripts"
+        state: directory
+        owner: "{{ app_runtime_user }}"
+        group: "{{ app_name }}"
+        mode: '2775'
+
+    - name: Ensure backup cleanup script is executable
+      file:
+        path: "{{ app_dir }}/app/scripts/cleanup_old_backups.py"
+        owner: "{{ app_runtime_user }}"
+        group: "{{ app_name }}"
+        mode: '0755'
+
+    - name: Remove old backup cleanup cron for app_runtime_user (legacy — nologin user cannot run crons)
+      cron:
+        name: "Cleanup old backups (>{{ backup_retention_days }} days)"
+        user: "{{ app_runtime_user }}"
+        state: absent
+      failed_when: false
+
+    - name: Create daily cron job for backup cleanup
+      cron:
+        name: "Cleanup old backups (>{{ backup_retention_days }} days)"
+        minute: "{{ backup_cleanup_minute }}"
+        hour: "{{ backup_cleanup_hour }}"
+        job: "cd {{ app_dir }} && {{ venv_dir }}/bin/python {{ app_dir }}/app/scripts/cleanup_old_backups.py >> {{ log_dir }}/cleanup.log 2>&1"
+        user: root
+        state: present
+
+    # =========================================================================
+    # LOG MONITORING CRON
+    # =========================================================================
+    - name: Deploy log monitoring script
+      template:
+        src: ../templates/log-monitor.sh.j2
+        dest: /usr/local/bin/{{ app_name }}-log-monitor.sh
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Ensure log monitoring cron job exists
+      cron:
+        name: "{{ app_name }} log monitoring"
+        job: "/usr/local/bin/{{ app_name }}-log-monitor.sh"
+        minute: "*/5"
+        user: root
+
+    - name: Mark deployment maintenance window active
+      copy:
+        content: "{{ ansible_date_time.iso8601 }}\n"
+        dest: "/run/{{ app_name }}-monitor.maintenance"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Apply application file permissions
+      import_tasks: harden-permissions-tasks.yml
+
+    - name: Ensure supervisor is running
+      service:
+        name: supervisor
+        state: started
+        enabled: yes
+
+    - name: Ensure nginx is running
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Reread supervisor configuration
+      command: supervisorctl reread
+      register: supervisor_reread
+      failed_when: false
+
+    - name: Update supervisor with new configuration
+      command: supervisorctl update
+      register: supervisor_update
+      failed_when: false
+
+    - name: Check if service exists in supervisor
+      command: supervisorctl status {{ service_name }}
+      register: supervisor_status
+      failed_when: false
+      changed_when: false
+
+    - name: Start application via supervisor
+      supervisorctl:
+        name: "{{ service_name }}"
+        state: started
+      when: supervisor_status.rc == 0 or supervisor_status.rc == 3
+
+    - name: Restart supervisor if service not found
+      service:
+        name: supervisor
+        state: restarted
+      when: supervisor_status.rc != 0 and supervisor_status.rc != 3
+
+    - name: Wait for supervisor to restart
+      wait_for:
+        path: /var/run/supervisor.sock
+        state: present
+        timeout: 30
+      when: supervisor_status.rc != 0 and supervisor_status.rc != 3
+
+    - name: Start application after supervisor restart
+      supervisorctl:
+        name: "{{ service_name }}"
+        state: started
+      when: supervisor_status.rc != 0 and supervisor_status.rc != 3
+
+    - name: Clear deployment maintenance window
+      file:
+        path: "/run/{{ app_name }}-monitor.maintenance"
+        state: absent
+
+    # =========================================================================
+    # SSL CERTIFICATE
+    # =========================================================================
+    # Certbot uses the nginx plugin, so nginx must be running first.
+    # On first run it obtains the cert; re-runs skip if cert exists.
+
+    - name: Install certbot and nginx plugin
+      apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+        update_cache: yes
+
+    - name: Check if SSL certificate already exists
+      stat:
+        path: "/etc/letsencrypt/live/{{ server_name }}/fullchain.pem"
+      register: ssl_cert_exists
+
+    - name: Obtain SSL certificate from Let's Encrypt
+      command: >
+        certbot --nginx
+        --non-interactive
+        --agree-tos
+        --email {{ ssl_email | default('admin@' + server_name) }}
+        --domains {{ server_name }}
+        --redirect
+      when: not ssl_cert_exists.stat.exists
+
+    - name: Re-check SSL certificate after certbot
+      stat:
+        path: "/etc/letsencrypt/live/{{ server_name }}/fullchain.pem"
+      register: ssl_cert_after
+
+    - name: Regenerate nginx config with SSL enabled
+      template:
+        src: ../templates/nginx.conf.j2
+        dest: /etc/nginx/sites-available/{{ service_name }}
+        mode: '0644'
+      vars:
+        has_ssl: "{{ ssl_cert_after.stat.exists }}"
+      notify: restart nginx
+
+    - name: Setup automatic certificate renewal
+      cron:
+        name: "Renew Let's Encrypt certificates for {{ app_name }}"
+        job: "certbot renew --quiet --post-hook 'systemctl reload nginx'"
+        special_time: daily
+        user: root
+
+
+    - name: Configure Certbot post-renewal hook for Nginx
+      copy:
+        content: |
+          #!/bin/sh
+          systemctl reload nginx
+        dest: /etc/letsencrypt/renewal-hooks/post/reload-nginx
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Test nginx configuration after SSL
+      command: nginx -t
+      register: nginx_ssl_test
+      changed_when: false
+
+    - name: Reload nginx after SSL setup
+      systemd:
+        name: nginx
+        state: reloaded
+      when: nginx_ssl_test.rc == 0
+
+    - name: Display deployment summary
+      debug:
+        msg:
+          - "╔══════════════════════════════════════════════════════════╗"
+          - "║   Application Deployed                                  ║"
+          - "╚══════════════════════════════════════════════════════════╝"
+          - ""
+          - "  App:        {{ app_display_name }}"
+          - "  URL:        https://{{ server_name }}"
+          - "  App dir:    {{ app_dir }}"
+          - "  Logs:       {{ log_dir }}"
+          - "  Supervisor: {{ service_name }}"
+          - ""
+          - "  SSL: {{ 'installed' if ssl_cert_after.stat.exists else 'FAILED — check certbot output' }}"
+          - ""
+          - "  Check status:  sudo supervisorctl status {{ service_name }}"
+          - "  View logs:     sudo tail -f {{ log_dir }}/app.log"
+
+  handlers:
+    - name: restart supervisor
+      service:
+        name: supervisor
+        state: restarted
+
+    - name: restart nginx
+      # Use reload, not restart — reload applies config gracefully without
+      # dropping connections for other apps on the same shared server.
+      service:
+        name: nginx
+        state: reloaded
+
+    - name: restart application
+      supervisorctl:
+        name: "{{ service_name }}"
+        state: restarted

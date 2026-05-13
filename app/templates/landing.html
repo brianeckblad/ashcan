@@ -1,0 +1,1909 @@
+a{% extends "base.html" %}
+
+{% block body_class %}landing-page{% endblock %}
+
+{% block extra_css %}
+
+        .main {
+            padding: 48px 48px 50px;
+        }
+
+        .hero {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+
+        .hero h1 {
+            font-size: 56px;
+            font-weight: 300;
+            margin-bottom: 20px;
+            color: var(--color-text);
+            letter-spacing: -2px;
+        }
+
+        .hero .highlight {
+            color: var(--color-accent);
+            font-weight: 600;
+        }
+
+        .hero p {
+            font-size: 20px;
+            color: var(--color-text-muted);
+            font-weight: 300;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* Action sections with visual hierarchy */
+        .action-section {
+            background: var(--color-surface-subtle);
+            border: 1px solid var(--color-elevated);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .action-section:hover {
+            background: var(--color-surface-hover);
+            border-color: var(--color-border-hover);
+        }
+
+        .section-label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--color-text-dim);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .section-label::before,
+        .section-label::after {
+            content: '';
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--color-border-hover), transparent);
+            flex: 1;
+        }
+
+        .actions {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            margin-top: 48px;
+        }
+
+        .actions-row {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+        }
+
+        /* Landing page buttons are slightly wider than default */
+        .actions-row .btn {
+            padding: 12px 40px;
+            font-size: 15px;
+        }
+
+        .footer {
+            background: var(--color-surface);
+            padding: clamp(4px, 2vw, 12px) clamp(16px, 5vw, 48px);
+            border-top: 1px solid var(--color-elevated);
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+        }
+
+        .footer-content {
+            max-width: 100%;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            grid-template-rows: auto auto;
+            gap: 2px 24px;
+            align-items: start;
+        }
+
+        /* Version display (desktop only) */
+        .footer-version {
+            color: var(--color-text-dim);
+            font-size: 11px;
+            white-space: nowrap;
+            grid-column: 2;
+            grid-row: 1 / 3;
+            text-align: right;
+            display: flex;
+            align-items: center;
+        }
+
+        .footer-stats {
+            font-size: 12px;
+            color: var(--color-text-muted);
+            text-align: left;
+            grid-column: 1;
+            grid-row: 1 / 3;
+            line-height: 1.3;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            word-break: break-word;
+        }
+
+        .footer-stat {
+            display: inline;
+        }
+
+        .footer-stat-value {
+            color: var(--color-accent);
+            font-weight: 600;
+        }
+
+        .settings-icon {
+            margin-left: 32px;
+            color: var(--color-text-muted);
+            cursor: pointer;
+            transition: color 0.2s, transform 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+
+        .settings-icon:hover {
+            color: var(--color-accent);
+            transform: scale(1.1);
+        }
+
+        .settings-icon svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Landing page modal overrides — scrollable body, flex column layout */
+        .landing-page .modal-content {
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+
+        .backup-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .backup-item {
+            background: var(--color-surface-subtle);
+            border: 1px solid var(--color-elevated);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .backup-item:hover {
+            background: var(--color-surface-hover);
+            border-color: var(--color-accent);
+        }
+
+        .backup-info {
+            flex: 1;
+        }
+
+        .backup-timestamp {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--color-text);
+            margin-bottom: 4px;
+        }
+
+        .backup-details {
+            font-size: 14px;
+            color: var(--color-text-muted);
+        }
+
+        .backup-action {
+            margin-left: 16px;
+        }
+
+
+        /* Backup Preview Styles */
+        .backup-section {
+            margin-bottom: 24px;
+        }
+
+        .backup-item-large {
+            background: var(--color-surface-subtle);
+            border: 1px solid var(--color-elevated);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .backup-item-large:hover {
+            background: var(--color-surface-hover);
+            border-color: var(--color-accent);
+        }
+
+        .backup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .backup-count {
+            color: var(--color-text-muted);
+            font-size: 14px;
+        }
+
+        .backup-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .preview-comic {
+            text-align: center;
+        }
+
+        .preview-comic img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 8px;
+            background: var(--color-surface);
+            border: 1px solid var(--color-elevated);
+        }
+
+        .no-thumb {
+            width: 100%;
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--color-surface);
+            border: 1px solid var(--color-elevated);
+            border-radius: 8px;
+            color: var(--color-text-dim);
+            font-size: 12px;
+        }
+
+        .preview-sku {
+            margin-top: 6px;
+            font-size: 12px;
+            color: var(--color-text-muted);
+        }
+
+        .preview-more {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-accent);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Single Comic Backup Grid */
+        .single-backup-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+        }
+
+        .backup-item-single {
+            background: var(--color-surface-subtle);
+            border: 1px solid var(--color-elevated);
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .backup-item-single:hover {
+            background: var(--color-surface-hover);
+            border-color: var(--color-accent);
+        }
+
+        .single-backup-thumb {
+            width: 100%;
+            height: 160px;
+            overflow: hidden;
+        }
+
+        .single-backup-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: var(--color-surface);
+        }
+
+        .single-backup-thumb .no-thumb {
+            height: 160px;
+            border-radius: 0;
+        }
+
+        .single-backup-info {
+            padding: 12px;
+        }
+
+        .single-backup-sku {
+            font-weight: 500;
+            color: var(--color-text);
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+
+        .single-backup-time {
+            font-size: 11px;
+            color: var(--color-text-muted);
+            margin-bottom: 10px;
+        }
+
+        .single-backup-info .btn {
+            width: 100%;
+        }
+
+        @media (max-width: 768px) {
+            .footer {
+                padding: 8px 12px;
+            }
+
+            .footer-stats {
+                font-size: 10px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 16px 20px;
+            }
+
+            .header-content {
+                flex-direction: row;
+                justify-content: space-between;
+                gap: 12px;
+            }
+
+            .logo {
+                font-size: 14px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 120px;
+            }
+
+            .nav {
+                gap: 16px;
+            }
+
+            .nav a {
+                font-size: 14px;
+            }
+
+            .nav a svg {
+                width: 20px;
+                height: 20px;
+            }
+
+            .main {
+                padding: 40px 20px 60px;
+            }
+
+            .hero {
+                margin-bottom: 60px;
+            }
+
+            .hero h1 {
+                font-size: 36px;
+                margin-bottom: 16px;
+            }
+
+            .hero .highlight {
+                display: block;
+            }
+
+            .hero p {
+                font-size: 16px;
+                line-height: 1.5;
+            }
+
+            .actions {
+                flex-direction: column;
+                align-items: stretch;
+                margin-top: 32px;
+            }
+
+            .actions-row {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .action-section {
+                padding: 12px 16px;
+            }
+
+            .btn {
+                width: 100%;
+                max-width: 100%;
+                padding: 16px 32px;
+                font-size: 15px;
+            }
+
+            .footer {
+                padding: 20px;
+            }
+
+            .footer-content {
+                font-size: 12px;
+            }
+
+            /* Touch-friendly elements */
+            .btn,
+            .nav a {
+                -webkit-tap-highlight-color: var(--color-accent-subtle);
+            }
+        }
+
+        /* Backup Progress Modal */
+        .backup-progress-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--overlay-heavy);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+
+        .backup-progress-content {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border-hover);
+            border-radius: 16px;
+            padding: 32px 48px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .backup-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid var(--color-border-hover);
+            border-top-color: var(--color-accent);
+            border-radius: 50%;
+            animation: backup-spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes backup-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .backup-progress-text {
+            color: var(--color-text);
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .backup-progress-subtext {
+            color: var(--color-text-muted);
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .backup-progress-bar {
+            background: var(--color-border-hover);
+            border-radius: 8px;
+            height: 8px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .backup-progress-fill {
+            background: linear-gradient(90deg, var(--color-accent), var(--color-accent-hover));
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+            animation: backup-pulse 1.5s ease-in-out infinite;
+        }
+
+        .backup-progress-fill.indeterminate {
+            width: 30%;
+            animation: backup-indeterminate 1.5s ease-in-out infinite;
+        }
+
+        @keyframes backup-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        @keyframes backup-indeterminate {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(400%); }
+        }
+
+        .backup-nav-note {
+            color: var(--color-text-muted);
+            font-size: 12px;
+            font-style: italic;
+        }
+{% endblock %}
+
+{% block content %}
+    <main id="main-content" class="main">
+        <div class="hero">
+            <h1><span class="highlight">Comic Listing Tool</span></h1>
+            <p>Manage WhatNot and eBay Listings</p>
+            <div id="diskWarning" style="display: none; font-size: 18px; font-weight: 600; margin-top: 20px;">
+                <!-- Warning message will be injected here -->
+            </div>
+
+            <div class="actions">
+                <!-- Primary Actions -->
+                <div class="action-section">
+                    <div class="section-label">Manage Comics</div>
+                    <div class="actions-row">
+                        <a href="/add" id="addComicBtn" class="btn btn-secondary">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                            </svg>
+                            Add/New Comic
+                        </a>
+                        <a href="/add-from-image" id="addFromImageBtn" class="btn btn-secondary">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2" fill="none"/>
+                                <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="2" fill="none"/>
+                                <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </svg>
+                            Add From Image
+                        </a>
+                        <a href="/browse" id="browseBtn" class="btn btn-secondary">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M3 7h18M3 12h18M3 17h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                            </svg>
+                            Browse Collection
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Export Comics -->
+                <div class="action-section">
+                    <div class="section-label">Export Comics</div>
+                    <div class="actions-row">
+                        <button class="btn btn-secondary" onclick="showWhatnotExportModal()">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </svg>
+                            Export WhatNot Comics
+                        </button>
+                        <button class="btn btn-secondary" onclick="showEbayExportModal()">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M3 3h18v18H3V3zm2 2v14h14V5H5zm3 3h8v2H8V8zm0 4h8v2H8v-2z" fill="currentColor"/>
+                            </svg>
+                            Export eBay Comics
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Export, Manage and Backup Data -->
+                <div class="action-section">
+                    <div class="section-label">Export, Manage and Backup Data</div>
+                    <div class="actions-row">
+                        <button id="exportBackupBtn" class="btn btn-secondary" onclick="showExportBackupModal()">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 3v12m0 0l-4-4m4 4l4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                                <path d="M12 21v-6m0 0l-4 4m4-4l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </svg>
+                            Export, Manage and Backup Data
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Danger Zone -->
+                <div class="action-section" style="border-color: var(--color-danger-subtle);">
+                    <div class="section-label" style="color: var(--color-danger);">Danger Zone</div>
+                    <button id="dangerZoneBtn" class="btn btn-danger" onclick="showDangerZoneModal()">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                        </svg>
+                        Manage Inventory Deletion
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export, Manage and Backup Modal -->
+        <div id="exportBackupModal" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 600px;">
+                <div class="modal-header">
+                    <h3>Export, Manage and Backup Data</h3>
+                    <button class="close-btn" onclick="closeExportBackupModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <!-- Backup & Snapshots Section -->
+                        <div>
+                            <div style="font-size: 13px; font-weight: 600; color: var(--color-text-muted); margin-bottom: 8px; padding-left: 4px;">Backup &amp; Snapshots</div>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <button id="backupDownloadBtn" onclick="downloadBackup()" class="btn btn-secondary" style="width: 100%; justify-content: flex-start;">
+                                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+                                        <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                                        <path d="M8 8h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                    <div style="flex: 1; text-align: left;">
+                                        <div style="font-weight: 600;">Backup & Download</div>
+                                        <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">Download CSV + all images as ZIP file</div>
+                                    </div>
+                                </button>
+
+                                <button onclick="closeExportBackupModal(); showCreateSnapshotModal();" class="btn btn-secondary" style="width: 100%; justify-content: flex-start;">
+                                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+                                        <path d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" stroke="currentColor" stroke-width="2" fill="none"/>
+                                        <path d="M12 8v8m-4-4h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                    <div style="flex: 1; text-align: left;">
+                                        <div style="font-weight: 600;">Create Snapshot</div>
+                                        <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">Backup current inventory with CSV and images</div>
+                                    </div>
+                                </button>
+
+                                <button onclick="closeExportBackupModal(); showSnapshotsModal();" class="btn btn-secondary" style="width: 100%; justify-content: flex-start;">
+                                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+                                        <path d="M3 7h18M3 12h18M3 17h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                                    </svg>
+                                    <div style="flex: 1; text-align: left;">
+                                        <div style="font-weight: 600;">Manage Snapshots</div>
+                                        <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">View, restore, or delete existing snapshots</div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Danger Zone Modal -->
+        <div id="dangerZoneModal" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 600px;">
+                <div class="modal-header">
+                    <h3>⚠️ Danger Zone</h3>
+                    <button class="close-btn" onclick="closeDangerZoneModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p style="color: var(--color-text-muted); margin-bottom: 24px;">Actions that modify or delete your inventory</p>
+
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <button onclick="closeDangerZoneModal(); startFresh();" class="btn btn-secondary" style="width: 100%; justify-content: flex-start; border-color: var(--color-danger-subtle);">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0; color: var(--color-danger);">
+                                <path d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" stroke="currentColor" stroke-width="2" fill="none"/>
+                                <path d="M12 8v8m-4-4h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            <div style="flex: 1; text-align: left;">
+                                <div style="font-weight: 600; color: var(--color-danger);">Snapshot & Start Fresh</div>
+                                <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">Create backup, then move all comics to trash</div>
+                            </div>
+                        </button>
+
+                        <button onclick="closeDangerZoneModal(); window.triggerFullDelete();" class="btn btn-secondary" style="width: 100%; justify-content: flex-start; border-color: var(--color-danger-subtle);">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0; color: var(--color-danger);">
+                                <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </svg>
+                            <div style="flex: 1; text-align: left;">
+                                <div style="font-weight: 600; color: var(--color-danger);">Move All to Trash</div>
+                                <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">Move all comics to trash (30-day recovery)</div>
+                            </div>
+                        </button>
+
+                        <button onclick="window.location.href='/browse?mode=delete'" class="btn btn-secondary" style="width: 100%; justify-content: flex-start; border-color: var(--color-danger-subtle);">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0; color: var(--color-danger);">
+                                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke="currentColor" stroke-width="2" fill="none"/>
+                                <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                            </svg>
+                            <div style="flex: 1; text-align: left;">
+                                <div style="font-weight: 600; color: var(--color-danger);">Selective Delete</div>
+                                <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">Choose specific comics to move to trash</div>
+                            </div>
+                        </button>
+
+                        <button onclick="closeDangerZoneModal(); window.location.href='/trash';" class="btn btn-secondary" style="width: 100%; justify-content: flex-start; border-color: var(--color-danger-subtle);">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0; color: var(--color-danger);">
+                                <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </svg>
+                            <div style="flex: 1; text-align: left;">
+                                <div style="font-weight: 600; color: var(--color-danger);">Trash Management</div>
+                                <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">View and manage items in trash</div>
+                            </div>
+                        </button>
+
+                        <button onclick="closeDangerZoneModal(); cleanupOrphanedImages();" class="btn btn-secondary" style="width: 100%; justify-content: flex-start; border-color: var(--color-danger-subtle);">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0; color: var(--color-danger);">
+                                <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </svg>
+                            <div style="flex: 1; text-align: left;">
+                                <div style="font-weight: 600; color: var(--color-danger);">Clean Up Orphaned Images</div>
+                                <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">Delete S3 images not linked to any SKU</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Snapshot Modal -->
+        <div id="createSnapshotModal" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3>Create Snapshot</h3>
+                    <button class="close-btn" onclick="closeCreateSnapshotModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p style="color: var(--color-text-muted); margin-bottom: 24px;">Create a backup snapshot of your current inventory</p>
+
+                    <div style="margin-bottom: 20px;">
+                        <label for="snapshotName" style="display: block; color: var(--color-accent); font-weight: 600; margin-bottom: 8px;">Snapshot Name</label>
+                        <input type="text" id="snapshotName" placeholder="e.g., snapshot_20251230_143025" style="width: 100%; padding: 12px; background: var(--color-surface); border: 1px solid var(--color-elevated); border-radius: 8px; color: var(--color-text); font-size: 14px;" />
+                    </div>
+
+                    <div style="margin-bottom: 24px;">
+                        <label for="snapshotDescription" style="display: block; color: var(--color-accent); font-weight: 600; margin-bottom: 8px;">Description (optional)</label>
+                        <textarea id="snapshotDescription" placeholder="Brief description of this snapshot" rows="3" style="width: 100%; padding: 12px; background: var(--color-surface); border: 1px solid var(--color-elevated); border-radius: 8px; color: var(--color-text); font-size: 14px; resize: vertical;"></textarea>
+                    </div>
+
+                    <button onclick="createSnapshot()" class="btn btn-primary" style="width: 100%;">
+                        Create Snapshot
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manage Snapshots Modal -->
+        <div id="snapshotsModal" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 800px;">
+                <div class="modal-header">
+                    <h3>Manage Snapshots</h3>
+                    <button class="close-btn" onclick="closeSnapshotsModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p style="color: var(--color-text-muted); margin-bottom: 20px;">Restore or delete inventory snapshots</p>
+                    <div id="snapshotsList" class="backup-list">
+                        <!-- Snapshots will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Whatnot Export Options Modal -->
+        <div id="whatnotExportModal" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3>WhatNot Data Management</h3>
+                    <button class="close-btn" onclick="closeWhatnotExportModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <button onclick="closeWhatnotExportModal(); showExportTypeModal('whatnot')" class="btn btn-secondary" style="width: 100%; justify-content: flex-start;">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+                                <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </svg>
+                            <div style="flex: 1; text-align: left;">
+                                <div style="font-weight: 600;">Export All Listed on WhatNot</div>
+                                <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">Download all comics tagged as listed on WhatNot in full WhatNot CSV format</div>
+                            </div>
+                        </button>
+
+                        <button onclick="closeWhatnotExportModal(); exportWhatNotFiltered('For Sale')" class="btn btn-secondary" style="width: 100%; justify-content: flex-start;">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+                                <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </svg>
+                            <div style="flex: 1; text-align: left;">
+                                <div style="font-weight: 600;">Export For Sale Listed on WhatNot</div>
+                                <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">Download For Sale comics that are tagged as listed on WhatNot</div>
+                            </div>
+                        </button>
+
+                        <button onclick="closeWhatnotExportModal(); exportWhatNotFiltered('Giveaway')" class="btn btn-secondary" style="width: 100%; justify-content: flex-start;">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+                                <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </svg>
+                            <div style="flex: 1; text-align: left;">
+                                <div style="font-weight: 600;">Export Giveaways Listed on WhatNot</div>
+                                <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">Download Giveaway comics that are tagged as listed on WhatNot</div>
+                            </div>
+                        </button>
+
+                        <button onclick="closeWhatnotExportModal(); window.location.href='/browse?mode=export&platform=whatnot'" class="btn btn-secondary" style="width: 100%; justify-content: flex-start;">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+                                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </svg>
+                            <div style="flex: 1; text-align: left;">
+                                <div style="font-weight: 600;">Selective Item Management</div>
+                                <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">Choose specific items to export</div>
+                            </div>
+                        </button>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- eBay Export Options Modal -->
+        <div id="ebayExportModal" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3>eBay Data Management</h3>
+                    <button class="close-btn" onclick="closeEbayExportModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <button onclick="closeEbayExportModal(); showExportTypeModal('ebay')" class="btn btn-secondary" style="width: 100%; justify-content: flex-start;">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+                                <path d="M3 3h18v18H3V3zm2 2v14h14V5H5zm3 3h8v2H8V8zm0 4h8v2H8v-2z" fill="currentColor"/>
+                            </svg>
+                            <div style="flex: 1; text-align: left;">
+                                <div style="font-weight: 600;">Export All Listings in CSV</div>
+                                <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">Download eBay File Exchange format</div>
+                            </div>
+                        </button>
+
+                        <button onclick="closeEbayExportModal(); window.location.href='/browse?mode=ebay'" class="btn btn-secondary" style="width: 100%; justify-content: flex-start;">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+                                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </svg>
+                            <div style="flex: 1; text-align: left;">
+                                <div style="font-weight: 600;">Selective Item Management</div>
+                                <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">Choose items to list, update, or end on eBay</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export Type Selection Modal -->
+        <div id="exportTypeModal" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3 id="exportTypeTitle">Export Options</h3>
+                    <button class="close-btn" onclick="closeExportTypeModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p style="color: var(--color-text-muted); margin-bottom: 24px;">Choose export type</p>
+
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <button id="fullExportBtn" class="btn btn-secondary" style="width: 100%; justify-content: flex-start;">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+                                <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </svg>
+                            <div style="flex: 1; text-align: left;">
+                                <div style="font-weight: 600;">Full Export</div>
+                                <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">Export all inventory items</div>
+                            </div>
+                        </button>
+
+                        <button id="selectiveExportBtn" class="btn btn-secondary" style="width: 100%; justify-content: flex-start;">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+                                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke="currentColor" stroke-width="2" fill="none"/>
+                                <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                            </svg>
+                            <div style="flex: 1; text-align: left;">
+                                <div style="font-weight: 600;">Selective Export</div>
+                                <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">Choose specific items to export</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Backup Progress Modal -->
+        <div id="backupProgressModal" class="backup-progress-modal" style="display: none;">
+            <div class="backup-progress-content">
+                <div class="backup-spinner"></div>
+                <div class="backup-progress-text" id="backupProgressText">Creating Backup...</div>
+                <div class="backup-progress-subtext" id="backupProgressSubtext">Compressing images and CSV data</div>
+                <div class="backup-progress-bar">
+                    <div class="backup-progress-fill indeterminate" id="backupProgressFill"></div>
+                </div>
+                <div class="backup-nav-note">✓ You can navigate away - download will continue in background</div>
+            </div>
+        </div>
+
+    </main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+        // Load system stats
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/system-stats');
+
+                // Check if we got redirected to login (session expired)
+                if (response.redirected || !response.ok) {
+                    return;
+                }
+
+                // Check content-type to avoid parsing HTML as JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    return;
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const stats = result.stats;
+
+                    // Format bytes to human-readable
+                    const formatBytes = (bytes) => {
+                        if (bytes === 0) return '0 B';
+                        const k = 1024;
+                        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+                        const i = Math.floor(Math.log(bytes) / Math.log(k));
+                        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+                    };
+
+                    // Format uptime helper
+                    const formatUptime = (seconds) => {
+                        if (!seconds) return 'N/A';
+                        const days = Math.floor(seconds / 86400);
+                        const hours = Math.floor((seconds % 86400) / 3600);
+                        const mins = Math.floor((seconds % 3600) / 60);
+                        if (days > 0) return `${days}d ${hours}h`;
+                        if (hours > 0) return `${hours}h ${mins}m`;
+                        return `${mins}m`;
+                    };
+
+                    // Calculate eBay listings count and values
+                    const ebayListingsCount = stats.ebay_listings_count || 0;
+                    const ebayValue = stats.ebay_listings_value || 0;
+                    const comicsForSale = (stats.comic_count || 0) - (stats.giveaway_count || 0);
+                    const comicsForSaleValue = stats.inventory_value || 0;
+                    const giveawayValue = stats.giveaway_value || 0;
+
+                    // Format currency helper
+                    const formatCurrency = (value) => {
+                        return parseFloat(value || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    };
+
+p                    // Build two-line footer format
+                    // Line 1: Comics breakdown with images count and values
+                    const sep = `<span style="color: var(--color-text-muted);"> • </span>`;
+                    const val = (v) => `<span style="color: var(--color-text);">${v}</span>`;
+                    const line1 = `${val(comicsForSale)} Comics: $${val(formatCurrency(comicsForSaleValue))}${sep}Images: ${val(stats.image_count)}${sep}${val(ebayListingsCount)} eBay: $${val(formatCurrency(ebayValue))}${sep}${val(stats.giveaway_count)} Givy`;
+
+                    // Line 2: Storage, disk usage, and uptime combined
+                    const appDiskPart = stats.app_disk_used_percent != null
+                        ? `${sep}App Disk ${val(stats.app_disk_used_percent + '%')}`
+                        : '';
+                    const serverPart = stats.server_uptime_seconds
+                        ? `${sep}Server: ${val(formatUptime(stats.server_uptime_seconds))}`
+                        : '';
+                    const line2 = `Storage: ${val(formatBytes(stats.total_image_size))}${sep}Root Disk ${val(stats.root_disk_used_percent + '%')}${appDiskPart}${sep}Uptime: ${val(formatUptime(stats.app_uptime_seconds))}${serverPart}`;
+
+                    document.getElementById('footerStats').innerHTML = `<div>${line1}</div><div>${line2}</div>`;
+
+                    // Tiered disk space warnings
+                    const diskWarning = document.getElementById('diskWarning');
+                    const addBtn = document.getElementById('addComicBtn');
+                    const addImgBtn = document.getElementById('addFromImageBtn');
+                    const navAddBtn = document.getElementById('navAddBtn');
+
+                    function disableAddBtn(btn) {
+                        if (!btn) return;
+                        btn.style.opacity = '0.3';
+                        btn.style.pointerEvents = 'none';
+                        btn.style.cursor = 'not-allowed';
+                    }
+
+                    if (stats.disk_free_percent < 10) {
+                        // RED CRITICAL - Disable add functionality
+                        diskWarning.style.display = 'block';
+                        diskWarning.style.color = 'var(--color-danger)';
+                        diskWarning.innerHTML = '🚨 CRITICAL: INVESTIGATE LOW DISK SPACE ISSUE';
+
+                        disableAddBtn(addBtn);
+                        disableAddBtn(addImgBtn);
+                        disableAddBtn(navAddBtn);
+                    } else if (stats.disk_free_percent < 15) {
+                        // ORANGE WARNING - Disable add functionality
+                        diskWarning.style.display = 'block';
+                        diskWarning.style.color = 'var(--color-warning)';
+                        diskWarning.innerHTML = '⚠️ WARNING: Disk space low - adding comics disabled';
+
+                        disableAddBtn(addBtn);
+                        disableAddBtn(addImgBtn);
+                        disableAddBtn(navAddBtn);
+                    } else if (stats.disk_free_percent < 20) {
+                        // YELLOW CAUTION - Show warning only, no restrictions
+                        diskWarning.style.display = 'block';
+                        diskWarning.style.color = 'var(--color-warning)';
+                        diskWarning.innerHTML = '⚡ CAUTION: Disk space getting low';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Load stats on page load and set up periodic refresh
+        loadStats();
+        setInterval(loadStats, {{ stats_interval }}); // Refresh stats interval from config
+
+        // Check if we should auto-open export modal (coming back from selective export)
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('openExport') === 'true') {
+            // Remove the parameter from URL without reload
+            window.history.replaceState({}, document.title, '/');
+            // Open the export modal
+            showExportBackupModal();
+        }
+
+        // Snapshot Modal Functions
+        function showCreateSnapshotModal() {
+            document.getElementById('createSnapshotModal').style.display = 'flex';
+
+            // Auto-generate datetime-based name
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+
+            const defaultName = `snapshot_${year}${month}${day}_${hours}${minutes}${seconds}`;
+            document.getElementById('snapshotName').value = defaultName;
+            document.getElementById('snapshotDescription').value = '';
+        }
+        window.showCreateSnapshotModal = showCreateSnapshotModal;
+
+        function closeCreateSnapshotModal() {
+            document.getElementById('createSnapshotModal').style.display = 'none';
+        }
+        window.closeCreateSnapshotModal = closeCreateSnapshotModal;
+
+        async function createSnapshot() {
+            const name = document.getElementById('snapshotName').value.trim();
+            const description = document.getElementById('snapshotDescription').value.trim();
+
+            if (!name) {
+                showNotification('Please enter a snapshot name', 'error');
+                return;
+            }
+
+            closeCreateSnapshotModal();
+            showNotification('Creating snapshot...', 'info');
+
+            try {
+                const response = await fetch('/api/snapshots/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': window.csrfToken
+                    },
+                    body: JSON.stringify({ name, description })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`✓ Snapshot "${name}" created successfully!`, 'success');
+                } else {
+                    showNotification(`❌ Error: ${result.error || 'Failed to create snapshot'}`, 'error');
+                }
+            } catch (error) {
+                showNotification(`❌ Network Error: ${error.message}`, 'error');
+            }
+        }
+        window.createSnapshot = createSnapshot;
+
+        function showSnapshotsModal() {
+            document.getElementById('snapshotsModal').style.display = 'flex';
+            loadSnapshots();
+        }
+        window.showSnapshotsModal = showSnapshotsModal;
+
+        function closeSnapshotsModal() {
+            document.getElementById('snapshotsModal').style.display = 'none';
+        }
+        window.closeSnapshotsModal = closeSnapshotsModal;
+
+        async function loadSnapshots() {
+            const list = document.getElementById('snapshotsList');
+            list.innerHTML = '<div style="text-align: center; padding: 20px;">Loading snapshots...</div>';
+
+            try {
+                const response = await fetch('/api/snapshots/list');
+                const result = await response.json();
+
+                if (!result.success) {
+                    list.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--color-danger);">Error loading snapshots</div>';
+                    return;
+                }
+
+                const snapshots = result.snapshots || [];
+
+                if (snapshots.length === 0) {
+                    list.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--color-text-dim);">No snapshots available</div>';
+                    return;
+                }
+
+                list.innerHTML = snapshots.map(snapshot => `
+                    <div class="backup-item">
+                        <div class="backup-info">
+                            <div class="backup-timestamp">${snapshot.name}</div>
+                            <div class="backup-details">${snapshot.comic_count} comics • ${snapshot.created_at}</div>
+                            ${snapshot.description ? `<div style="font-size: 12px; color: var(--color-text-dim); margin-top: 4px;">${snapshot.description}</div>` : ''}
+                        </div>
+                        <div class="backup-action" style="display: flex; gap: 8px;">
+                            <button onclick="restoreSnapshot('${snapshot.id}', '${snapshot.name}')" class="btn btn-primary btn-sm">Restore</button>
+                            <button onclick="deleteSnapshot('${snapshot.id}', '${snapshot.name}')" class="btn btn-danger btn-sm">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                list.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--color-danger);">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Track pending snapshot actions
+        let pendingSnapshotAction = {
+            type: null,
+            snapshotId: null,
+            snapshotName: null
+        };
+
+        async function restoreSnapshot(snapshotId, snapshotName) {
+            pendingSnapshotAction.type = 'restore';
+            pendingSnapshotAction.snapshotId = snapshotId;
+            pendingSnapshotAction.snapshotName = snapshotName;
+            showSnapshotConfirmModal(`⚠️ WARNING: This will restore snapshot "${snapshotName}".\n\nYour current inventory will be moved to trash.\n\nProceed?`);
+        }
+        window.restoreSnapshot = restoreSnapshot;
+
+        async function deleteSnapshot(snapshotId, snapshotName) {
+            pendingSnapshotAction.type = 'delete';
+            pendingSnapshotAction.snapshotId = snapshotId;
+            pendingSnapshotAction.snapshotName = snapshotName;
+            showSnapshotConfirmModal(`⚠️ Delete snapshot "${snapshotName}"?\n\nThis cannot be undone.`);
+        }
+        window.deleteSnapshot = deleteSnapshot;
+
+        function showSnapshotConfirmModal(message) {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: var(--overlay-heavy);
+                z-index: 3000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+
+            const messageText = message.replace(/\\n/g, '<br>');
+
+            modal.innerHTML = `
+                <div style="background: var(--color-surface); border: 1px solid var(--color-elevated); border-radius: 12px; max-width: 500px; padding: 24px; color: var(--color-text);">
+                    <h2 style="margin: 0 0 16px 0; color: var(--color-accent);">Confirm Action</h2>
+                    <p style="color: var(--color-text); margin-bottom: 24px; line-height: 1.6;">${messageText}</p>
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button onclick="cancelSnapshotAction()" style="padding: 10px 24px; background: transparent; border: 1px solid var(--color-border-hover); color: var(--color-accent); border-radius: 6px; cursor: pointer; font-weight: 600;">Cancel</button>
+                        <button onclick="confirmSnapshotAction()" style="padding: 10px 24px; background: var(--color-accent); color: var(--color-bg); border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Confirm</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+            modal.id = 'snapshot-confirm-modal';
+
+            // Add keyboard support
+            document.addEventListener('keydown', handleSnapshotModalKeydown);
+        }
+
+        function handleSnapshotModalKeydown(event) {
+            const modal = document.getElementById('snapshot-confirm-modal');
+            if (!modal) {
+                document.removeEventListener('keydown', handleSnapshotModalKeydown);
+                return;
+            }
+
+            if (event.key === 'Escape') {
+                cancelSnapshotAction();
+            }
+        }
+
+        function cancelSnapshotAction() {
+            const modal = document.getElementById('snapshot-confirm-modal');
+            if (modal) modal.remove();
+            pendingSnapshotAction = { type: null, snapshotId: null, snapshotName: null };
+            document.removeEventListener('keydown', handleSnapshotModalKeydown);
+        }
+
+        async function confirmSnapshotAction() {
+            const modal = document.getElementById('snapshot-confirm-modal');
+            if (modal) modal.remove();
+            document.removeEventListener('keydown', handleSnapshotModalKeydown);
+
+            if (pendingSnapshotAction.type === 'restore') {
+                await executeRestoreSnapshot();
+            } else if (pendingSnapshotAction.type === 'delete') {
+                await executeDeleteSnapshot();
+            }
+        }
+
+        async function executeRestoreSnapshot() {
+            closeSnapshotsModal();
+            showNotification('Restoring snapshot...', 'info');
+
+            try {
+                const response = await fetch(`/api/snapshots/restore/${pendingSnapshotAction.snapshotId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': window.csrfToken
+                    },
+                    body: JSON.stringify({ mode: 'replace' })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`✓ Snapshot restored successfully!`, 'success');
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    showNotification(`❌ Error: ${result.error || 'Failed to restore'}`, 'error');
+                }
+            } catch (error) {
+                showNotification(`❌ Network Error: ${error.message}`, 'error');
+            }
+            pendingSnapshotAction = { type: null, snapshotId: null, snapshotName: null };
+        }
+
+        async function executeDeleteSnapshot() {
+            try {
+                const response = await fetch(`/api/snapshots/delete/${pendingSnapshotAction.snapshotId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': window.csrfToken
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`✓ Snapshot deleted`, 'success');
+                    loadSnapshots();
+                } else {
+                    showNotification(`❌ Error: ${result.error || 'Failed to delete'}`, 'error');
+                }
+            } catch (error) {
+                showNotification(`❌ Network Error: ${error.message}`, 'error');
+            }
+            pendingSnapshotAction = { type: null, snapshotId: null, snapshotName: null };
+        }
+
+        // Export & Backup Modal Functions
+        function showExportBackupModal() {
+            document.getElementById('exportBackupModal').style.display = 'flex';
+        }
+        window.showExportBackupModal = showExportBackupModal;
+
+        function closeExportBackupModal() {
+            document.getElementById('exportBackupModal').style.display = 'none';
+        }
+        window.closeExportBackupModal = closeExportBackupModal;
+
+        // Whatnot Export Modal Functions
+        function showWhatnotExportModal() {
+            document.getElementById('whatnotExportModal').style.display = 'flex';
+        }
+        window.showWhatnotExportModal = showWhatnotExportModal;
+
+        function closeWhatnotExportModal() {
+            document.getElementById('whatnotExportModal').style.display = 'none';
+        }
+        window.closeWhatnotExportModal = closeWhatnotExportModal;
+
+        // eBay Export Modal Functions
+        function showEbayExportModal() {
+            document.getElementById('ebayExportModal').style.display = 'flex';
+        }
+        window.showEbayExportModal = showEbayExportModal;
+
+        function closeEbayExportModal() {
+            document.getElementById('ebayExportModal').style.display = 'none';
+        }
+        window.closeEbayExportModal = closeEbayExportModal;
+
+        // Backup Progress Modal Functions
+        function showBackupProgressModal() {
+            document.getElementById('backupProgressModal').style.display = 'flex';
+        }
+
+        function hideBackupProgressModal() {
+            document.getElementById('backupProgressModal').style.display = 'none';
+        }
+
+        function updateBackupProgress(text, subtext) {
+            document.getElementById('backupProgressText').textContent = text;
+            document.getElementById('backupProgressSubtext').textContent = subtext;
+        }
+
+        // Backup & Download function with background support
+        async function downloadBackup() {
+            const btn = document.getElementById('backupDownloadBtn');
+
+            // Disable button and show progress modal
+            btn.disabled = true;
+            closeExportBackupModal();
+            showBackupProgressModal();
+
+            // Track if user navigates away
+            let navigatedAway = false;
+            const handleBeforeUnload = () => {
+                navigatedAway = true;
+            };
+            window.addEventListener('beforeunload', handleBeforeUnload);
+
+            try {
+                updateBackupProgress('Creating Backup...', 'Gathering CSV and images');
+
+                const response = await fetch('/api/backup-download', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': window.csrfToken
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                updateBackupProgress('Downloading...', 'Preparing your backup file');
+
+                // Get the blob from the response
+                const blob = await response.blob();
+
+                // Create a download link and click it
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+
+                // Get filename from Content-Disposition header or use default
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'inventory_backup.zip';
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+                    if (filenameMatch) {
+                        filename = filenameMatch[1];
+                    }
+                }
+
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                hideBackupProgressModal();
+                showNotification('✓ Backup downloaded successfully!', 'success');
+
+            } catch (error) {
+                hideBackupProgressModal();
+                showNotification('❌ Error creating backup: ' + error.message, 'error');
+            } finally {
+                window.removeEventListener('beforeunload', handleBeforeUnload);
+                btn.disabled = false;
+            }
+        }
+        window.downloadBackup = downloadBackup;
+
+        // Danger Zone Modal Functions
+        function showDangerZoneModal() {
+            document.getElementById('dangerZoneModal').style.display = 'flex';
+        }
+        window.showDangerZoneModal = showDangerZoneModal;
+
+        function closeDangerZoneModal() {
+            document.getElementById('dangerZoneModal').style.display = 'none';
+        }
+        window.closeDangerZoneModal = closeDangerZoneModal;
+
+        // Export Type Modal
+        let currentExportPlatform = null;
+
+        function showExportTypeModal(platform) {
+            currentExportPlatform = platform;
+            const title = document.getElementById('exportTypeTitle');
+            title.textContent = platform === 'whatnot' ? 'Export for WhatNot' : 'Export for eBay';
+
+            // Set up button click handlers
+            const fullBtn = document.getElementById('fullExportBtn');
+            const selectiveBtn = document.getElementById('selectiveExportBtn');
+
+            fullBtn.onclick = function() {
+                if (platform === 'whatnot') {
+                    window.location.href = '/download?platform=whatnot';
+                } else {
+                    window.location.href = '/download/ebay';
+                }
+            };
+
+            selectiveBtn.onclick = function() {
+                window.location.href = `/browse?mode=export&platform=${encodeURIComponent(platform)}`;
+            };
+
+            document.getElementById('exportTypeModal').style.display = 'flex';
+        }
+        window.showExportTypeModal = showExportTypeModal;
+
+        function closeExportTypeModal() {
+            document.getElementById('exportTypeModal').style.display = 'none';
+            currentExportPlatform = null;
+        }
+        window.closeExportTypeModal = closeExportTypeModal;
+
+        function exportWhatNotFiltered(listingType) {
+            // Download WhatNot CSV with listing type filter
+            const url = `/download?listing_type=${encodeURIComponent(listingType)}`;
+            window.location.href = url;
+        }
+        window.exportWhatNotFiltered = exportWhatNotFiltered;
+
+        // Start Fresh - Create snapshot and clear inventory
+        // Track pending start fresh action
+        let pendingStartFresh = false;
+
+        async function startFresh() {
+            pendingStartFresh = true;
+            showStartFreshConfirmModal();
+        }
+        window.startFresh = startFresh;
+
+        function showStartFreshConfirmModal() {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: var(--overlay-medium);
+                z-index: 1000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: var(--color-surface); border: 1px solid var(--color-elevated); border-radius: 12px; max-width: 500px; padding: 24px; color: var(--color-text);">
+                    <h2 style="margin: 0 0 16px 0; color: var(--color-accent);">⚠️ WARNING</h2>
+                    <p style="color: var(--color-text); margin-bottom: 24px; line-height: 1.6;">This will:<br><br>1. Create a snapshot of your current inventory<br>2. Move ALL comics to trash<br>3. Leave you with an empty inventory<br><br>You can restore from the snapshot later.<br><br>Proceed?</p>
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button onclick="cancelStartFresh()" style="padding: 10px 24px; background: transparent; border: 1px solid var(--color-border-hover); color: var(--color-accent); border-radius: 6px; cursor: pointer; font-weight: 600;">Cancel</button>
+                        <button onclick="executeStartFresh()" style="padding: 10px 24px; background: var(--color-danger); color: var(--color-text); border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Start Fresh</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+            modal.id = 'start-fresh-confirm-modal';
+
+            // Add keyboard support
+            document.addEventListener('keydown', handleStartFreshModalKeydown);
+        }
+
+        function handleStartFreshModalKeydown(event) {
+            const modal = document.getElementById('start-fresh-confirm-modal');
+            if (!modal) {
+                document.removeEventListener('keydown', handleStartFreshModalKeydown);
+                return;
+            }
+
+            if (event.key === 'Escape') {
+                cancelStartFresh();
+            }
+        }
+
+        function cancelStartFresh() {
+            const modal = document.getElementById('start-fresh-confirm-modal');
+            if (modal) modal.remove();
+            pendingStartFresh = false;
+            document.removeEventListener('keydown', handleStartFreshModalKeydown);
+        }
+
+        async function executeStartFresh() {
+            const modal = document.getElementById('start-fresh-confirm-modal');
+            if (modal) modal.remove();
+            document.removeEventListener('keydown', handleStartFreshModalKeydown);
+
+            const btn = document.getElementById('startFreshBtn');
+            const originalText = btn ? btn.textContent : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Creating snapshot...';
+            }
+
+            try {
+                // Step 1: Create snapshot with auto-generated name
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                const snapshotName = `start_fresh_${year}${month}${day}_${hours}${minutes}${seconds}`;
+
+                const snapshotResponse = await fetch('/api/snapshots/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': window.csrfToken
+                    },
+                    body: JSON.stringify({
+                        name: snapshotName,
+                        description: 'Auto-snapshot before starting fresh'
+                    })
+                });
+
+                const snapshotResult = await snapshotResponse.json();
+
+                if (!snapshotResult.success) {
+                    throw new Error(snapshotResult.error || 'Failed to create snapshot');
+                }
+
+                if (btn) btn.textContent = 'Moving to trash...';
+
+                // Step 2: Delete all comics (moves to trash)
+                const deleteResponse = await fetch('/api/comics/delete-all', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': window.csrfToken
+                    },
+                    body: JSON.stringify({ confirmation: 'DELETE_ALL_COMICS' })
+                });
+
+                const deleteResult = await deleteResponse.json();
+
+                if (deleteResult.success) {
+                    showNotification(`✓ Snapshot created! ${deleteResult.comics_deleted} comics moved to trash. Starting fresh!`, 'success');
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    throw new Error(deleteResult.error || 'Failed to clear inventory');
+                }
+
+            } catch (error) {
+                showNotification(`❌ Error: ${error.message}`, 'error');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                }
+            }
+            pendingStartFresh = false;
+        }
+
+        // Clean up orphaned images - delete S3 images not linked to any SKU
+        async function cleanupOrphanedImages() {
+            const confirmed = confirm('⚠️ WARNING: This will:\n\n1. Scan S3 for orphaned images (not in CSV/trash)\n2. DELETE orphaned images from S3\n3. DELETE orphaned images from local\n\nThis action cannot be undone.\n\nProceed?');
+
+            if (!confirmed) {
+                return;
+            }
+
+            showNotification('🔍 Scanning for orphaned images...', 'info');
+
+            try {
+                const response = await fetch('/api/cleanup-orphaned-images', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': window.csrfToken
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const msg = `✓ Cleanup complete!\n\nScanned: ${result.total_images} images\nDeleted from S3: ${result.deleted_count}\nDeleted from local: ${result.local_deleted_count}\nPreserved: ${result.preserved_count}`;
+                    showNotification(msg, 'success');
+                } else {
+                    throw new Error(result.error || 'Failed to cleanup images');
+                }
+
+            } catch (error) {
+                showNotification(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+        window.cleanupOrphanedImages = cleanupOrphanedImages;
+
+        async function handleDownloadZip() {
+            // Create Knight Rider style bouncing progress bar
+            const progressBarBg = document.createElement('div');
+            progressBarBg.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; height: 4px; background: var(--color-surface); z-index: 10000;';
+
+            const progressBar = document.createElement('div');
+            progressBar.style.cssText = 'position: absolute; height: 100%; width: 20%; background: linear-gradient(90deg, transparent, var(--color-accent), var(--color-warning), var(--color-accent), transparent); box-shadow: 0 0 10px var(--color-accent);';
+
+            progressBarBg.appendChild(progressBar);
+            document.body.appendChild(progressBarBg);
+
+            // Animate Knight Rider bouncing effect
+            let position = 0;
+            let direction = 1;
+            const animationInterval = setInterval(() => {
+                position += direction * 3;
+                if (position >= 80) direction = -1;
+                if (position <= 0) direction = 1;
+                progressBar.style.left = position + '%';
+            }, 30);
+
+            showNotification('Preparing ZIP download... Please wait.', 'info');
+
+            try {
+                const response = await fetch('/api/export-zip', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': window.csrfToken
+                    }
+                });
+
+                clearInterval(animationInterval);
+
+                if (!response.ok) {
+                    const result = await response.json();
+                    showNotification(`❌ Error: ${result.error || 'Failed to create ZIP'}`, 'error');
+                    progressBarBg.remove();
+                    return;
+                }
+
+                // Get filename from Content-Disposition header
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'inventory_export.zip';
+                if (contentDisposition) {
+                    const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
+                    if (matches != null && matches[1]) {
+                        filename = matches[1].replace(/['"]/g, '');
+                    }
+                }
+
+                // Download the file
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                showNotification('✓ ZIP file downloaded successfully!', 'success');
+                progressBarBg.remove();
+            } catch (error) {
+                clearInterval(animationInterval);
+                showNotification(`❌ Network Error: ${error.message}`, 'error');
+                progressBarBg.remove();
+            }
+        }
+        window.handleDownloadZip = handleDownloadZip;
+
+        // Track pending delete all action
+        let pendingDeleteAll = false;
+
+        // Consolidate Delete All logic
+        async function triggerFullDelete() {
+            pendingDeleteAll = true;
+            showDeleteAllConfirmModal();
+        }
+
+        function showDeleteAllConfirmModal() {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: var(--overlay-heavy);
+                z-index: 3000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: var(--color-surface); border: 1px solid var(--color-elevated); border-radius: 12px; max-width: 500px; padding: 24px; color: var(--color-text);">
+                    <h2 style="margin: 0 0 16px 0; color: var(--color-accent);">⚠️ WARNING</h2>
+                    <p style="color: var(--color-text); margin-bottom: 24px; line-height: 1.6;">This will move ALL comics to trash.<br><br>Items will be recoverable from trash for 30 days.<br><br>Proceed?</p>
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button onclick="cancelDeleteAll()" style="padding: 10px 24px; background: transparent; border: 1px solid var(--color-border-hover); color: var(--color-accent); border-radius: 6px; cursor: pointer; font-weight: 600;">Cancel</button>
+                        <button onclick="executeDeleteAll()" style="padding: 10px 24px; background: var(--color-danger); color: var(--color-text); border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Delete All</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+            modal.id = 'delete-all-confirm-modal';
+
+            // Add keyboard support
+            document.addEventListener('keydown', handleDeleteAllModalKeydown);
+        }
+
+        function handleDeleteAllModalKeydown(event) {
+            const modal = document.getElementById('delete-all-confirm-modal');
+            if (!modal) {
+                document.removeEventListener('keydown', handleDeleteAllModalKeydown);
+                return;
+            }
+
+            if (event.key === 'Escape') {
+                cancelDeleteAll();
+            }
+        }
+
+        function cancelDeleteAll() {
+            const modal = document.getElementById('delete-all-confirm-modal');
+            if (modal) modal.remove();
+            pendingDeleteAll = false;
+            document.removeEventListener('keydown', handleDeleteAllModalKeydown);
+        }
+
+        async function executeDeleteAll() {
+            const modal = document.getElementById('delete-all-confirm-modal');
+            if (modal) modal.remove();
+            document.removeEventListener('keydown', handleDeleteAllModalKeydown);
+
+            const btn = document.getElementById('deleteAllBtn');
+            const originalText = btn ? btn.textContent : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Moving to trash...';
+            }
+
+            try {
+                const response = await fetch('/api/comics/delete-all', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': window.csrfToken
+                    },
+                    body: JSON.stringify({ confirmation: 'DELETE_ALL_COMICS' })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`✓ Moved ${result.comics_deleted} comics to trash`, 'success');
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    showNotification(`❌ Error: ${result.error || 'Unknown error occurred'}`, 'error');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = originalText;
+                    }
+                }
+            } catch (error) {
+                showNotification(`❌ Network Error: ${error.message}`, 'error');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                }
+            }
+            pendingDeleteAll = false;
+        }
+        window.triggerFullDelete = triggerFullDelete;
+
+        // Delete All button - moves all items to trash
+        const deleteAllBtn = document.getElementById('deleteAllBtn');
+        if (deleteAllBtn) {
+            deleteAllBtn.addEventListener('click', triggerFullDelete);
+        }
+
+
+        // Close modals on backdrop click
+        document.getElementById('exportTypeModal').addEventListener('click', function(event) {
+            if (event.target === this) closeExportTypeModal();
+        });
+        document.getElementById('exportBackupModal').addEventListener('click', function(event) {
+            if (event.target === this) closeExportBackupModal();
+        });
+        document.getElementById('dangerZoneModal').addEventListener('click', function(event) {
+            if (event.target === this) closeDangerZoneModal();
+        });
+        document.getElementById('createSnapshotModal').addEventListener('click', function(event) {
+            if (event.target === this) closeCreateSnapshotModal();
+        });
+        document.getElementById('snapshotsModal').addEventListener('click', function(event) {
+            if (event.target === this) closeSnapshotsModal();
+        });
+        document.getElementById('whatnotExportModal').addEventListener('click', function(event) {
+            if (event.target === this) closeWhatnotExportModal();
+        });
+        document.getElementById('ebayExportModal').addEventListener('click', function(event) {
+            if (event.target === this) closeEbayExportModal();
+        });
+
+        // Global Escape key handler to close modals
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                // Close any open modal (check in order of likely openness)
+                const whatnotExportModal = document.getElementById('whatnotExportModal');
+                const ebayExportModal = document.getElementById('ebayExportModal');
+                const exportTypeModal = document.getElementById('exportTypeModal');
+                const exportBackupModal = document.getElementById('exportBackupModal');
+                const dangerZoneModal = document.getElementById('dangerZoneModal');
+                const createSnapshotModal = document.getElementById('createSnapshotModal');
+                const snapshotsModal = document.getElementById('snapshotsModal');
+                const backupProgressModal = document.getElementById('backupProgressModal');
+
+                if (whatnotExportModal && whatnotExportModal.style.display === 'flex') {
+                    closeWhatnotExportModal();
+                } else if (ebayExportModal && ebayExportModal.style.display === 'flex') {
+                    closeEbayExportModal();
+                } else if (exportTypeModal && exportTypeModal.style.display === 'flex') {
+                    closeExportTypeModal();
+                } else if (exportBackupModal && exportBackupModal.style.display === 'flex') {
+                    closeExportBackupModal();
+                } else if (dangerZoneModal && dangerZoneModal.style.display === 'flex') {
+                    closeDangerZoneModal();
+                } else if (createSnapshotModal && createSnapshotModal.style.display === 'flex') {
+                    closeCreateSnapshotModal();
+                } else if (snapshotsModal && snapshotsModal.style.display === 'flex') {
+                    closeSnapshotsModal();
+                }
+                // Note: backupProgressModal is not closeable by ESC since it's showing progress
+            }
+        });
+    </script>
+
+    <div class="footer">
+        <div class="footer-content">
+            <div class="footer-stats" id="footerStats">
+                <div class="footer-stat"><span>Loading stats...</span></div>
+            </div>
+            <div class="footer-version" id="footerVersion">
+                {{ app_version_display }}
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Hide version on small screens */
+        @media (max-width: 768px) {
+            .footer-version { display: none !important; }
+        }
+    </style>
+{% endblock %}

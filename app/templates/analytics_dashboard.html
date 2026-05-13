@@ -1,0 +1,862 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics Dashboard{% endblock %}
+
+{% block extra_css %}
+    .analytics-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .analytics-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .analytics-header h1 {
+        font-size: var(--font-size-xl);
+        font-weight: 600;
+        color: var(--color-accent);
+    }
+
+    .analytics-controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .analytics-controls button, .analytics-controls select {
+        padding: 10px 20px;
+        background: var(--color-elevated);
+        border: 1px solid var(--color-border-hover);
+        border-radius: var(--radius-sm);
+        color: var(--color-text);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .analytics-controls button:hover {
+        background: var(--color-border-hover);
+        border-color: var(--color-accent);
+    }
+
+    .analytics-controls select {
+        min-width: 200px;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .stat-card h3 {
+        font-size: var(--font-size-base);
+        color: var(--color-text-muted);
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        font-weight: 500;
+    }
+
+    .stat-card .value {
+        font-size: 32px;
+        font-weight: 600;
+        color: var(--color-accent);
+    }
+
+    .tabs {
+        display: flex;
+        gap: 10px;
+        border-bottom: 1px solid var(--color-border-hover);
+        margin-bottom: 20px;
+    }
+
+    .tab {
+        padding: 12px 24px;
+        background: transparent;
+        border: none;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        font-size: var(--font-size-md);
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+    }
+
+    .tab.active {
+        color: var(--color-accent);
+        border-bottom-color: var(--color-accent);
+    }
+
+    .tab:hover:not(.active) {
+        color: var(--color-text);
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    /* Heatmap visualization */
+    #heatmap-container {
+        position: relative;
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border-hover);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+    }
+
+    #heatmap-canvas {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+
+    .heatmap-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+
+    .click-dot {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+    }
+
+    /* Flow diagram */
+    .flow-diagram {
+        background: var(--color-elevated);
+        border: 1px solid var(--color-border-hover);
+        border-radius: var(--radius-lg);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .flow-step {
+        display: flex;
+        align-items: center;
+        margin: 10px 0;
+        padding: 15px;
+        background: var(--color-surface);
+        border-radius: var(--radius-sm);
+    }
+
+    .flow-arrow {
+        margin: 0 15px;
+        color: var(--color-accent);
+        font-size: var(--font-size-lg);
+    }
+
+    .flow-step-count {
+        margin-left: auto;
+        padding: 5px 15px;
+        background: var(--color-accent-subtle);
+        border-radius: var(--radius-sm);
+        color: var(--color-accent);
+        font-weight: 600;
+    }
+
+    /* Element list */
+    .element-list {
+        list-style: none;
+        padding: 0;
+    }
+
+    .element-item {
+        display: flex;
+        align-items: center;
+        padding: 12px;
+        margin-bottom: var(--space-sm);
+        background: var(--color-elevated);
+        border: 1px solid var(--color-border-hover);
+        border-radius: var(--radius-sm);
+    }
+
+    .element-item .bar {
+        height: 8px;
+        background: linear-gradient(90deg, var(--color-accent), var(--color-warning));
+        border-radius: var(--radius-sm);
+        margin-right: 15px;
+        transition: width 0.3s;
+    }
+
+    .element-item .label {
+        flex: 1;
+        color: var(--color-text);
+    }
+
+    .element-item .count {
+        color: var(--color-accent);
+        font-weight: 600;
+        margin-left: 15px;
+    }
+
+    /* Recommendations */
+    .recommendation-card {
+        background: var(--color-elevated);
+        border: 1px solid var(--color-border-hover);
+        border-left: 4px solid var(--color-accent);
+        border-radius: var(--radius-sm);
+        padding: 20px;
+        margin-bottom: 15px;
+    }
+
+    .recommendation-card.high-priority {
+        border-left-color: var(--color-danger);
+    }
+
+    .recommendation-card.medium-priority {
+        border-left-color: var(--color-warning);
+    }
+
+    .recommendation-card.low-priority {
+        border-left-color: var(--color-success);
+    }
+
+    .recommendation-card h3 {
+        font-size: var(--font-size-md);
+        margin-bottom: 10px;
+        color: var(--color-accent);
+    }
+
+    .recommendation-card .priority-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: var(--radius-sm);
+        font-size: var(--font-size-xs);
+        font-weight: 600;
+        text-transform: uppercase;
+        margin-right: 10px;
+    }
+
+    .recommendation-card .priority-badge.high {
+        background: var(--color-danger-subtle);
+        color: var(--color-danger);
+    }
+
+    .recommendation-card .priority-badge.medium {
+        background: var(--color-warning-subtle);
+        color: var(--color-warning);
+    }
+
+    .recommendation-card .priority-badge.low {
+        background: var(--color-success-subtle);
+        color: var(--color-success);
+    }
+
+    .recommendation-card p {
+        color: var(--color-text-muted);
+        line-height: 1.6;
+        margin-bottom: 10px;
+    }
+
+    .recommendation-card .elements {
+        color: var(--color-text-muted);
+        font-size: var(--font-size-base);
+        font-style: italic;
+    }
+
+    .page-selector {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .page-btn {
+        padding: 8px 16px;
+        background: var(--color-elevated);
+        border: 1px solid var(--color-border-hover);
+        border-radius: var(--radius-sm);
+        color: var(--color-text);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .page-btn:hover {
+        background: var(--color-border-hover);
+        border-color: var(--color-accent);
+    }
+
+    .page-btn.active {
+        background: var(--color-accent);
+        color: var(--color-accent-text);
+        border-color: var(--color-accent);
+    }
+
+    .analytics-controls .btn-clear {
+        background: var(--color-danger-subtle);
+        border-color: var(--color-danger);
+    }
+
+    .analytics-controls .btn-clear:hover {
+        background: var(--color-danger);
+        color: var(--color-accent-text);
+    }
+{% endblock %}
+
+{% block content %}
+<div class="analytics-container">
+    <div class="analytics-header">
+        <h1>Analytics Dashboard</h1>
+        <div class="analytics-controls">
+            <button onclick="exportAnalytics()">Export CSV</button>
+            <button onclick="refreshData()">Refresh</button>
+            <button class="btn-clear" onclick="clearData()">Clear Data</button>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="stats-grid" id="summary-stats">
+        <div class="stat-card">
+            <h3>Total Events</h3>
+            <div class="value">—</div>
+        </div>
+        <div class="stat-card">
+            <h3>Page Views</h3>
+            <div class="value">—</div>
+        </div>
+        <div class="stat-card">
+            <h3>Clicks</h3>
+            <div class="value">—</div>
+        </div>
+        <div class="stat-card">
+            <h3>Most Visited Page</h3>
+            <div class="value" style="font-size: var(--font-size-md);">—</div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('heatmap')">Click Heatmap</button>
+        <button class="tab" onclick="switchTab('flows')">User Flows</button>
+        <button class="tab" onclick="switchTab('engagement')">Element Engagement</button>
+        <button class="tab" onclick="switchTab('pages')">Page Performance</button>
+        <button class="tab" onclick="switchTab('recommendations')">Recommendations</button>
+    </div>
+
+    <!-- Heatmap Tab -->
+    <div id="tab-heatmap" class="tab-content active">
+        <div class="page-selector" id="page-selector">
+            <!-- Populated dynamically -->
+        </div>
+        <div id="heatmap-container">
+            <canvas id="heatmap-canvas"></canvas>
+            <div class="heatmap-overlay" id="heatmap-overlay"></div>
+        </div>
+        <p style="color: var(--color-text-muted); text-align: center; margin-top: 15px;">
+            Red/hot areas = most clicks. Larger dots = more clicks at that location.
+        </p>
+    </div>
+
+    <!-- User Flows Tab -->
+    <div id="tab-flows" class="tab-content">
+        <div class="flow-diagram">
+            <h2 style="color: var(--color-accent); margin-bottom: 20px;">Most Common User Journeys (2-step)</h2>
+            <div id="flows-2-step"></div>
+        </div>
+        <div class="flow-diagram">
+            <h2 style="color: var(--color-accent); margin-bottom: 20px;">Complex Journeys (3-step)</h2>
+            <div id="flows-3-step"></div>
+        </div>
+    </div>
+
+    <!-- Engagement Tab -->
+    <div id="tab-engagement" class="tab-content">
+        <h2 style="color: var(--color-accent); margin-bottom: 20px;">Top Engaged Elements</h2>
+        <ul class="element-list" id="engagement-list"></ul>
+    </div>
+
+    <!-- Pages Tab -->
+    <div id="tab-pages" class="tab-content">
+        <h2 style="color: var(--color-accent); margin-bottom: 20px;">Page Performance</h2>
+        <ul class="element-list" id="pages-list"></ul>
+    </div>
+
+    <!-- Recommendations Tab -->
+    <div id="tab-recommendations" class="tab-content">
+        <h2 style="color: var(--color-accent); margin-bottom: 20px;">UX Recommendations</h2>
+        <div id="recommendations-list"></div>
+    </div>
+</div>
+
+<script>
+let currentTab = 'heatmap';
+let selectedPage = null;
+let analyticsData = {};
+
+/* Resolve CSS custom properties to hex for Canvas API (which doesn't support var()) */
+function getCSSColor(varName) {
+    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+}
+
+function switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    event.target.classList.add('active');
+
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+
+    currentTab = tabName;
+
+    // Load data if needed
+    if (!analyticsData[tabName]) {
+        loadTabData(tabName);
+    }
+}
+
+async function loadSummaryStats() {
+    try {
+        const response = await fetch('/admin/analytics/data?type=summary');
+        const data = await response.json();
+
+        if (data) {
+            const stats = document.querySelectorAll('#summary-stats .value');
+            stats[0].textContent = data.total_events?.toLocaleString() || '0';
+            stats[1].textContent = data.total_pageviews?.toLocaleString() || '0';
+            stats[2].textContent = data.total_clicks?.toLocaleString() || '0';
+
+            // Find most visited page
+            const pages = Object.entries(data.pages || {});
+            if (pages.length > 0) {
+                const topPage = pages.sort((a, b) => b[1] - a[1])[0];
+                stats[3].textContent = topPage[0].replace('/','') || 'landing';
+            }
+
+            // Populate page selector
+            const pageSelector = document.getElementById('page-selector');
+            pageSelector.innerHTML = '<button class="page-btn active" onclick="selectPage(null)">All Pages</button>';
+            pages.forEach(([page, count]) => {
+                const btn = document.createElement('button');
+                btn.className = 'page-btn';
+                btn.textContent = `${page} (${count})`;
+                btn.onclick = () => selectPage(page);
+                pageSelector.appendChild(btn);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading summary stats:', error);
+    }
+}
+
+async function loadTabData(tabName) {
+    try {
+        let url = '/admin/analytics/data?type=';
+        switch (tabName) {
+            case 'heatmap':
+                url += 'clicks';
+                if (selectedPage) url += `&page=${selectedPage}`;
+                break;
+            case 'flows':
+                url += 'flows';
+                break;
+            case 'engagement':
+                url += 'engagement';
+                if (selectedPage) url += `&page=${selectedPage}`;
+                break;
+            case 'pages':
+                url += 'pages';
+                break;
+            case 'recommendations':
+                url += 'recommendations';
+                break;
+        }
+
+        const response = await fetch(url);
+
+        // Check if response is ok
+        if (!response.ok) {
+            console.error(`HTTP error! status: ${response.status}`);
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+            throw new Error(errorData.message || errorData.error || `Server error (${response.status})`);
+        }
+
+        const data = await response.json();
+
+        analyticsData[tabName] = data;
+        renderTabData(tabName, data);
+    } catch (error) {
+        console.error(`Error loading ${tabName} data:`, error);
+        // Show user-friendly error message in the tab
+        showTabError(tabName, error.message || 'Failed to load data');
+    }
+}
+
+function showTabError(tabName, message) {
+    // Tab content divs use id="tab-{tabName}", not a data-tab attribute
+    const tabContent = document.getElementById(`tab-${tabName}`);
+    if (tabContent) {
+        tabContent.innerHTML = `
+            <div style="text-align: center; padding: 60px 20px; color: var(--color-text-muted);">
+                <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
+                <h3 style="color: var(--color-danger); margin-bottom: 10px;">Error Loading Data</h3>
+                <p style="margin-bottom: 20px;">${message}</p>
+                <p style="font-size: var(--font-size-base); color: var(--color-text-dim);">
+                    Check the server logs for more details or try refreshing the page.
+                </p>
+                <button class="btn btn-primary" onclick="refreshData()" style="margin-top: 20px;">
+                    Try Again
+                </button>
+            </div>
+        `;
+    }
+}
+
+function renderTabData(tabName, data) {
+    switch (tabName) {
+        case 'heatmap':
+            renderHeatmap(data.clicks || []);
+            break;
+        case 'flows':
+            renderFlows(data);
+            break;
+        case 'engagement':
+            renderEngagement(data.engagement || []);
+            break;
+        case 'pages':
+            renderPages(data.pages || []);
+            break;
+        case 'recommendations':
+            renderRecommendations(data.recommendations || []);
+            break;
+    }
+}
+
+function renderHeatmap(clicks) {
+    const canvas = document.getElementById('heatmap-canvas');
+    const overlay = document.getElementById('heatmap-overlay');
+    const ctx = canvas.getContext('2d');
+
+    // Set canvas size
+    canvas.width = 1200;
+    canvas.height = 800;
+
+    // Clear
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    overlay.innerHTML = '';
+
+    // Resolve CSS tokens to actual colors for Canvas API
+    const colorSurface = getCSSColor('--color-surface');
+    const colorElevated = getCSSColor('--color-elevated');
+    const colorBorderHover = getCSSColor('--color-border-hover');
+    const colorAccent = getCSSColor('--color-accent');
+    const colorBg = getCSSColor('--color-bg');
+    const colorTextDim = getCSSColor('--color-text-dim');
+    const colorTextMuted = getCSSColor('--color-text-muted');
+    const colorDanger = getCSSColor('--color-danger');
+    const colorWarning = getCSSColor('--color-warning');
+
+    // Try to load actual page screenshot if available
+    const pageMap = {
+        '/': 'home',
+        '/browse': 'browse',
+        '/add': 'add',
+        '/add-from-image': 'add-from-image',
+        '/account': 'account',
+        '/price-lookup': 'price-lookup',
+        '/trash': 'trash',
+        '/ebay-listings': 'ebay-listings',
+    };
+
+    const pageName = pageMap[selectedPage] || 'home';
+    const pageImg = new Image();
+    pageImg.src = `/static/analytics/${pageName}.png?v={{ app_version }}`;
+
+    pageImg.onload = function() {
+        ctx.drawImage(pageImg, 0, 0, canvas.width, canvas.height);
+        drawHeatmapOverlay();
+    };
+
+    pageImg.onerror = function() {
+        drawWireframeMockup();
+        drawHeatmapOverlay();
+    };
+
+    function drawWireframeMockup() {
+        // Page background
+        ctx.fillStyle = colorSurface;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Header bar
+        ctx.fillStyle = colorElevated;
+        ctx.fillRect(0, 0, canvas.width, 80);
+        ctx.strokeStyle = colorBorderHover;
+        ctx.strokeRect(0, 0, canvas.width, 80);
+
+        // Logo area
+        ctx.fillStyle = colorAccent;
+        ctx.fillRect(20, 20, 40, 40);
+
+        // Nav buttons in header
+        for (let i = 0; i < 7; i++) {
+            ctx.fillStyle = colorBorderHover;
+            ctx.fillRect(100 + (i * 140), 25, 120, 30);
+        }
+
+        // Main content area
+        ctx.fillStyle = colorBg;
+        ctx.fillRect(0, 80, canvas.width, canvas.height - 160);
+
+        // Content cards/grid
+        for (let row = 0; row < 3; row++) {
+            for (let col = 0; col < 3; col++) {
+                ctx.fillStyle = colorElevated;
+                ctx.fillRect(40 + (col * 380), 120 + (row * 200), 360, 180);
+                ctx.strokeStyle = colorBorderHover;
+                ctx.strokeRect(40 + (col * 380), 120 + (row * 200), 360, 180);
+            }
+        }
+
+        // Bottom navigation bar
+        ctx.fillStyle = colorSurface;
+        ctx.fillRect(0, canvas.height - 80, canvas.width, 80);
+        ctx.strokeStyle = colorBorderHover;
+        ctx.strokeRect(0, canvas.height - 80, canvas.width, 80);
+
+        // Bottom nav buttons
+        for (let i = 0; i < 8; i++) {
+            ctx.fillStyle = colorBorderHover;
+            ctx.fillRect(50 + (i * 140), canvas.height - 60, 50, 40);
+        }
+
+        // Label
+        ctx.fillStyle = colorTextDim;
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Page Layout Preview - Click heatmap overlay shows actual user clicks', canvas.width / 2, 100);
+    }
+
+    function drawHeatmapOverlay() {
+        if (!clicks || clicks.length === 0) {
+            ctx.fillStyle = colorTextMuted;
+            ctx.font = '18px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('No click data yet - use the app to generate heatmap', canvas.width / 2, canvas.height / 2);
+            return;
+        }
+
+        // Draw click heatmap overlay
+        clicks.forEach(click => {
+            const x = (click.x / 1920) * canvas.width;
+            const y = (click.y / 1080) * canvas.height;
+
+            const gradient = ctx.createRadialGradient(x, y, 0, x, y, 30);
+            gradient.addColorStop(0, colorDanger);
+            gradient.addColorStop(0.5, colorWarning + '4D');  /* ~30% opacity */
+            gradient.addColorStop(1, 'transparent');
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(x, y, 30, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Add dot
+            const dot = document.createElement('div');
+            dot.className = 'click-dot';
+            dot.style.left = `${(x / canvas.width) * 100}%`;
+            dot.style.top = `${(y / canvas.height) * 100}%`;
+            dot.style.background = colorDanger;
+            dot.title = click.element || 'Click';
+            overlay.appendChild(dot);
+        });
+    }
+}
+
+function renderFlows(data) {
+    const flows2 = document.getElementById('flows-2-step');
+    const flows3 = document.getElementById('flows-3-step');
+
+    flows2.innerHTML = '';
+    flows3.innerHTML = '';
+
+    if (data.top_2_step_flows && data.top_2_step_flows.length > 0) {
+        data.top_2_step_flows.forEach(([flow, count]) => {
+            const div = document.createElement('div');
+            div.className = 'flow-step';
+            div.innerHTML = `
+                <span>${flow}</span>
+                <span class="flow-step-count">${count} users</span>
+            `;
+            flows2.appendChild(div);
+        });
+    } else {
+        flows2.innerHTML = '<p style="color: var(--color-text-muted);">Not enough data yet</p>';
+    }
+
+    if (data.top_3_step_flows && data.top_3_step_flows.length > 0) {
+        data.top_3_step_flows.forEach(([flow, count]) => {
+            const div = document.createElement('div');
+            div.className = 'flow-step';
+            div.innerHTML = `
+                <span>${flow}</span>
+                <span class="flow-step-count">${count} users</span>
+            `;
+            flows3.appendChild(div);
+        });
+    } else {
+        flows3.innerHTML = '<p style="color: var(--color-text-muted);">Not enough data yet</p>';
+    }
+}
+
+function renderEngagement(engagement) {
+    const list = document.getElementById('engagement-list');
+    list.innerHTML = '';
+
+    if (!engagement || engagement.length === 0) {
+        list.innerHTML = '<p style="color: var(--color-text-muted);">No engagement data yet</p>';
+        return;
+    }
+
+    const maxScore = Math.max(...engagement.map(e => e.score));
+
+    engagement.slice(0, 20).forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'element-item';
+        const barWidth = (item.score / maxScore) * 200;
+        li.innerHTML = `
+            <div class="bar" style="width: ${barWidth}px"></div>
+            <span class="label">${item.element}</span>
+            <span class="count">${item.clicks} clicks, ${item.hovers} hovers</span>
+        `;
+        list.appendChild(li);
+    });
+}
+
+function renderPages(pages) {
+    const list = document.getElementById('pages-list');
+    list.innerHTML = '';
+
+    if (!pages || pages.length === 0) {
+        list.innerHTML = '<p style="color: var(--color-text-muted);">No page data yet</p>';
+        return;
+    }
+
+    const maxViews = Math.max(...pages.map(p => p.total_views));
+
+    pages.forEach(page => {
+        const li = document.createElement('li');
+        li.className = 'element-item';
+        const barWidth = (page.total_views / maxViews) * 200;
+        li.innerHTML = `
+            <div class="bar" style="width: ${barWidth}px"></div>
+            <span class="label">${page.page}</span>
+            <span class="count">${page.total_views} views (${page.avg_views_per_day.toFixed(1)}/day)</span>
+        `;
+        list.appendChild(li);
+    });
+}
+
+function renderRecommendations(recommendations) {
+    const container = document.getElementById('recommendations-list');
+    container.innerHTML = '';
+
+    if (!recommendations || recommendations.length === 0) {
+        container.innerHTML = '<p style="color: var(--color-text-muted);">Not enough data to generate recommendations yet. Keep using the app!</p>';
+        return;
+    }
+
+    recommendations.forEach(rec => {
+        const card = document.createElement('div');
+        card.className = `recommendation-card ${rec.priority}-priority`;
+        card.innerHTML = `
+            <h3>
+                <span class="priority-badge ${rec.priority}">${rec.priority} priority</span>
+                ${rec.category}
+            </h3>
+            <p><strong>Issue:</strong> ${rec.issue}</p>
+            <p><strong>Suggestion:</strong> ${rec.suggestion}</p>
+            <p class="elements"><strong>Affected:</strong> ${rec.elements.join(', ')}</p>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function selectPage(page) {
+    selectedPage = page;
+
+    // Update button states
+    document.querySelectorAll('.page-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+
+    // Reload current tab with page filter
+    delete analyticsData[currentTab];
+    loadTabData(currentTab);
+}
+
+async function refreshData() {
+    analyticsData = {};
+    await loadSummaryStats();
+    await loadTabData(currentTab);
+}
+
+async function exportAnalytics() {
+    try {
+        window.location.href = '/admin/analytics/export';
+    } catch (error) {
+        console.error('Export error:', error);
+        alert('Failed to export analytics');
+    }
+}
+
+async function clearData() {
+    if (!confirm('⚠️ Clear all analytics data? This will permanently delete all collected events and cannot be undone.')) {
+        return;
+    }
+
+    // Second confirmation for safety
+    if (!confirm('Are you absolutely sure? This will delete ALL analytics history.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/admin/analytics/clear', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': window.csrfToken || ''
+            }
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert(`✅ Successfully cleared ${result.events_deleted} analytics events`);
+            // Reload the page to show empty state
+            window.location.reload();
+        } else {
+            alert(`❌ Error: ${result.error}`);
+        }
+    } catch (error) {
+        console.error('Clear error:', error);
+        alert('❌ Failed to clear analytics data. Check console for details.');
+    }
+}
+
+
+// Initialize
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadSummaryStats();
+    await loadTabData('heatmap');
+});
+</script>
+{% endblock %}

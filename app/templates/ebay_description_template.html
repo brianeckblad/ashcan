@@ -1,0 +1,27 @@
+<!--
+  eBay Listing Description Template
+  ==================================
+  This file controls the HTML description sent to eBay for every listing.
+  Edit it freely — changes take effect on the next List or Update action.
+
+  Placeholders (replaced at runtime):
+    {{title}}            — Comic title from inventory
+    {{description}}      — Description bullet points as <li> items
+    {{condition}}        — Condition bullet points as <li> items
+    {{photos}}           — Photos bullet points as <li> items
+    {{shipping}}         — Shipping bullet points as <li> items
+    {{signoff}}          — Sign-off text
+
+  Each placeholder (except title and signoff) is pre-built as <li>...</li> strings
+  so the <ul> wrapper is already here — just arrange sections as you like.
+  The {{title}} placeholder is plain text (no <li> tags), so it gets its own <li> wrapper.
+
+  Default boilerplate (used when the comic has no value for a section):
+    Condition:  NM – Like New, raw copy, Never Read, Stored Carefully
+                Please use the photos to judge condition
+    Photos:     Exact book you will recieve is pictured
+    Shipping:   All comics are bagged and boarded
+                Securely ships in Gemini Mailer within two business days
+    Signoff:    Thanks for looking, Message with any questions
+-->
+<div><strong>Title</strong></div><div><ul><li>{{title}}</li></ul></div><div><strong>Description</strong></div><div><ul>{{description}}</ul></div><div><strong>Condition</strong></div><div><ul>{{condition}}</ul></div><div><strong>Photos</strong></div><div><ul>{{photos}}</ul></div><div><strong>Shipping</strong></div><div><ul>{{shipping}}</ul></div><div><strong>{{signoff}}<br></strong></div>

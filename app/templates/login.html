@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listing Tool</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="/static/favicon/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/favicon/android-chrome-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/static/favicon/android-chrome-512x512.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/favicon/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background: var(--color-bg);
+            color: var(--color-text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .login-container {
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+            height: 900px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* SVG Canvas for drawing - 2x original size */
+        #drawingCanvas {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(2);
+            width: 302px;
+            height: 400px;
+            z-index: 1;
+        }
+
+        /* Keep face visible always - remove hide class logic */
+
+        /* Drawing path styles */
+        .draw-path {
+            stroke: var(--color-accent);
+            stroke-width: 2;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            opacity: 0;
+        }
+
+        .draw-path.animate {
+            opacity: 1;
+            animation: drawStroke 0.4s ease-out forwards;
+        }
+
+        @keyframes drawStroke {
+            from {
+                stroke-dashoffset: var(--path-length);
+            }
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
+
+        /* Login form - appears 3 seconds after face drawing completes */
+        .login-form {
+            position: absolute;
+            top: 35%;
+            left: 85%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+            opacity: 0;
+            background: var(--overlay-surface);
+            padding: 32px;
+            border-radius: var(--radius-lg);
+            border: 2px solid var(--color-accent);
+            box-shadow: var(--shadow-lg);
+            backdrop-filter: blur(10px);
+            width: 320px;
+        }
+
+        /* Show form immediately when there's an error (skip animation) */
+        .login-form.show-immediately {
+            opacity: 1;
+        }
+
+        /* Show form with delay on first load */
+        .login-form.show-delayed {
+            animation: fadeIn 0.5s ease-out 0.5s forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        .login-form h2 {
+            text-align: center;
+            color: var(--color-accent);
+            margin-bottom: 24px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: var(--color-text);
+            margin-bottom: 8px;
+            font-size: var(--font-size-base);
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--color-inset);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            color: var(--color-text);
+            font-family: var(--font-family);
+            font-size: var(--font-size-base);
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--color-border-focus);
+            box-shadow: 0 0 0 3px var(--color-accent-subtle);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: var(--color-accent);
+            color: var(--color-accent-text);
+            border: none;
+            border-radius: var(--radius-sm);
+            font-family: var(--font-family);
+            font-size: var(--font-size-md);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 8px;
+        }
+
+        .login-btn:hover {
+            background: var(--color-accent-hover);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .login-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Drawing hands indicator */
+        .hand-indicator {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: var(--color-accent-subtle);
+            border: 3px solid var(--color-accent);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 3;
+            opacity: 0;
+            transition: all 0.15s ease-out;
+        }
+
+        .hand-indicator.active {
+            opacity: 1;
+        }
+
+        .hand-indicator::before {
+            content: '✍️';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+        }
+
+        /* Responsive design for tablets and mobile */
+        @media (max-width: 1024px) {
+            .login-container {
+                max-width: 700px;
+                height: 700px;
+            }
+
+            #drawingCanvas {
+                transform: translate(-50%, -50%) scale(1.5);
+            }
+
+            .login-form {
+                top: 40%;
+                left: 70%;
+                width: 280px;
+                padding: 24px;
+            }
+
+            .hand-indicator {
+                width: 40px;
+                height: 40px;
+            }
+
+            .hand-indicator::before {
+                font-size: 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                overflow-y: auto;
+            }
+
+            .login-container {
+                max-width: 100%;
+                height: auto;
+                min-height: 100vh;
+                padding: 0;
+                flex-direction: column;
+                justify-content: flex-start;
+                align-items: center;
+            }
+
+            #drawingCanvas {
+                position: static;
+                transform: scale(1);
+                margin: 0 auto;
+                width: 302px;
+                height: 400px;
+                display: block;
+            }
+
+            .login-form {
+                position: static !important;
+                transform: none !important;
+                margin-left: auto !important;
+                margin-right: auto !important;
+                margin-top: 0 !important;
+                margin-bottom: 0 !important;
+                width: calc(100% - 40px) !important;
+                max-width: 320px !important;
+                padding: 20px !important;
+                left: auto !important;
+                right: auto !important;
+                top: auto !important;
+            }
+
+            .hand-indicator {
+                display: none !important;
+            }
+
+            .form-group {
+                margin-bottom: 16px;
+            }
+
+            .form-group label {
+                font-size: 13px;
+            }
+
+            .form-group input {
+                padding: 10px 14px;
+                font-size: 13px;
+            }
+
+            .login-btn {
+                padding: 12px;
+                font-size: 14px;
+            }
+
+            .hand-indicator {
+                width: 30px;
+                height: 30px;
+                border-width: 2px;
+            }
+
+            .hand-indicator::before {
+                font-size: 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #drawingCanvas {
+                margin: 0 auto;
+                width: 302px;
+                height: 400px;
+                transform: scale(0.75);
+            }
+
+            .login-form {
+                margin: 0 auto;
+                width: calc(100% - 32px);
+                padding: 16px;
+            }
+
+            .form-group input {
+                padding: 8px 12px;
+            }
+
+            .login-btn {
+                padding: 10px;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <!-- SVG Canvas for animated drawing -->
+        <svg id="drawingCanvas" viewBox="0 0 302 400" xmlns="http://www.w3.org/2000/svg">
+            <!-- Paths will be generated by JavaScript from extracted data -->
+        </svg>
+
+        <!-- Hand indicators (only show during animation, not on error) -->
+        <div class="hand-indicator" id="hand1"></div>
+        <div class="hand-indicator" id="hand2"></div>
+        <div class="hand-indicator" id="hand3"></div>
+
+        <!-- Login Form -->
+        <form class="login-form {% if get_flashed_messages() %}show-immediately{% else %}show-delayed{% endif %}" method="POST" action="/login">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <h2>Sign In</h2>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        {% if category == 'error' %}
+                        <div style="background: var(--color-danger-subtle); border: 1px solid var(--color-danger); color: var(--color-danger); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: var(--font-size-base);">
+                            {{ message }}
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="login-btn">Sign In</button>
+        </form>
+    </div>
+
+    <script>
+        // Real extracted paths from fav.png
+        const drawingData = {"width":302,"height":400,"paths":[{"d":"M 136 370 L 137 369 L 138 370 L 138 371 L 139 372 L 138 373 L 137 373 L 136 372","hand":2,"delay":0.05,"length":8},{"d":"M 83 369 L 84 368 L 85 368 L 86 369 L 86 370 L 85 371","hand":1,"delay":0.15000000000000002,"length":6},{"d":"M 135 368 L 135 370 L 136 371 L 136 372 L 137 373 L 139 373 L 139 371 L 137 369 L 137 368","hand":2,"delay":0.2,"length":9},{"d":"M 83 368 L 83 370 L 84 371 L 86 371 L 86 369 L 85 368","hand":1,"delay":0.25,"length":6},{"d":"M 126 365 L 127 364 L 130 367 L 130 369 L 129 370 L 126 370 L 124 368 L 126 366","hand":2,"delay":0.35000000000000003,"length":8},{"d":"M 126 364 L 126 365 L 125 366 L 125 367 L 124 368 L 125 369 L 125 370 L 126 371 L 126 372 L 126 371 L 127 370 L 128 371 L 128 372 L 128 371 L 130 369 L 130 367 L 129 366 L 129 365 L 128 364","hand":2,"delay":0.4,"length":19},{"d":"M 75 363 L 74 364 L 73 364 L 72 365 L 72 368 L 72 365 L 73 364 L 74 364 L 75 363 L 79 363 L 80 364 L 79 365 L 80 365 L 80 363","hand":1,"delay":0.45,"length":14},{"d":"M 114 360 L 116 360 L 117 361 L 117 363 L 119 366 L 119 367 L 117 370 L 117 379 L 115 381 L 111 381 L 110 380 L 110 368 L 109 368 L 108 367 L 109 366 L 112 366 L 112 362","hand":2,"delay":0.5,"length":17},{"d":"M 114 360 L 112 362 L 112 365 L 111 366 L 109 366 L 108 367 L 110 369 L 110 380 L 111 381 L 116 381 L 116 380 L 117 379 L 117 370 L 119 368 L 119 365 L 117 363 L 117 361 L 116 360","hand":2,"delay":0.55,"length":18},{"d":"M 101 360 L 100 362 L 100 365 L 96 369 L 96 375 L 98 378 L 98 381 L 98 377 L 96 375 L 96 369 L 100 366 L 100 362 L 102 360 L 104 361 L 104 366 L 101 371 L 101 373 L 100 374 L 100 377 L 100 374 L 101 373 L 101 371 L 104 367 L 104 360","hand":1,"delay":0.6000000000000001,"length":24},{"d":"M 250 292 L 251 291 L 253 291 L 256 294 L 256 298 L 254 300 L 250 308 L 234 324 L 222 330 L 217 330 L 215 328 L 215 324 L 218 321 L 220 321 L 227 318 L 236 309 L 237 309 L 244 301 L 244 299 L 249 292","hand":3,"delay":0.65,"length":20},{"d":"M 250 291 L 247 294 L 242 303 L 235 310 L 234 310 L 229 316 L 223 320 L 216 322 L 215 324 L 215 328 L 217 330 L 223 330 L 225 328 L 228 328 L 233 324 L 235 324 L 249 310 L 256 298 L 256 293 L 253 291","hand":3,"delay":0.7000000000000001,"length":20},{"d":"M 118 238 L 126 244 L 126 249 L 136 266 L 136 280 L 133 286 L 125 292 L 115 292 L 110 287 L 108 287 L 104 290 L 97 290 L 90 283 L 90 280 L 94 274 L 94 272 L 112 244","hand":2,"delay":0.75,"length":17},{"d":"M 118 238 L 113 242 L 99 263 L 90 280 L 91 285 L 96 290 L 104 290 L 109 287 L 114 292 L 125 292 L 130 290 L 134 285 L 134 283 L 136 281 L 136 265 L 126 249 L 126 243 L 119 239","hand":2,"delay":0.8,"length":18},{"d":"M 140 183 L 134 187 L 135 189 L 135 194 L 136 195 L 136 201 L 137 202 L 139 202 L 143 199 L 146 198 L 149 193 L 149 187 L 151 185 L 149 187 L 149 193 L 148 195 L 144 199 L 141 200 L 139 202 L 137 202 L 136 201 L 136 195 L 135 194 L 135 189 L 134 187 L 140 183 L 141 184 L 148 184 L 141 184","hand":2,"delay":0.9,"length":29},{"d":"M 82 178 L 83 177 L 89 177 L 90 178 L 93 178 L 94 179 L 94 182 L 93 183 L 93 188 L 92 189 L 90 194 L 84 200 L 83 200 L 80 202 L 77 202 L 76 201 L 76 198 L 73 194 L 73 190 L 72 189 L 72 185 L 70 183 L 73 180 L 74 180 L 75 179 L 80 179 L 81 178","hand":1,"delay":0.9500000000000001,"length":27},{"d":"M 83 177 L 80 179 L 75 179 L 74 180 L 71 181 L 71 182 L 70 183 L 72 186 L 72 189 L 73 190 L 73 194 L 74 195 L 74 196 L 76 199 L 76 201 L 77 202 L 80 202 L 81 201 L 86 199 L 90 195 L 90 193 L 92 191 L 92 189 L 93 188 L 93 183 L 94 182 L 94 178 L 90 178 L 89 177","hand":1,"delay":1.0,"length":29},{"d":"M 158 174 L 166 173 L 170 175 L 177 182 L 177 189 L 171 200 L 171 203 L 167 211 L 163 216 L 156 222 L 144 226 L 136 226 L 129 219 L 129 213 L 127 210 L 127 197 L 125 193 L 124 183 L 128 177 L 135 175 L 152 175 L 153 174","hand":2,"delay":1.05,"length":22},{"d":"M 159 173 L 152 175 L 135 175 L 128 177 L 124 183 L 125 193 L 127 197 L 127 210 L 129 213 L 129 219 L 132 224 L 136 226 L 144 226 L 151 223 L 155 223 L 161 219 L 166 213 L 177 189 L 177 181 L 172 176 L 166 173","hand":2,"delay":1.1,"length":21},{"d":"M 85 169 L 86 168 L 109 169 L 116 176 L 116 188 L 114 191 L 114 215 L 110 221 L 102 225 L 90 223 L 77 216 L 70 208 L 64 197 L 64 192 L 60 180 L 69 171 L 74 171 L 78 169","hand":1,"delay":1.1500000000000001,"length":18},{"d":"M 86 168 L 69 171 L 64 174 L 60 180 L 64 192 L 64 197 L 75 215 L 89 223 L 99 225 L 108 223 L 112 220 L 114 216 L 114 191 L 116 189 L 116 175 L 109 169 L 100 168 L 87 169","hand":1,"delay":1.2000000000000002,"length":18},{"d":"M 82 96 L 85 96 L 88 99 L 88 102 L 90 105 L 90 108 L 95 111 L 98 111 L 102 115 L 102 118 L 100 120 L 93 120 L 92 119 L 90 119 L 89 118 L 88 118 L 82 112 L 82 110 L 80 107 L 80 104 L 78 102 L 79 99","hand":1,"delay":1.25,"length":22},{"d":"M 81 96 L 80 97 L 78 102 L 80 105 L 80 107 L 82 110 L 82 112 L 83 113 L 83 114 L 87 118 L 89 118 L 90 119 L 92 119 L 93 120 L 100 120 L 102 118 L 102 114 L 100 112 L 99 112 L 98 111 L 95 111 L 90 108 L 90 105 L 88 102 L 88 98 L 86 96","hand":1,"delay":1.3,"length":26},{"d":"M 245 90 L 251 89 L 255 93 L 255 96 L 253 98 L 242 100 L 234 105 L 229 112 L 228 119 L 229 124 L 238 133 L 242 135 L 255 136 L 257 138 L 257 143 L 255 145 L 246 145 L 232 140 L 223 131 L 219 122 L 219 114 L 224 103 L 232 95 L 243 90","hand":3,"delay":1.35,"length":24},{"d":"M 246 89 L 230 96 L 225 101 L 219 114 L 219 122 L 221 128 L 227 137 L 237 143 L 246 145 L 257 144 L 257 138 L 253 135 L 243 135 L 238 133 L 229 124 L 228 117 L 229 112 L 236 104 L 242 100 L 255 97 L 255 92 L 251 89","hand":3,"delay":1.4000000000000001,"length":22},{"d":"M 58 58 L 61 58 L 65 62 L 75 82 L 80 85 L 83 85 L 88 82 L 94 82 L 106 92 L 106 97 L 105 98 L 99 98 L 92 91 L 90 91 L 85 94 L 78 94 L 72 91 L 64 82 L 64 80 L 62 78 L 62 75 L 54 62","hand":1,"delay":1.4500000000000002,"length":22},{"d":"M 58 58 L 54 62 L 59 70 L 65 84 L 70 90 L 77 94 L 85 94 L 91 91 L 99 98 L 106 98 L 106 91 L 94 82 L 88 82 L 82 85 L 77 83 L 72 77 L 70 70 L 66 65 L 66 63 L 61 58","hand":1,"delay":1.5,"length":20},{"d":"M 219 56 L 223 56 L 227 60 L 227 68 L 225 72 L 223 74 L 219 76 L 215 76 L 213 77 L 211 79 L 210 79 L 204 85 L 201 85 L 197 82 L 197 80 L 207 70 L 211 68 L 213 68 L 214 67 L 218 66 L 218 64 L 217 63 L 217 58","hand":3,"delay":1.55,"length":23},{"d":"M 219 56 L 217 58 L 217 63 L 218 65 L 216 67 L 211 68 L 205 71 L 198 78 L 197 82 L 198 84 L 200 84 L 201 85 L 204 85 L 206 84 L 209 80 L 210 80 L 215 76 L 219 76 L 225 73 L 225 71 L 227 69 L 227 60 L 226 58 L 223 56","hand":3,"delay":1.6,"length":24},{"d":"M 237 36 L 240 36 L 243 39 L 243 44 L 240 46 L 238 46 L 235 48 L 233 48 L 232 49 L 231 49 L 230 50 L 228 50 L 227 51 L 224 51 L 223 52 L 219 52 L 216 54 L 213 53 L 211 51 L 211 48 L 215 44 L 217 44 L 218 43 L 220 43 L 221 42 L 225 42 L 228 40 L 231 40 L 232 39 L 235 38","hand":3,"delay":1.6500000000000001,"length":30},{"d":"M 237 36 L 231 40 L 228 40 L 225 42 L 221 42 L 220 43 L 218 43 L 217 44 L 215 44 L 214 45 L 213 45 L 211 48 L 211 51 L 214 54 L 217 54 L 219 52 L 223 52 L 224 51 L 227 51 L 228 50 L 231 50 L 233 48 L 236 48 L 238 46 L 240 46 L 241 45 L 242 45 L 243 44 L 243 38 L 240 36","hand":3,"delay":1.7000000000000002,"length":30},{"d":"M 151 33 L 157 32 L 161 34 L 168 34 L 171 36 L 174 36 L 178 38 L 180 41 L 184 41 L 187 43 L 187 48 L 185 50 L 180 51 L 173 46 L 163 42 L 149 42 L 145 44 L 141 44 L 134 48 L 131 48 L 122 53 L 117 58 L 112 58 L 109 54 L 114 48 L 126 40 L 148 33","hand":2,"delay":1.75,"length":27},{"d":"M 152 32 L 136 36 L 117 45 L 111 50 L 109 54 L 111 58 L 118 58 L 124 52 L 131 48 L 149 42 L 163 42 L 171 45 L 177 50 L 180 51 L 186 50 L 187 49 L 186 42 L 181 41 L 174 36 L 168 34 L 161 34 L 157 32","hand":2,"delay":1.8,"length":22},{"d":"M 166 16 L 233 25 L 260 47 L 274 258 L 266 297 L 238 332 L 153 349 L 152 302 L 203 297 L 205 247 L 239 236 L 204 233 L 197 288 L 153 290 L 141 302 L 142 359 L 70 354 L 69 292 L 21 281 L 19 185 L 35 162 L 35 106 L 55 52 L 94 25 L 164 16","hand":2,"delay":1.85,"length":25},{"d":"M 167 15 L 94 25 L 56 50 L 37 95 L 35 162 L 19 185 L 21 281 L 69 292 L 70 354 L 103 349 L 142 360 L 141 302 L 153 290 L 197 289 L 195 245 L 206 232 L 239 235 L 206 245 L 201 298 L 152 302 L 153 349 L 236 334 L 262 306 L 274 259 L 260 47 L 236 26 L 174 15","hand":2,"delay":1.9000000000000001,"length":27},{"d":"M 164 6 L 246 20 L 274 58 L 283 260 L 274 302 L 250 334 L 198 357 L 158 358 L 144 383 L 95 389 L 60 366 L 62 299 L 13 290 L 10 182 L 22 165 L 28 92 L 42 55 L 91 16 L 162 8","hand":2,"delay":1.9500000000000002,"length":19},{"d":"M 164 6 L 91 16 L 47 47 L 28 92 L 22 165 L 10 182 L 13 290 L 62 300 L 65 376 L 110 391 L 149 381 L 158 358 L 198 357 L 247 338 L 274 302 L 283 260 L 282 135 L 269 45 L 246 20 L 178 6","hand":2,"delay":2.0,"length":20}]};
+
+        const svg = document.getElementById('drawingCanvas');
+        const hands = [
+            document.getElementById('hand1'),
+            document.getElementById('hand2'),
+            document.getElementById('hand3')
+        ];
+
+        // Create and animate paths with a 3-second initial delay
+        function startDrawing() {
+            drawingData.paths.forEach((pathData, index) => {
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', pathData.d);
+                path.classList.add('draw-path');
+
+                // Calculate path length for animation
+                svg.appendChild(path);
+                const length = path.getTotalLength();
+                path.style.strokeDasharray = length;
+                path.style.strokeDashoffset = length;
+                path.style.setProperty('--path-length', length);
+
+                // Animate with delay (0.25 seconds + half original delay for 50% faster)
+                const totalDelay = 250 + (pathData.delay * 500);
+                setTimeout(() => {
+                    path.classList.add('animate');
+
+                    // Show hand indicator at start of path
+                    const hand = hands[pathData.hand - 1];
+                    const startPoint = path.getPointAtLength(0);
+
+                    // Scale factor of 2 for positioning hands
+                    hand.style.left = (startPoint.x * 2 + 200) + 'px';
+                    hand.style.top = (startPoint.y * 2 - 50) + 'px';
+                    hand.classList.add('active');
+
+                    // Move hand along path (50% faster)
+                    let progress = 0;
+                    const animationDuration = 400; // matches CSS animation (50% faster)
+                    const interval = setInterval(() => {
+                        progress += 20;
+                        if (progress <= animationDuration) {
+                            const point = path.getPointAtLength((progress / animationDuration) * length);
+                            hand.style.left = (point.x * 2 + 200) + 'px';
+                            hand.style.top = (point.y * 2 - 50) + 'px';
+                        } else {
+                            clearInterval(interval);
+                            hand.classList.remove('active');
+                        }
+                    }, 20);
+                }, totalDelay);
+            });
+        }
+
+        // Always draw the face on page load (50% faster)
+        window.addEventListener('load', () => {
+            const hasError = document.querySelector('.login-form.show-immediately');
+            if (hasError) {
+                // If there's an error, draw the face instantly (no animation, just show final state)
+                drawingData.paths.forEach((pathData) => {
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', pathData.d);
+                    path.classList.add('draw-path');
+                    svg.appendChild(path);
+                    const length = path.getTotalLength();
+                    path.style.strokeDasharray = length;
+                    path.style.strokeDashoffset = 0;
+                    path.style.opacity = 1;
+                });
+            } else {
+                // First visit - animate the drawing (50% faster)
+                setTimeout(startDrawing, 250);
+            }
+        });
+    </script>
+</body>
+</html>

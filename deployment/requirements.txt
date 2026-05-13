@@ -1,0 +1,36 @@
+# Deployment Requirements (control node only)
+# Install on LOCAL/deployment machine:
+#   pip install -r deployment/requirements.txt
+#   ansible-galaxy collection install -r deployment/requirements.yml --upgrade
+# These are NOT needed on the production app server.
+
+# -----------------------------------------------------------------------------
+# Deployment tools
+# -----------------------------------------------------------------------------
+ansible
+ansible-core
+awscli
+boto3
+botocore[crt]
+Jinja2
+PyYAML
+
+# -----------------------------------------------------------------------------
+# Common transitive packages (listed explicitly to ensure they are present)
+# -----------------------------------------------------------------------------
+awscrt
+cffi
+colorama
+cryptography
+docutils
+jmespath
+MarkupSafe
+packaging
+pyasn1
+pycparser
+python-dateutil
+resolvelib
+rsa
+s3transfer
+six
+urllib3

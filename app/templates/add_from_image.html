@@ -1,0 +1,746 @@
+{% extends "base.html" %}
+
+{% block title %}Add From Image - Listing Tool{% endblock %}
+
+{% block extra_css %}
+    .afi-page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: var(--space-lg) var(--space-md) calc(var(--space-xl) * 2);
+    }
+
+    .afi-header {
+        margin-bottom: var(--space-lg);
+    }
+
+    .afi-header h1 {
+        margin: 0;
+        color: var(--color-text);
+        font-size: var(--font-size-xl);
+        font-weight: 600;
+    }
+
+    .afi-header p {
+        margin: var(--space-xs) 0 0;
+        color: var(--color-text-muted);
+        font-size: var(--font-size-base);
+    }
+
+    .afi-card {
+        background: var(--color-elevated);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--space-lg);
+        margin-bottom: var(--space-md);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .afi-step-label {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+        color: var(--color-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: var(--space-md);
+    }
+
+    .afi-step-num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--color-accent);
+        color: var(--color-accent-text);
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    /* --- Dropzone --- */
+    .afi-dropzone {
+        border: 2px dashed var(--color-border);
+        border-radius: var(--radius-md);
+        padding: var(--space-xl) var(--space-md);
+        text-align: center;
+        cursor: pointer;
+        transition: border-color 0.15s, background 0.15s;
+        background: var(--color-inset);
+    }
+
+    .afi-dropzone:hover,
+    .afi-dropzone.dragover {
+        border-color: var(--color-accent);
+        background: var(--color-accent-subtle);
+    }
+
+    .afi-dropzone svg {
+        width: 56px;
+        height: 56px;
+        color: var(--color-text-muted);
+        margin-bottom: var(--space-sm);
+    }
+
+    .afi-dropzone-title {
+        color: var(--color-text);
+        font-size: var(--font-size-md);
+        font-weight: 600;
+        margin: 0 0 var(--space-xs);
+    }
+
+    .afi-dropzone-hint {
+        color: var(--color-text-muted);
+        font-size: var(--font-size-sm);
+        margin: 0;
+    }
+
+    .afi-dz-buttons {
+        display: flex;
+        gap: var(--space-sm);
+        justify-content: center;
+        margin-top: var(--space-md);
+        flex-wrap: wrap;
+    }
+
+    /* --- Preview --- */
+    .afi-preview {
+        display: flex;
+        gap: var(--space-md);
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .afi-preview-img {
+        width: 200px;
+        height: 260px;
+        border-radius: var(--radius-md);
+        object-fit: cover;
+        background: var(--color-inset);
+        border: 1px solid var(--color-border);
+    }
+
+    .afi-preview-meta {
+        flex: 1;
+        min-width: 240px;
+    }
+
+    .afi-preview-meta-name {
+        color: var(--color-text);
+        font-weight: 600;
+        word-break: break-all;
+    }
+
+    .afi-preview-meta-size {
+        color: var(--color-text-muted);
+        font-size: var(--font-size-sm);
+        margin-top: var(--space-xs);
+    }
+
+    .afi-preview-actions {
+        display: flex;
+        gap: var(--space-sm);
+        margin-top: var(--space-md);
+        flex-wrap: wrap;
+    }
+
+    /* --- Status --- */
+    .afi-status {
+        margin-top: var(--space-md);
+        color: var(--color-text-muted);
+        font-size: var(--font-size-sm);
+        min-height: 1.4em;
+    }
+
+    .afi-status.error {
+        color: var(--color-danger);
+    }
+
+    /* --- Results grid (matches existing eBay result-card style) --- */
+    .afi-results-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: var(--space-md);
+        margin-top: var(--space-md);
+    }
+
+    .afi-result-card {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: var(--space-sm);
+        cursor: pointer;
+        transition: border-color 0.15s, transform 0.1s;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-xs);
+    }
+
+    .afi-result-card:hover {
+        border-color: var(--color-accent-2);
+    }
+
+    .afi-result-card.selected {
+        border-color: var(--color-accent);
+        box-shadow: 0 0 0 2px var(--color-accent-subtle);
+    }
+
+    .afi-result-card img {
+        width: 100%;
+        aspect-ratio: 3 / 4;
+        object-fit: cover;
+        border-radius: var(--radius-sm);
+        background: var(--color-inset);
+    }
+
+    .afi-result-title {
+        color: var(--color-text);
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .afi-result-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+    }
+
+    .afi-result-price {
+        color: var(--color-accent);
+        font-weight: 700;
+        font-size: var(--font-size-sm);
+    }
+
+    .afi-result-link {
+        color: var(--color-accent-2);
+        font-size: var(--font-size-xs);
+        text-decoration: none;
+    }
+
+    .afi-result-link:hover {
+        text-decoration: underline;
+    }
+
+    /* --- Sticky action bar --- */
+    .afi-action-bar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--color-surface);
+        border-top: 1px solid var(--color-border);
+        padding: var(--space-md);
+        display: flex;
+        gap: var(--space-md);
+        justify-content: flex-end;
+        align-items: center;
+        z-index: 10;
+        box-shadow: var(--shadow-md);
+    }
+
+    .afi-action-bar-spacer {
+        height: 88px; /* keep page content above sticky bar */
+    }
+
+    .afi-spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid var(--color-text-muted);
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: afi-spin 0.7s linear infinite;
+        vertical-align: -2px;
+        margin-right: 6px;
+    }
+
+    @keyframes afi-spin {
+        to { transform: rotate(360deg); }
+    }
+
+    /* Hide section helpers */
+    .afi-hidden { display: none !important; }
+
+    @media (max-width: 600px) {
+        .afi-preview-img { width: 150px; height: 200px; }
+        .afi-action-bar { flex-direction: column; align-items: stretch; }
+    }
+{% endblock %}
+
+{% block content %}
+<main id="main-content" class="afi-page">
+    <div class="afi-header">
+        <h1>Add Comic From Image</h1>
+        <p>Snap or drop a cover photo. We&rsquo;ll find the closest eBay match and pre-fill the add form for you.</p>
+    </div>
+
+    <!-- Step 1: Pick image -->
+    <section class="afi-card" id="afiStep1">
+        <div class="afi-step-label"><span class="afi-step-num">1</span> Pick an image</div>
+
+        <div id="afiDropzone" class="afi-dropzone" tabindex="0" role="button" aria-label="Choose or drop a cover image">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <path d="M21 15l-5-5L5 21"/>
+            </svg>
+            <p class="afi-dropzone-title">Drop a cover image here</p>
+            <p class="afi-dropzone-hint">or use one of the buttons below &middot; JPG / PNG / WEBP up to 10&nbsp;MB</p>
+
+            <div class="afi-dz-buttons">
+                <button type="button" id="afiPickBtn" class="btn btn-secondary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 7h4l2-3h6l2 3h4v12H3z"/>
+                        <circle cx="12" cy="13" r="4"/>
+                    </svg>
+                    Choose file
+                </button>
+                <button type="button" id="afiCameraBtn" class="btn btn-primary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+                        <circle cx="12" cy="13" r="4"/>
+                    </svg>
+                    Use camera
+                </button>
+            </div>
+
+            <!-- Hidden inputs: one for file picker, one for camera -->
+            <input type="file" id="afiFileInput" accept="image/*" class="afi-hidden">
+            <input type="file" id="afiCameraInput" accept="image/*" capture="environment" class="afi-hidden">
+        </div>
+    </section>
+
+    <!-- Step 2: Review + search -->
+    <section class="afi-card afi-hidden" id="afiStep2">
+        <div class="afi-step-label"><span class="afi-step-num">2</span> Search eBay for matches</div>
+        <div class="afi-preview">
+            <img id="afiPreviewImg" class="afi-preview-img" src="" alt="Selected cover">
+            <div class="afi-preview-meta">
+                <div class="afi-preview-meta-name" id="afiPreviewName">&mdash;</div>
+                <div class="afi-preview-meta-size" id="afiPreviewSize">&mdash;</div>
+
+                <div class="afi-preview-actions">
+                    <button type="button" id="afiSearchBtn" class="btn btn-primary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="7"/>
+                            <path d="M21 21l-4.3-4.3"/>
+                        </svg>
+                        Search eBay by image
+                    </button>
+                    <button type="button" id="afiChangeBtn" class="btn btn-secondary">Change image</button>
+                </div>
+
+                <div class="afi-status" id="afiStatus"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Step 3: Pick a match -->
+    <section class="afi-card afi-hidden" id="afiStep3">
+        <div class="afi-step-label"><span class="afi-step-num">3</span> Pick the closest match</div>
+        <div id="afiResultsGrid" class="afi-results-grid"></div>
+    </section>
+
+    <div class="afi-action-bar-spacer"></div>
+</main>
+
+<!-- Sticky action bar -->
+<div class="afi-action-bar">
+    <a href="/add" class="btn btn-secondary">Cancel</a>
+    <button type="button" id="afiSkipBtn" class="btn btn-secondary afi-hidden">
+        Continue without match
+    </button>
+    <button type="button" id="afiContinueBtn" class="btn btn-primary" disabled>
+        Continue to add form
+    </button>
+</div>
+
+<script>
+    (function () {
+        'use strict';
+
+        // ---------- State ----------
+        var pickedFile = null;          // The user's image File (post-resize)
+        var pickedDataUrl = '';         // dataURL of the picked file (for preview + handoff)
+        var selectedItem = null;        // eBay search result the user picked
+        var selectedDetails = null;     // Full eBay item details (may be null)
+        var searchInFlight = false;
+
+        var STORAGE_KEY = 'pendingImageAddPayload';
+        var MAX_LONG_EDGE = 2400;       // Resize before storing in sessionStorage
+        var MAX_BYTES = 10 * 1024 * 1024; // Server-side cap mirror
+
+        // ---------- DOM ----------
+        var dropzone = document.getElementById('afiDropzone');
+        var fileInput = document.getElementById('afiFileInput');
+        var cameraInput = document.getElementById('afiCameraInput');
+        var pickBtn = document.getElementById('afiPickBtn');
+        var cameraBtn = document.getElementById('afiCameraBtn');
+
+        var step2 = document.getElementById('afiStep2');
+        var step3 = document.getElementById('afiStep3');
+        var previewImg = document.getElementById('afiPreviewImg');
+        var previewName = document.getElementById('afiPreviewName');
+        var previewSize = document.getElementById('afiPreviewSize');
+        var searchBtn = document.getElementById('afiSearchBtn');
+        var changeBtn = document.getElementById('afiChangeBtn');
+        var statusEl = document.getElementById('afiStatus');
+        var resultsGrid = document.getElementById('afiResultsGrid');
+
+        var continueBtn = document.getElementById('afiContinueBtn');
+        var skipBtn = document.getElementById('afiSkipBtn');
+
+        // ---------- Helpers ----------
+        function setStatus(msg, isError) {
+            statusEl.textContent = msg || '';
+            statusEl.classList.toggle('error', !!isError);
+        }
+
+        function formatBytes(bytes) {
+            if (!bytes && bytes !== 0) return '';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatPrice(value) {
+            if (value === null || value === undefined || value === '') return '';
+            var n = Number(value);
+            if (!isFinite(n)) return String(value);
+            return '$' + n.toFixed(2);
+        }
+
+        /**
+         * Read a File and return { dataUrl, blob, width, height } downscaled
+         * so the long edge is <= MAX_LONG_EDGE. Keeps original orientation
+         * (browser canvas does not honour EXIF; phone shots already encode
+         * the rotation in pixels for most modern devices).
+         */
+        function resizeImageFile(file) {
+            return new Promise(function (resolve, reject) {
+                var reader = new FileReader();
+                reader.onload = function () {
+                    var img = new Image();
+                    img.onload = function () {
+                        var w = img.naturalWidth;
+                        var h = img.naturalHeight;
+                        var longEdge = Math.max(w, h);
+                        var scale = longEdge > MAX_LONG_EDGE ? (MAX_LONG_EDGE / longEdge) : 1;
+                        var outW = Math.round(w * scale);
+                        var outH = Math.round(h * scale);
+
+                        var canvas = document.createElement('canvas');
+                        canvas.width = outW;
+                        canvas.height = outH;
+                        var ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, outW, outH);
+
+                        canvas.toBlob(function (blob) {
+                            if (!blob) { reject(new Error('Failed to encode image')); return; }
+                            var fr2 = new FileReader();
+                            fr2.onload = function () {
+                                resolve({
+                                    dataUrl: fr2.result,
+                                    blob: blob,
+                                    width: outW,
+                                    height: outH
+                                });
+                            };
+                            fr2.onerror = function () { reject(new Error('Failed to read encoded image')); };
+                            fr2.readAsDataURL(blob);
+                        }, 'image/jpeg', 0.9);
+                    };
+                    img.onerror = function () { reject(new Error('Could not decode image')); };
+                    img.src = reader.result;
+                };
+                reader.onerror = function () { reject(new Error('Could not read file')); };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function normalizeEbayItemId(rawId) {
+            var raw = String(rawId || '').trim();
+            if (!raw) return '';
+            if (raw.indexOf('|') === -1) return raw;
+            var parts = raw.split('|');
+            if (parts.length >= 2 && parts[1]) return parts[1].trim();
+            return raw;
+        }
+
+        // ---------- File acceptance ----------
+        async function acceptFile(file) {
+            if (!file) return;
+            if (!/^image\//.test(file.type)) {
+                setStatus('That file is not an image.', true);
+                return;
+            }
+            if (file.size > MAX_BYTES) {
+                setStatus('Image is larger than 10 MB. Please pick a smaller file.', true);
+                return;
+            }
+
+            setStatus('Preparing image...');
+            try {
+                var resized = await resizeImageFile(file);
+                pickedDataUrl = resized.dataUrl;
+                // Wrap blob in a File so it carries a sensible name on upload
+                var safeName = (file.name || 'cover.jpg').replace(/\s+/g, '_');
+                if (!/\.(jpe?g|png|webp)$/i.test(safeName)) {
+                    safeName += '.jpg';
+                }
+                pickedFile = new File([resized.blob], safeName, { type: 'image/jpeg' });
+
+                previewImg.src = pickedDataUrl;
+                previewName.textContent = file.name || 'cover.jpg';
+                previewSize.textContent = 'Resized for upload: '
+                    + resized.width + ' x ' + resized.height
+                    + '  (' + formatBytes(resized.blob.size) + ')';
+
+                step2.classList.remove('afi-hidden');
+                step3.classList.add('afi-hidden');
+                resultsGrid.innerHTML = '';
+                selectedItem = null;
+                selectedDetails = null;
+                continueBtn.disabled = true;
+                skipBtn.classList.remove('afi-hidden');
+                setStatus('');
+            } catch (err) {
+                console.error(err);
+                setStatus(err.message || 'Could not load image', true);
+            }
+        }
+
+        // ---------- Drag & drop / click / camera ----------
+        dropzone.addEventListener('click', function (e) {
+            if (e.target.closest('button')) return;
+            fileInput.click();
+        });
+        dropzone.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                fileInput.click();
+            }
+        });
+        ['dragenter', 'dragover'].forEach(function (ev) {
+            dropzone.addEventListener(ev, function (e) {
+                e.preventDefault(); e.stopPropagation();
+                dropzone.classList.add('dragover');
+            });
+        });
+        ['dragleave', 'drop'].forEach(function (ev) {
+            dropzone.addEventListener(ev, function (e) {
+                e.preventDefault(); e.stopPropagation();
+                dropzone.classList.remove('dragover');
+            });
+        });
+        dropzone.addEventListener('drop', function (e) {
+            var dt = e.dataTransfer;
+            var f = dt && dt.files && dt.files[0];
+            if (f) acceptFile(f);
+        });
+
+        pickBtn.addEventListener('click', function (e) { e.stopPropagation(); fileInput.click(); });
+        cameraBtn.addEventListener('click', function (e) { e.stopPropagation(); cameraInput.click(); });
+
+        fileInput.addEventListener('change', function (e) {
+            var f = e.target.files && e.target.files[0];
+            acceptFile(f);
+            e.target.value = '';
+        });
+        cameraInput.addEventListener('change', function (e) {
+            var f = e.target.files && e.target.files[0];
+            acceptFile(f);
+            e.target.value = '';
+        });
+
+        changeBtn.addEventListener('click', function () {
+            pickedFile = null;
+            pickedDataUrl = '';
+            selectedItem = null;
+            selectedDetails = null;
+            previewImg.src = '';
+            previewName.textContent = '';
+            previewSize.textContent = '';
+            step2.classList.add('afi-hidden');
+            step3.classList.add('afi-hidden');
+            resultsGrid.innerHTML = '';
+            continueBtn.disabled = true;
+            skipBtn.classList.add('afi-hidden');
+            setStatus('');
+        });
+
+        // ---------- eBay search ----------
+        searchBtn.addEventListener('click', async function () {
+            if (!pickedFile || searchInFlight) return;
+            searchInFlight = true;
+            searchBtn.disabled = true;
+            var originalLabel = searchBtn.innerHTML;
+            searchBtn.innerHTML = '<span class="afi-spinner"></span>Searching...';
+            setStatus('Asking eBay for visually similar listings...');
+            resultsGrid.innerHTML = '';
+            step3.classList.add('afi-hidden');
+
+            try {
+                var fd = new FormData();
+                fd.append('image_file', pickedFile);
+                fd.append('limit', '24');
+
+                var resp = await fetch('/api/ebay/search-by-image', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-Token': window.csrfToken || '' },
+                    body: fd
+                });
+                var data = await resp.json();
+                if (!resp.ok || !data.success) {
+                    throw new Error((data && data.error) || 'eBay search failed');
+                }
+                renderResults(data);
+            } catch (err) {
+                console.error(err);
+                setStatus(err.message || 'eBay search failed', true);
+            } finally {
+                searchBtn.disabled = false;
+                searchBtn.innerHTML = originalLabel;
+                searchInFlight = false;
+            }
+        });
+
+        function renderResults(payload) {
+            var items = (payload && Array.isArray(payload.items)) ? payload.items : [];
+            resultsGrid.innerHTML = '';
+            if (items.length === 0) {
+                setStatus('No similar listings were found. You can still continue without a match.', false);
+                step3.classList.add('afi-hidden');
+                return;
+            }
+            setStatus('Tap a card to select. We will pull title, price, and description from your pick.');
+            step3.classList.remove('afi-hidden');
+
+            items.forEach(function (item) {
+                var card = document.createElement('div');
+                card.className = 'afi-result-card';
+                card.dataset.itemId = item.itemId || '';
+
+                var imgSrc = item.image_url || '/static/placeholder.png';
+                var listingUrl = item.listing_url || (item.itemId
+                    ? 'https://www.ebay.com/itm/' + encodeURIComponent(item.itemId)
+                    : '');
+
+                card.innerHTML =
+                    '<img src="' + escapeHtml(imgSrc) + '" alt="" loading="lazy" '
+                    + 'onerror="this.src=\'/static/placeholder.png\'">'
+                    + '<div class="afi-result-title">' + escapeHtml(item.title || '') + '</div>'
+                    + '<div class="afi-result-meta">'
+                    +   '<span>' + escapeHtml(item.condition || 'Image match') + '</span>'
+                    +   '<span class="afi-result-price">' + escapeHtml(formatPrice(item.price)) + '</span>'
+                    + '</div>'
+                    + (listingUrl
+                        ? '<a class="afi-result-link" href="' + escapeHtml(listingUrl)
+                          + '" target="_blank" rel="noopener noreferrer">View on eBay</a>'
+                        : '');
+
+                card.addEventListener('click', function (e) {
+                    if (e.target.tagName === 'A') return; // Allow link clicks
+                    selectResult(card, item);
+                });
+                resultsGrid.appendChild(card);
+            });
+        }
+
+        function selectResult(card, item) {
+            Array.prototype.forEach.call(
+                resultsGrid.querySelectorAll('.afi-result-card.selected'),
+                function (el) { el.classList.remove('selected'); }
+            );
+            card.classList.add('selected');
+            selectedItem = item;
+            selectedDetails = null; // fetched on Continue
+            continueBtn.disabled = false;
+        }
+
+        // ---------- Continue handlers ----------
+        async function handoffToAddPage(includeMatch) {
+            if (!pickedDataUrl) {
+                setStatus('Pick an image first.', true);
+                return;
+            }
+
+            continueBtn.disabled = true;
+            skipBtn.disabled = true;
+            var originalLabel = continueBtn.innerHTML;
+            continueBtn.innerHTML = '<span class="afi-spinner"></span>Loading...';
+
+            try {
+                var details = null;
+                var matchItem = includeMatch ? selectedItem : null;
+
+                if (includeMatch && selectedItem) {
+                    var detailsId = normalizeEbayItemId(selectedItem.itemId);
+                    if (detailsId) {
+                        try {
+                            var dResp = await fetch('/api/ebay/item/'
+                                + encodeURIComponent(detailsId) + '/details');
+                            var dJson = await dResp.json();
+                            if (dJson && dJson.success) {
+                                // Endpoint returns { success, item: { ... } } or { success, ...details }
+                                details = dJson.item || dJson;
+                            }
+                        } catch (e) {
+                            console.warn('details fetch failed, using basic search data', e);
+                        }
+                    }
+                }
+
+                var payload = {
+                    selectedItem: matchItem,
+                    details: details,
+                    userImageDataUrl: pickedDataUrl,
+                    userImageName: pickedFile && pickedFile.name ? pickedFile.name : 'cover.jpg',
+                    userImageType: pickedFile && pickedFile.type ? pickedFile.type : 'image/jpeg',
+                    createdAt: Date.now()
+                };
+
+                try {
+                    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+                } catch (storageErr) {
+                    console.error('sessionStorage write failed', storageErr);
+                    // Try again without the user image (still useful — match data carries over)
+                    payload.userImageDataUrl = '';
+                    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+                    setStatus('Image too large to carry over — you may need to re-attach on the next page.', true);
+                }
+
+                window.location.href = '/add';
+            } catch (err) {
+                console.error(err);
+                setStatus(err.message || 'Failed to continue', true);
+                continueBtn.disabled = false;
+                skipBtn.disabled = false;
+                continueBtn.innerHTML = originalLabel;
+            }
+        }
+
+        continueBtn.addEventListener('click', function () { handoffToAddPage(true); });
+        skipBtn.addEventListener('click', function () { handoffToAddPage(false); });
+    })();
+</script>
+{% endblock %}
+

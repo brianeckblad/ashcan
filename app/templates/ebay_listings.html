@@ -1,0 +1,1971 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+    <style>
+        .main {
+            padding: 24px 24px 24px;
+        }
+
+
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--color-surface-subtle);
+            border: 1px solid var(--color-elevated);
+        }
+
+        .stat-value {
+            color: var(--color-accent);
+        }
+
+        .listings-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 16px;
+            margin-bottom: 150px;
+        }
+
+        .listing-card {
+            background: var(--color-surface-subtle);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .listing-card:hover {
+            border-color: var(--color-border-hover);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .listing-image {
+            width: 100%;
+            height: 180px;
+            background: var(--color-surface);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .listing-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 8px;
+        }
+
+        .listing-image-placeholder {
+            font-size: 40px;
+            color: var(--color-elevated);
+        }
+
+        .listing-details {
+            padding: 12px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .listing-info-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .listing-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text);
+            margin-bottom: 8px;
+            line-height: 1.4;
+            flex: 1;
+        }
+
+        .listing-info {
+            font-size: 12px;
+            color: var(--color-text-muted);
+            margin-bottom: 4px;
+        }
+
+        .listing-category {
+            font-size: 11px;
+            color: var(--color-text-dim);
+            margin-bottom: 6px;
+            padding: 4px 6px;
+            background: var(--color-surface-hover);
+            border-radius: 4px;
+            border: 1px solid var(--color-elevated);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .listing-stats {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .listing-stat-badge {
+            font-size: 11px;
+            padding: 3px 6px;
+            border-radius: 4px;
+            background: var(--color-inset);
+            border: 1px solid var(--color-elevated);
+            color: var(--color-text-muted);
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .listing-stat-badge.views {
+            border-color: var(--color-info-border);
+            color: var(--color-info);
+        }
+
+        .listing-stat-badge.watchers {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+        }
+
+        .listing-stat-badge.sold {
+            border-color: var(--color-success-border);
+            color: var(--color-success);
+        }
+
+        .listing-price {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--color-accent);
+            margin-bottom: 8px;
+        }
+
+        .listing-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            width: fit-content;
+        }
+
+        .status-active {
+            background: var(--color-success-subtle);
+            color: var(--color-success);
+            border: 1px solid var(--color-success-border);
+        }
+
+        .status-inactive {
+            background: var(--color-danger-subtle);
+            color: var(--color-danger);
+            border: 1px solid var(--color-danger-border);
+        }
+
+        .status-pending {
+            background: var(--color-warning-subtle);
+            color: var(--color-warning);
+            border: 1px solid var(--color-warning-border);
+        }
+
+        .status-unsold {
+            background: var(--color-neutral-bg);
+            color: var(--color-text-muted);
+            border: 1px solid var(--color-neutral-border);
+        }
+
+        .drafts-banner {
+            background: var(--color-inset);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: 14px 18px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            color: var(--color-text-muted);
+        }
+
+        .drafts-banner a {
+            color: var(--color-info);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .drafts-banner a:hover {
+            text-decoration: underline;
+        }
+
+        /* .filter-tabs / .filter-tab / .tab-count defined in components.css */
+
+        .filter-tabs { margin-bottom: 20px; }
+
+        .listing-scheduled {
+            font-size: 11px;
+            color: var(--color-warning);
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .listing-actions {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .listing-info-block {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+        }
+
+        .listing-category {
+            font-size: 11px;
+            color: var(--color-text-dim);
+            margin-bottom: 6px;
+            padding: 4px 8px;
+            background: var(--color-inset);
+            border-radius: 4px;
+            border: 1px solid var(--color-elevated);
+        }
+
+        .listing-category-name {
+            color: var(--color-text-muted);
+            font-weight: 500;
+        }
+
+        .listing-category-id {
+            color: var(--color-text-dim);
+            font-size: 10px;
+            margin-left: 4px;
+        }
+
+        .listing-stats {
+            display: flex;
+            gap: 12px;
+            font-size: 11px;
+            color: var(--color-text-muted);
+            margin-top: 6px;
+            flex-wrap: wrap;
+        }
+
+        .listing-stat {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .listing-stat svg {
+            width: 14px;
+            height: 14px;
+            stroke: var(--color-text-dim);
+        }
+
+        .listing-stat-value {
+            color: var(--color-text);
+            font-weight: 500;
+        }
+
+        .listing-stat-icon-eye {
+            color: var(--color-info);
+        }
+
+        .listing-stat-icon-heart {
+            color: var(--color-danger);
+        }
+
+
+        .listing-actions-bottom {
+            display: flex;
+            gap: 8px;
+        }
+
+        .listing-actions-bottom .listing-btn {
+            flex: 1;
+        }
+
+        .listing-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 600;
+            border: 1px solid var(--color-border);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            background: var(--color-inset);
+            color: var(--color-text);
+        }
+
+        .listing-btn-view {
+            background: var(--color-accent);
+            color: var(--color-accent-text);
+            border-color: var(--color-accent);
+        }
+
+        .listing-btn-view:hover {
+            background: var(--color-accent-hover);
+        }
+
+        .listing-btn-link {
+            background: var(--color-surface);
+            color: var(--color-text);
+            border-color: var(--color-border-hover);
+        }
+
+        .listing-btn-link:hover {
+            border-color: var(--color-accent-2);
+            color: var(--color-text);
+        }
+
+        .listing-btn-link.unlink {
+            background: var(--color-danger-subtle);
+            color: var(--color-danger);
+            border-color: var(--color-danger-border);
+        }
+
+        .listing-btn-link.unlink:hover {
+            background: var(--color-danger-subtle);
+            border-color: var(--color-danger);
+        }
+
+        .listing-btn-link.disabled-link {
+            background: var(--color-inset);
+            color: var(--color-text-dim);
+            cursor: not-allowed;
+            opacity: 0.7;
+            pointer-events: none;
+            border-color: var(--color-border);
+        }
+
+        .listing-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .listing-btn:disabled:hover {
+            background: inherit;
+        }
+
+        .load-more-btn {
+            margin: 32px auto;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+
+        .empty-state {
+            padding: 40px;
+        }
+
+        .empty-state a {
+            display: inline;
+            padding: 0;
+            background: none;
+            color: var(--color-info);
+            font-weight: 500;
+        }
+
+        .empty-state a:hover {
+            color: var(--color-accent);
+            text-decoration: underline;
+            transform: none;
+        }
+
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(180deg, var(--overlay-surface) 0%, var(--color-surface) 100%);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid var(--color-elevated);
+            padding: 16px 24px;
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        /* Compact footer buttons — scope to .footer to avoid overriding shared .btn globally */
+        .footer .btn {
+            padding: 10px 32px;
+        }
+
+        .footer .btn-secondary {
+            min-width: 180px;
+        }
+
+
+        @media (max-width: 768px) {
+            .main {
+                padding: 16px 16px 16px;
+            }
+
+            .page-header-card {
+                padding: 20px 16px;
+            }
+
+            .page-header-card h1 {
+                font-size: 22px;
+            }
+
+            .listings-container {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 12px;
+            }
+
+            .listing-image {
+                height: 150px;
+            }
+
+            .summary-stats {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .footer {
+                padding: 12px 16px;
+                flex-direction: column;
+            }
+
+            .btn-secondary {
+                width: 100%;
+            }
+        }
+
+        /* JS-generated inventory item hover */
+        .inventory-item-row {
+            padding: 12px;
+            border-bottom: 1px solid var(--color-elevated);
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .inventory-item-row:hover {
+            background: var(--color-accent-subtle);
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <main id="main-content" class="main">
+        <!-- Page Header -->
+        <div class="page-header-card">
+            <div style="position: relative;">
+                <h1>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="9" cy="21" r="1"></circle>
+                        <circle cx="20" cy="21" r="1"></circle>
+                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                    </svg>
+                    eBay Listings Summary
+                </h1>
+                <!-- Close button for linking mode (will be shown via JS) -->
+                <button id="closePopupBtn" onclick="closeEbayLinkingPopup()" style="display: none; position: absolute; top: -8px; right: -8px; background: var(--color-danger); color: var(--color-text); border: none; border-radius: 50%; width: 36px; height: 36px; font-size: 20px; cursor: pointer; font-weight: bold; line-height: 1; box-shadow: var(--shadow-sm);" title="Close (ESC)">
+                    ×
+                </button>
+            </div>
+            <p>View your active and scheduled eBay listings</p>
+            <button onclick="refreshFromEbay(event)" style="padding: 8px 16px; background: var(--color-info); color: var(--color-text); border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; margin-top: 12px;">
+                🔄 Refresh from eBay
+            </button>
+            <p style="font-size: 11px; color: var(--color-text-dim); margin-top: 8px;">
+                💡 Listings are cached for 1 hour. Click refresh to fetch latest data. Drafts are only in <a href="https://www.ebay.com/sh/lst/drafts" target="_blank" rel="noopener" style="color: var(--color-info);">eBay Seller Hub</a>.
+            </p>
+        </div>
+
+        <!-- Error Message -->
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+        <!-- Summary Stats -->
+        <div id="summaryStats" class="summary-stats" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-label">Active Listings</div>
+                <div class="stat-value" id="activeListings">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Scheduled</div>
+                <div class="stat-value" id="pendingListings">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Inventory Value</div>
+                <div class="stat-value" id="totalValue">$0.00</div>
+            </div>
+        </div>
+
+        <!-- Drafts Banner -->
+        <div id="draftsBanner" class="drafts-banner" style="display: none;">
+            <span>📝</span>
+            <span>
+                <strong id="draftsCountLabel">Drafts</strong> are only available in eBay Seller Hub —
+                <a href="https://www.ebay.com/sh/lst/drafts" target="_blank" rel="noopener">View your drafts on eBay ↗</a>
+            </span>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div id="filterTabs" class="filter-tabs" style="display: none;">
+            <button class="filter-tab active" data-filter="all" onclick="filterListings('all')">
+                All <span class="tab-count" id="tabCountAll">0</span>
+            </button>
+            <button class="filter-tab" data-filter="active" onclick="filterListings('active')">
+                Active <span class="tab-count" id="tabCountActive">0</span>
+            </button>
+            <button class="filter-tab" data-filter="pending" onclick="filterListings('pending')">
+                Scheduled <span class="tab-count" id="tabCountPending">0</span>
+            </button>
+        </div>
+        <div id="listingFilterSummary" class="filter-state-summary" style="display: none;"></div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="loading">
+            <div class="loading-spinner"></div>
+            <p>Fetching your eBay listings...</p>
+        </div>
+
+        <!-- Listings Grid -->
+        <div id="listingsContainer" class="listings-container" style="display: none;"></div>
+
+        <!-- Pagination Controls -->
+        <div id="paginationContainer" style="display: none; text-align: center; margin-top: 32px; margin-bottom: 120px;">
+            <button id="loadMoreBtn" type="button" class="load-more-btn" onclick="loadNextPage()">
+                Load Next <span id="pageSize">24</span> Listings
+            </button>
+            <p id="paginationInfo" style="color: var(--color-text-muted); font-size: 12px; margin-top: 12px;"></p>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <div class="empty-state-icon">📦</div>
+            <p><strong>No Published Listings Found</strong></p>
+            <p style="font-size: 13px; margin-top: 16px; color: var(--color-text); line-height: 1.6;">
+                Your eBay account doesn't have any active or scheduled listings.
+            </p>
+            <p style="font-size: 13px; margin-top: 12px; color: var(--color-text); line-height: 1.6;">
+                <strong>Looking for drafts?</strong> eBay drafts are only accessible through Seller Hub.<br>
+                <a href="https://www.ebay.com/sh/lst/drafts" target="_blank" rel="noopener" style="color: var(--color-info); font-weight: 500;">View your drafts on eBay ↗</a>
+            </p>
+            <p style="font-size: 11px; color: var(--color-text-dim); margin-top: 16px;">
+                This page shows active and scheduled listings from your eBay account via the API.
+                Drafts are stored only in eBay Seller Hub and cannot be retrieved programmatically.
+            </p>
+            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top: 16px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.location.href='/add'">Add a comic</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.location.reload()">Refresh</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <button type="button" class="btn btn-secondary" onclick="window.location.href='/account'">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Back to Account
+        </button>
+        <a href="/" class="btn btn-secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+            Back to Home
+        </a>
+    </footer>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmationModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--overlay-medium); z-index: 300; overflow-y: auto;">
+        <div style="background: var(--color-surface); border: 1px solid var(--color-elevated); border-radius: 12px; max-width: 700px; margin: 40px auto; padding: 32px; color: var(--color-text);">
+            <h2 style="margin: 0 0 28px 0; color: var(--color-accent);">Confirm Link</h2>
+            <div id="confirmationMessage" style="color: var(--color-text); margin-bottom: 32px; line-height: 1.8;"></div>
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button onclick="cancelLinkConfirmation()" style="padding: 10px 24px; background: transparent; border: 1px solid var(--color-border-hover); color: var(--color-accent); border-radius: 6px; cursor: pointer; font-weight: 600;">Cancel</button>
+                <button onclick="confirmLink()" style="padding: 10px 24px; background: var(--color-accent); color: var(--color-bg); border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Link Items</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Link Modal -->
+    <div id="linkModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--overlay-medium); z-index: 200; overflow-y: auto;">
+        <div style="background: var(--color-surface); border: 1px solid var(--color-elevated); border-radius: 12px; max-width: 900px; margin: 40px auto; padding: 24px; color: var(--color-text);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2 style="margin: 0; color: var(--color-accent);">Link eBay Item to Inventory</h2>
+                <button onclick="closeLinkModal()" style="background: none; border: none; color: var(--color-text-muted); font-size: 24px; cursor: pointer;">&times;</button>
+            </div>
+
+            <p style="color: var(--color-text-muted); margin-bottom: 16px;">
+                eBay Item: <strong id="linkModalEbayTitle" style="color: var(--color-accent);"></strong>
+            </p>
+
+            <div style="margin-bottom: 24px;">
+                <input type="text" id="linkSearchInput" placeholder="Search your inventory..." style="width: 100%; padding: 12px; background: var(--color-elevated); border: 1px solid var(--color-border-hover); border-radius: 8px; color: var(--color-text); font-size: 14px;">
+            </div>
+
+            <div id="linkComicsList" style="max-height: 400px; overflow-y: auto; border: 1px solid var(--color-elevated); border-radius: 8px; margin-bottom: 24px;">
+                <p style="padding: 16px; color: var(--color-text-muted); text-align: center;">Loading your inventory...</p>
+            </div>
+
+            <div style="display: flex; gap: 12px; justify-content: flex-start; align-items: center;">
+                <button id="linkModalLoadPrevBtn" onclick="loadLinkModalPrevPage()" style="padding: 10px 24px; background: transparent; border: 1px solid var(--color-accent); color: var(--color-accent); border-radius: 6px; cursor: pointer; font-weight: 600;">← Previous Items</button>
+                <button id="linkModalLoadMoreBtn" onclick="loadLinkModalNextPage()" style="padding: 10px 24px; background: var(--color-accent); color: var(--color-bg); border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Load Next Items</button>
+                <div style="flex: 1;"></div>
+                <button onclick="createNewItemFromEbay(event)" style="padding: 10px 24px; background: var(--color-info); color: var(--color-text); border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">+ Create New Item</button>
+                <button onclick="closeLinkModal()" style="padding: 10px 24px; background: transparent; border: 1px solid var(--color-border-hover); color: var(--color-accent); border-radius: 6px; cursor: pointer; font-weight: 600;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Helper: route S3 URLs through the server proxy (bucket blocks public access)
+        function getProxiedUrl(url) {
+            if (!url) return '';
+            if (url.includes('s3.amazonaws.com')) {
+                return '/api/proxy-image?url=' + encodeURIComponent(url);
+            }
+            return url;
+        }
+
+        // Pagination state
+        let currentPage = 1;
+        let itemsPerPage = 24;  // Will be updated from API response
+        let allFetchedListings = [];  // Store ALL listings fetched from API
+        let totalListingsCount = 0;  // Total count from API
+        let activeListingsCount = 0;
+        let pendingListingsCount = 0;
+        let currentFilter = 'all';  // 'all', 'active', or 'pending'
+        let currentPageStartIndex = 0;
+        let currentPageEndIndex = 0;
+
+        // Get CSRF token from global variable set in base.html
+        let csrfToken = window.csrfToken || '';
+
+        // Linking mode detection - when coming from comic page to link to eBay listing
+        const urlParams = new URLSearchParams(window.location.search);
+        const isLinkingMode = urlParams.get('mode') === 'link';
+        const linkingComicSKU = sessionStorage.getItem('linkingComicSKU');
+
+        console.log('eBay Listings Page - Linking Mode:', isLinkingMode, 'Comic SKU:', linkingComicSKU);
+
+        // Fetch eBay listings when page loads
+        document.addEventListener('DOMContentLoaded', async function() {
+            // If in linking mode, show different UI
+            if (isLinkingMode && linkingComicSKU) {
+                document.querySelector('.page-header-card h1').textContent = '🔗 Select eBay Listing to Link';
+                document.querySelector('.page-header-card p').textContent = `Linking to: ${linkingComicSKU}`;
+
+                // Show close button
+                const closeBtn = document.getElementById('closePopupBtn');
+                if (closeBtn) {
+                    closeBtn.style.display = 'block';
+                }
+
+                // Add ESC key handler to close popup window
+                document.addEventListener('keydown', function(event) {
+                    if (event.key === 'Escape') {
+                        // Check if there's an open modal first
+                        const modal = document.getElementById('ebay-link-confirm-modal');
+                        if (modal) {
+                            // If modal is open, close the modal instead
+                            cancelLinkComic();
+                        } else {
+                            // No modal, close the popup
+                            closeEbayLinkingPopup();
+                        }
+                    }
+                });
+            }
+            await fetchAllEbayListings();
+        });
+
+        // Close the eBay linking popup window
+        function closeEbayLinkingPopup() {
+            // Clear the linking mode from sessionStorage
+            sessionStorage.removeItem('linkingComicSKU');
+
+            // If this is a popup window, close it
+            if (window.opener && !window.opener.closed) {
+                window.close();
+            } else {
+                // If not a popup, redirect back to the referring page or home
+                const sku = linkingComicSKU;
+                if (sku) {
+                    window.location.href = `/add?sku=${encodeURIComponent(sku)}&view=true`;
+                } else {
+                    window.location.href = '/browse';
+                }
+            }
+        }
+
+        async function fetchAllEbayListings() {
+            try {
+                const loadingStateEl = document.getElementById('loadingState');
+                if (loadingStateEl) {
+                    loadingStateEl.style.display = 'block';
+                }
+
+                // First, fetch from page 1 to get per_page setting and total count
+                const firstPageUrl = `/api/ebay/listings?page=1`;
+
+
+                const response = await fetch(firstPageUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                let data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to fetch eBay listings');
+                }
+
+                // Get settings from first page
+                itemsPerPage = data.per_page || 24;
+                totalListingsCount = data.total_count || 0;
+                activeListingsCount = data.active_count || 0;
+                pendingListingsCount = data.pending_count || 0;
+
+                // Start collecting all listings
+                allFetchedListings = data.listings || [];
+
+                // Now fetch all remaining pages if there are more
+                let pageNum = 2;
+                while (data.has_more) {
+                    const pageUrl = `/api/ebay/listings?page=${pageNum}&per_page=${itemsPerPage}`;
+
+                    const pageResponse = await fetch(pageUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrfToken
+                        }
+                    });
+
+                    if (!pageResponse.ok) {
+                        throw new Error(`HTTP ${pageResponse.status} on page ${pageNum}`);
+                    }
+
+                    data = await pageResponse.json();
+
+                    if (data.success && data.listings) {
+                        allFetchedListings = allFetchedListings.concat(data.listings);
+                    }
+
+                    // Check if there are more pages
+                    data.has_more = data.has_more || false;
+                    pageNum++;
+                }
+
+
+                // Hide loading state
+                if (loadingStateEl) {
+                    loadingStateEl.style.display = 'none';
+                }
+
+                // Now that we have all listings, display first page
+                displayPage(1);
+
+            } catch (error) {
+                console.error('Error fetching eBay listings:', error);
+                const loadingStateEl = document.getElementById('loadingState');
+                if (loadingStateEl) {
+                    loadingStateEl.style.display = 'none';
+                }
+                const errorEl = document.getElementById('errorMessage');
+                if (errorEl) {
+                    errorEl.textContent = 'An error occurred while fetching listings: ' + error.message;
+                    errorEl.style.display = 'block';
+                }
+            }
+        }
+
+        async function refreshFromEbay(event) {
+            try {
+                const btn = event.target;
+                btn.disabled = true;
+                btn.textContent = '🔄 Refreshing...';
+
+                // Clear the cache by calling the clear endpoint
+                const response = await fetch('/api/ebay/listings/clear-cache', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken
+                    }
+                });
+
+                if (response.ok) {
+                    // Reload the page to fetch fresh data
+                    window.location.reload();
+                } else {
+                    throw new Error('Failed to clear cache');
+                }
+            } catch (error) {
+                console.error('Error refreshing from eBay:', error);
+                window.showNotification('Failed to refresh listings. Please try again.', 'error');
+                const btn = event.target;
+                btn.disabled = false;
+                btn.textContent = '🔄 Refresh from eBay';
+            }
+        }
+
+        function getFilteredListings() {
+            if (currentFilter === 'all') return allFetchedListings;
+            if (currentFilter === 'active') return allFetchedListings.filter(l => l.ListingStatus === 'Active');
+            if (currentFilter === 'pending') return allFetchedListings.filter(l => l.ListingStatus === 'Pending');
+            return allFetchedListings;
+        }
+
+        function filterListings(filter) {
+            currentFilter = filter;
+
+            // Update tab styles
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.filter === filter);
+            });
+
+            // Reset to page 1 and re-render
+            displayPage(1);
+        }
+
+        function updateListingFilterSummary(count) {
+            const summaryEl = document.getElementById('listingFilterSummary');
+            if (!summaryEl) return;
+
+            const label = currentFilter === 'all'
+                ? 'All listings'
+                : currentFilter === 'active'
+                    ? 'Active listings'
+                    : 'Scheduled listings';
+            summaryEl.innerHTML = `<strong>${label}:</strong> ${count}`;
+            summaryEl.style.display = 'block';
+        }
+
+        function displayPage(pageNum) {
+            currentPage = pageNum;
+
+            // Check for empty state
+            if (allFetchedListings.length === 0) {
+                const emptyEl = document.getElementById('emptyState');
+                if (emptyEl) {
+                    emptyEl.style.display = 'block';
+                }
+                return;
+            }
+
+            const filteredListings = getFilteredListings();
+            updateListingFilterSummary(filteredListings.length);
+
+            // Calculate which items to show on this page
+            currentPageStartIndex = (pageNum - 1) * itemsPerPage;
+            currentPageEndIndex = Math.min(currentPageStartIndex + itemsPerPage, filteredListings.length);
+            const pageListings = filteredListings.slice(currentPageStartIndex, currentPageEndIndex);
+
+
+            // Calculate total value from ALL fetched listings (not just current filter)
+            let totalValue = 0;
+            for (const item of allFetchedListings) {
+                totalValue += parseFloat(item.CurrentPrice) || 0;
+            }
+
+            // Update stats
+            const activeListingsEl = document.getElementById('activeListings');
+            const pendingListingsEl = document.getElementById('pendingListings');
+            const totalValueEl = document.getElementById('totalValue');
+            const summaryStatsEl = document.getElementById('summaryStats');
+
+            if (activeListingsEl) activeListingsEl.textContent = activeListingsCount;
+            if (pendingListingsEl) pendingListingsEl.textContent = pendingListingsCount;
+            if (totalValueEl) totalValueEl.textContent = '$' + totalValue.toFixed(2);
+            if (summaryStatsEl) summaryStatsEl.style.display = 'grid';
+
+            // Update filter tab counts
+            const tabCountAll = document.getElementById('tabCountAll');
+            const tabCountActive = document.getElementById('tabCountActive');
+            const tabCountPending = document.getElementById('tabCountPending');
+            if (tabCountAll) tabCountAll.textContent = totalListingsCount;
+            if (tabCountActive) tabCountActive.textContent = activeListingsCount;
+            if (tabCountPending) tabCountPending.textContent = pendingListingsCount;
+
+            // Show filter tabs when there's more than one type
+            const hasMultipleTypes = (pendingListingsCount > 0 && activeListingsCount > 0);
+            const filterTabsEl = document.getElementById('filterTabs');
+            if (filterTabsEl) {
+                filterTabsEl.style.display = hasMultipleTypes ? 'flex' : 'none';
+            }
+
+            // Show drafts banner always (to help users find their drafts)
+            const draftsBanner = document.getElementById('draftsBanner');
+            if (draftsBanner) {
+                draftsBanner.style.display = 'flex';
+            }
+
+            // Render current page listings (append to existing items, not replace)
+            const container = document.getElementById('listingsContainer');
+            if (container) {
+                // Only clear container on first page, append on subsequent pages
+                if (pageNum === 1) {
+                    container.innerHTML = pageListings.map(item => createListingCard(item)).join('');
+                } else {
+                    // Append new items to existing ones
+                    const newCards = pageListings.map(item => createListingCard(item)).join('');
+                    container.innerHTML += newCards;
+                }
+                container.style.display = 'grid';
+            }
+
+            // Update pagination controls
+            const paginationContainer = document.getElementById('paginationContainer');
+            const paginationInfoEl = document.getElementById('paginationInfo');
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            const pageSizeEl = document.getElementById('pageSize');
+
+            if (pageSizeEl) pageSizeEl.textContent = itemsPerPage;
+
+            const hasMorePages = currentPageEndIndex < filteredListings.length;
+
+            if (paginationContainer) {
+                if (hasMorePages) {
+                    paginationContainer.style.display = 'block';
+                    if (paginationInfoEl) {
+                        const filterLabel = currentFilter === 'all' ? 'total' : currentFilter;
+                        paginationInfoEl.textContent = `Showing ${currentPageStartIndex + 1}-${currentPageEndIndex} of ${filteredListings.length} ${filterLabel} listings`;
+                    }
+                    if (loadMoreBtn) {
+                        loadMoreBtn.disabled = false;
+                        loadMoreBtn.textContent = `Load Next ${itemsPerPage} Listings`;
+                    }
+                } else {
+                    paginationContainer.style.display = 'none';
+                }
+            }
+        }
+
+        function loadNextPage() {
+            const nextPage = currentPage + 1;
+            const filteredListings = getFilteredListings();
+            const hasMorePages = currentPageEndIndex < filteredListings.length;
+
+            if (!hasMorePages) {
+                return;
+            }
+
+            // Display next page
+            displayPage(nextPage);
+
+            // Scroll to pagination button to show new items have been loaded
+            setTimeout(() => {
+                const paginationContainer = document.getElementById('paginationContainer');
+                if (paginationContainer) {
+                    paginationContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
+        }
+
+
+        function createListingCard(item) {
+            const itemId = item.ItemID || item.itemId || '';
+            const title = item.Title || 'Untitled Listing';
+            const price = parseFloat(item.CurrentPrice) || 0;
+            const imageUrl = item.image_url || '';
+            const quantitySold = parseInt(item.QuantitySold) || 0;
+            const status = item.ListingStatus || 'Unknown';
+            const linkedSku = item.linked_sku || '';  // Check if linked to inventory
+
+            // Stats available from GetMyeBaySelling API
+            const watchCount = parseInt(item.WatchCount) || 0;
+
+            // Note: View counts and category info are not available via GetMyeBaySelling API
+            // They would require individual GetItem calls which would be too slow for listing all items
+
+            // Only show eBay link if item ID is valid
+            const ebayUrl = itemId ? `https://www.ebay.com/itm/${itemId}` : '#';
+
+            // In linking mode, clicking the card links the comic to this eBay listing
+            // Otherwise, clicking opens the normal link modal
+            let cardOnclick = '';
+            let buttonOnclick = '';
+            let buttonText = '';
+            let unlinkClass = '';  // CSS class for unlink button styling
+
+            if (isLinkingMode && linkingComicSKU) {
+                // In linking mode: clicking card links the comic to this eBay listing
+                // Check if this eBay item is already linked to ANY inventory item
+                const isAlreadyLinked = !!linkedSku;
+
+                if (isAlreadyLinked) {
+                    // eBay item is already linked - disable the button
+                    cardOnclick = '';  // No click action
+                    buttonText = `Already Linked (${linkedSku})`;
+                    buttonOnclick = 'event.stopPropagation(); return false;';
+                    unlinkClass = ' disabled-link';
+                } else {
+                    // eBay item is not linked - allow linking
+                    cardOnclick = `linkComicToEbayListing('${itemId}', '${title.replace(/'/g, "\\'")}')`;
+                    buttonText = 'Link to This Item';
+                    buttonOnclick = `linkComicToEbayListing('${itemId}', '${title.replace(/'/g, "\\'")}')`;
+                }
+            } else {
+                // Normal mode: clicking shows inventory linking modal
+                const isLinked = !!linkedSku;
+                buttonText = isLinked ? 'Unlink' : 'Link';
+                const itemDataJson = JSON.stringify(item).replace(/"/g, '&quot;');
+                buttonOnclick = isLinked ? `unlinkEbayItem('${itemId}', '${linkedSku}')` : `openLinkModal('${itemDataJson}')`;
+                unlinkClass = isLinked ? ' unlink' : '';  // Add unlink class if item is linked
+            }
+
+            // Determine status styling
+            let statusClass = 'status-active';
+            let statusText = '✓ Active';
+
+            if (status === 'Pending') {
+                statusClass = 'status-pending';
+                statusText = '⏳ Scheduled';
+            } else if (status === 'Not Found' || status === 'Error') {
+                statusClass = 'status-inactive';
+                statusText = '✗ ' + status;
+            } else if (status !== 'Active' && status !== 'ActiveListing') {
+                statusClass = 'status-inactive';
+                statusText = '○ ' + status;
+            }
+
+            // Format scheduled start time for pending listings
+            let scheduledHtml = '';
+            const scheduledStart = item.ScheduledStart || '';
+            if (status === 'Pending' && scheduledStart) {
+                try {
+                    const schedDate = new Date(scheduledStart);
+                    const formatted = schedDate.toLocaleString(undefined, {
+                        month: 'short', day: 'numeric',
+                        hour: 'numeric', minute: '2-digit'
+                    });
+                    scheduledHtml = `<div class="listing-scheduled">📅 Scheduled: ${formatted}</div>`;
+                } catch (e) {
+                    scheduledHtml = `<div class="listing-scheduled">📅 Scheduled</div>`;
+                }
+            }
+
+
+            return `
+                <div class="listing-card">
+                    <div class="listing-image">
+                        ${imageUrl ? `<img src="${imageUrl}" alt="${title}" onerror="this.style.display='none'">` : '<div class="listing-image-placeholder">🖼️</div>'}
+                    </div>
+                    <div class="listing-details">
+                        <div class="listing-title" title="${title}">${title}</div>
+                        <div class="listing-price">$${price.toFixed(2)}</div>
+                        <div class="listing-info-block">
+                            <div class="listing-status ${statusClass}">${statusText}</div>
+                            ${scheduledHtml}
+                            <div class="listing-info">ID: ${itemId || 'N/A'}</div>
+                        </div>
+                        <div class="listing-actions-bottom">
+                            ${itemId ? `<a href="${ebayUrl}" target="_blank" class="listing-btn listing-btn-view">View eBay</a>` : '<button class="listing-btn listing-btn-view" disabled>No ID</button>'}
+                            <button class="listing-btn listing-btn-link${unlinkClass}" onclick="${buttonOnclick}">${buttonText}</button>
+                            ${status === 'Pending' && itemId ? `<button class="listing-btn listing-btn-delete" onclick="deleteEbayDraft('${itemId}')" style="color:var(--color-danger);border-color:var(--color-danger);">Delete</button>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Variables to track current linking operation
+        let currentLinkingEbayId = '';
+        let currentLinkingEbayTitle = '';
+        let currentEbayItem = null;  // Store full eBay item data for creating new items
+
+        async function openLinkModal(itemDataJson) {
+            console.log('openLinkModal called with itemDataJson:', itemDataJson ? itemDataJson.substring(0, 100) + '...' : 'undefined');
+
+            // Parse the item data
+            try {
+                currentEbayItem = JSON.parse(itemDataJson);
+                console.log('Successfully parsed itemData:', currentEbayItem);
+            } catch (e) {
+                console.error('Error parsing item data:', e);
+                console.error('itemDataJson was:', itemDataJson);
+                currentEbayItem = null;
+                alert('Error parsing eBay item data. Please try again.');
+                return;
+            }
+
+            const ebayItemId = currentEbayItem?.ItemID || currentEbayItem?.itemId || '';
+            const ebayTitle = currentEbayItem?.Title || 'Untitled Listing';
+
+            console.log('Setting currentLinkingEbayId to:', ebayItemId);
+            console.log('Setting currentLinkingEbayTitle to:', ebayTitle);
+
+            currentLinkingEbayId = ebayItemId;
+            currentLinkingEbayTitle = ebayTitle;
+
+            const modal = document.getElementById('linkModal');
+            if (modal) {
+                modal.style.display = 'block';
+            }
+
+            // Set the eBay item title
+            const titleEl = document.getElementById('linkModalEbayTitle');
+            if (titleEl) {
+                titleEl.textContent = ebayTitle.substring(0, 100);
+            }
+
+            // Show loading indicator immediately
+            const listEl = document.getElementById('linkComicsList');
+            if (listEl) {
+                listEl.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; padding: 40px; color: var(--color-text-muted);"><div style="display: flex; flex-direction: column; align-items: center; gap: 12px;"><div style="width: 24px; height: 24px; border: 2px solid var(--color-border-hover); border-top: 2px solid var(--color-accent); border-radius: 50%; animation: spin 1s linear infinite;"></div><div>Loading inventory...</div></div></div>';
+            }
+
+            // Reset link modal state
+            linkModalCurrentPage = 1;
+            linkModalComics = [];
+
+            // Fetch the description on-demand (don't wait for it, but do fetch it)
+            if (ebayItemId) {
+                console.log('Fetching description for item', ebayItemId);
+                try {
+                    const descResponse = await fetch(`/api/ebay/item/${ebayItemId}/description`);
+                    if (descResponse.ok) {
+                        const descData = await descResponse.json();
+                        if (descData.success) {
+                            // Update currentEbayItem with the fetched description and condition details
+                            if (descData.description) {
+                                currentEbayItem.Description = descData.description;
+                                console.log('Successfully fetched description, length:', descData.description.length);
+                            }
+                            if (descData.condition_details) {
+                                currentEbayItem.ConditionDetails = descData.condition_details;
+                                console.log('Successfully fetched condition details, length:', descData.condition_details.length);
+                            }
+                            if (descData.photos_details) {
+                                currentEbayItem.PhotosDetails = descData.photos_details;
+                            }
+                            if (descData.shipping_details) {
+                                currentEbayItem.ShippingDetails = descData.shipping_details;
+                            }
+                            if (descData.signoff) {
+                                currentEbayItem.Signoff = descData.signoff;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Could not fetch description:', e);
+                    // Continue anyway - description is optional
+                }
+            }
+
+            // Load inventory items
+            await loadInventoryForLinking();
+        }
+
+        function closeLinkModal() {
+            const modal = document.getElementById('linkModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+            currentLinkingEbayId = '';
+            currentLinkingEbayTitle = '';
+            currentEbayItem = null;
+        }
+
+        // Handle unlinking eBay item from inventory
+        // Track pending unlink action
+        let pendingUnlinkData = { ebayItemId: null, sku: null };
+
+        async function unlinkEbayItem(ebayItemId, sku) {
+            // Store pending unlink data and show confirmation modal
+            pendingUnlinkData.ebayItemId = ebayItemId;
+            pendingUnlinkData.sku = sku;
+
+            // Show custom UX confirmation modal
+            showUnlinkConfirmationModal(sku);
+        }
+
+        function showUnlinkConfirmationModal(sku) {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: var(--overlay-medium);
+                z-index: 1000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow-y: auto;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: var(--color-surface); border: 1px solid var(--color-elevated); border-radius: 12px; max-width: 700px; margin: 40px auto; padding: 32px; color: var(--color-text);">
+                    <h2 style="margin: 0 0 28px 0; color: var(--color-accent);">Confirm Unlink</h2>
+                    <div style="color: var(--color-text); margin-bottom: 32px; line-height: 1.8;">
+                        <div style="margin-bottom: 20px;">
+                            <div style="color: var(--color-text-muted); font-size: 13px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Inventory Item</div>
+                            <div style="color: var(--color-text); word-wrap: break-word;"><strong>${sku}</strong></div>
+                        </div>
+                        <p style="margin: 0; color: var(--color-text);">This will remove the eBay link from this inventory item.</p>
+                    </div>
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button onclick="cancelUnlinkConfirmation()" style="padding: 10px 24px; background: transparent; border: 1px solid var(--color-border-hover); color: var(--color-accent); border-radius: 6px; cursor: pointer; font-weight: 600;">Cancel</button>
+                        <button onclick="confirmUnlink()" style="padding: 10px 24px; background: var(--color-danger); color: var(--color-text); border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Remove Link</button>
+                    </div>
+                </div>
+            `;
+
+            modal.id = 'unlinkConfirmationModal';
+            document.body.appendChild(modal);
+        }
+
+        function cancelUnlinkConfirmation() {
+            const modal = document.getElementById('unlinkConfirmationModal');
+            if (modal) modal.remove();
+            pendingUnlinkData = { ebayItemId: null, sku: null };
+        }
+
+        async function confirmUnlink() {
+            const modal = document.getElementById('unlinkConfirmationModal');
+            if (modal) modal.remove();
+
+            const ebayItemId = pendingUnlinkData.ebayItemId;
+            const sku = pendingUnlinkData.sku;
+
+            if (!ebayItemId || !sku) {
+                showErrorModal('Error: Missing unlink data');
+                return;
+            }
+
+            try {
+                showNotification('Removing eBay link...', 'info');
+
+                const response = await fetch(`/api/comic/${encodeURIComponent(sku)}/ebay/item-id`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': window.csrfToken
+                    },
+                    body: JSON.stringify({
+                        ebay_item_id: '' // Clear the ID
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`✓ eBay link removed from ${sku}`, 'success');
+                    // Reload the page to reflect the changes
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    showNotification(`Error: ${result.error || 'Failed to unlink'}`, 'error');
+                }
+            } catch (error) {
+                console.error('[confirmUnlink] Error:', error);
+                showNotification(`Failed to unlink: ${error.message}`, 'error');
+            }
+            pendingUnlinkData = { ebayItemId: null, sku: null };
+        }
+
+        // Variables for link modal pagination
+        let linkModalComics = [];  // All comics available for linking
+        let linkModalFilteredComics = [];  // Filtered comics from search
+        let linkModalCurrentPage = 1;
+        let linkModalItemsPerPage = 20;  // Will be updated from user preferences
+        let linkModalHasMore = false;
+        let linkModalCurrentSearchTerm = '';  // Track current search term
+
+        async function loadInventoryForLinking() {
+            try {
+                // Get user preferences for items per page
+                const isMobile = window.innerWidth <= 768;
+                const prefKey = isMobile ? 'mobile_per_page' : 'desktop_per_page';
+                const userPrefs = window.userPreferences || {};
+                linkModalItemsPerPage = userPrefs[prefKey] || (isMobile ? 8 : 20);
+
+                // Reset link modal state
+                linkModalCurrentPage = 1;
+                linkModalComics = [];
+                linkModalFilteredComics = [];
+                linkModalCurrentSearchTerm = '';
+
+                // Load the first page
+                await loadInventoryPage(1);
+
+                // Setup search listener
+                setupLinkModalSearch();
+            } catch (error) {
+                console.error('Error loading inventory:', error);
+                const listEl = document.getElementById('linkComicsList');
+                if (listEl) {
+                    listEl.innerHTML = '<p style="padding: 16px; color: var(--color-danger); text-align: center;">Error loading inventory</p>';
+                }
+            }
+        }
+
+        async function loadInventoryPage(page = 1) {
+            try {
+                // Use the optimized endpoint for linking that only returns SKU, Title, and first image
+                const response = await fetch(`/api/comics/for-linking?per_page=50&page=${page}`, {
+                    method: 'GET',
+                    headers: {
+                        'X-CSRF-Token': csrfToken
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.comics) {
+                    // These are already pre-filtered (no eBay IDs, no giveaways) and minimal data
+                    const newComics = data.comics;
+
+                    // Add new comics to the collection
+                    linkModalComics = linkModalComics.concat(newComics);
+
+                    // If we have more pages and still need more items, load next page
+                    if (data.pagination && data.pagination.has_next && linkModalComics.length < 50) {
+                        await loadInventoryPage(page + 1);
+                    }
+
+                    // Initialize filtered list with all loaded comics
+                    linkModalFilteredComics = [...linkModalComics];
+
+                    // Display the first page
+                    displayLinkModalPage(1);
+
+                } else {
+                    const listEl = document.getElementById('linkComicsList');
+                    if (listEl) {
+                        listEl.innerHTML = '<p style="padding: 16px; color: var(--color-danger); text-align: center;">Failed to load inventory</p>';
+                    }
+                }
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        function setupLinkModalSearch() {
+            const searchInput = document.getElementById('linkSearchInput');
+            if (!searchInput) return;
+
+            // Clear any previous listener by cloning the element
+            const newSearchInput = searchInput.cloneNode(true);
+            searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+
+            // Add new listener
+            newSearchInput.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase().trim();
+                linkModalCurrentSearchTerm = searchTerm;
+
+                if (searchTerm === '') {
+                    // No search - show all comics
+                    linkModalFilteredComics = [...linkModalComics];
+                } else {
+                    // Filter across all comics
+                    linkModalFilteredComics = linkModalComics.filter(comic => {
+                        const sku = (comic.SKU || comic.sku || '').toLowerCase();
+                        const title = (comic.Title || comic.title || '').toLowerCase();
+                        return sku.includes(searchTerm) || title.includes(searchTerm);
+                    });
+                }
+
+                // Reset to first page with filtered results
+                linkModalCurrentPage = 1;
+                displayLinkModalPage(1);
+            });
+        }
+
+        function displayLinkModalPage(pageNum) {
+            linkModalCurrentPage = pageNum;
+
+            // Use filtered comics if search is active, otherwise use all comics
+            const comicsToDisplay = linkModalCurrentSearchTerm ? linkModalFilteredComics : linkModalComics;
+
+            // Calculate pagination
+            const startIdx = (pageNum - 1) * linkModalItemsPerPage;
+            const endIdx = startIdx + linkModalItemsPerPage;
+            const pageComics = comicsToDisplay.slice(startIdx, endIdx);
+            linkModalHasMore = endIdx < comicsToDisplay.length;
+
+
+            // Render this page's comics
+            renderLinkModalInventoryList(pageComics);
+
+            // Update pagination buttons
+            const loadPrevBtn = document.getElementById('linkModalLoadPrevBtn');
+            const loadMoreBtn = document.getElementById('linkModalLoadMoreBtn');
+
+            if (loadPrevBtn) {
+                // Always show previous button, but disable if on page 1
+                if (pageNum > 1) {
+                    loadPrevBtn.disabled = false;
+                    loadPrevBtn.style.opacity = '1';
+                    loadPrevBtn.style.cursor = 'pointer';
+                } else {
+                    loadPrevBtn.disabled = true;
+                    loadPrevBtn.style.opacity = '0.5';
+                    loadPrevBtn.style.cursor = 'not-allowed';
+                }
+            }
+
+            if (loadMoreBtn) {
+                // Show and enable next button only if more items exist
+                if (linkModalHasMore) {
+                    loadMoreBtn.disabled = false;
+                    loadMoreBtn.style.opacity = '1';
+                    loadMoreBtn.style.cursor = 'pointer';
+                    loadMoreBtn.textContent = `Load Next ${linkModalItemsPerPage} Items`;
+                } else {
+                    loadMoreBtn.disabled = true;
+                    loadMoreBtn.style.opacity = '0.5';
+                    loadMoreBtn.style.cursor = 'not-allowed';
+                    loadMoreBtn.textContent = `Load Next ${linkModalItemsPerPage} Items`;
+                }
+            }
+        }
+
+        function loadLinkModalNextPage() {
+            if (linkModalHasMore) {
+                displayLinkModalPage(linkModalCurrentPage + 1);
+                // Scroll to top of list
+                const listEl = document.getElementById('linkComicsList');
+                if (listEl) {
+                    listEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+        }
+
+        function loadLinkModalPrevPage() {
+            const btn = document.getElementById('linkModalLoadPrevBtn');
+            if (btn && btn.disabled) return;
+
+            if (linkModalCurrentPage > 1) {
+                displayLinkModalPage(linkModalCurrentPage - 1);
+                // Scroll to top of list
+                const listEl = document.getElementById('linkComicsList');
+                if (listEl) {
+                    listEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+        }
+
+        function loadLinkModalNextPage() {
+            const btn = document.getElementById('linkModalLoadMoreBtn');
+            if (btn && btn.disabled) return;
+
+            if (linkModalHasMore) {
+                displayLinkModalPage(linkModalCurrentPage + 1);
+                // Scroll to top of list
+                const listEl = document.getElementById('linkComicsList');
+                if (listEl) {
+                    listEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+        }
+
+        function renderLinkModalInventoryList(comics) {
+            const listEl = document.getElementById('linkComicsList');
+            if (!listEl) return;
+
+            if (comics.length === 0) {
+                listEl.innerHTML = '<p style="padding: 16px; color: var(--color-text-muted); text-align: center;">No items to display</p>';
+                return;
+            }
+
+            // Helper function to convert image URL to S3 thumbnail URL
+            function getThumbnailUrl(imageUrl) {
+                if (!imageUrl) return null;
+                const lastDot = imageUrl.lastIndexOf('.');
+                if (lastDot === -1) return getProxiedUrl(imageUrl);
+                const thumbUrl = imageUrl.substring(0, lastDot) + '_thumb.webp';
+                return getProxiedUrl(thumbUrl);
+            }
+
+            let html = '';
+
+            comics.forEach(comic => {
+                const sku = comic.SKU || comic.sku || '';
+                const title = comic.Title || comic.title || '';
+
+                // Get first image directly (optimized API only returns Image URL 1)
+                const firstImage = comic['Image URL 1'] || '';
+
+                // Convert to S3 thumbnail URL
+                const thumbnailUrl = firstImage ? getThumbnailUrl(firstImage) : null;
+
+                // Create image element using S3 thumbnail
+                let imageHtml = '';
+                if (thumbnailUrl) {
+                    imageHtml = `<img src="${thumbnailUrl}" alt="${title}" style="width: 100%; height: 100%; object-fit: contain; padding: 4px;" onerror="this.onerror=null; this.src='${getProxiedUrl(firstImage)}'">>`;
+                } else {
+                    // Only show box icon if there's NO image
+                    imageHtml = '<span style="font-size: 24px;">📦</span>';
+                }
+
+                html += `
+                    <div class="inventory-item-row" onclick="linkEbayToInventory('${sku}')">
+                        <div style="width: 60px; height: 60px; background: var(--color-elevated); border-radius: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                            ${imageHtml}
+                        </div>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-weight: 600; color: var(--color-accent); word-break: break-word;">${sku}</div>
+                            <div style="font-size: 13px; color: var(--color-text-muted); margin-top: 4px; white-space: normal; word-break: break-word;">${title}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            listEl.innerHTML = html;
+        }
+
+        // Track pending link operation
+        let pendingLinkData = {
+            sku: null,
+            ebayItemId: null
+        };
+
+        async function linkEbayToInventory(sku) {
+            if (!currentLinkingEbayId || !sku) {
+                console.error('Missing eBay ID or SKU');
+                return;
+            }
+
+            // Store pending data
+            pendingLinkData.sku = sku;
+            pendingLinkData.ebayItemId = currentLinkingEbayId;
+
+            // Show confirmation modal
+            const confirmModal = document.getElementById('confirmationModal');
+            const confirmMessage = document.getElementById('confirmationMessage');
+
+            if (confirmModal && confirmMessage) {
+                // Get the inventory item title for better UX
+                const comicsToSearch = linkModalCurrentSearchTerm ? linkModalFilteredComics : linkModalComics;
+                const selectedComic = comicsToSearch.find(c => (c.SKU || c.sku) === sku);
+                const title = selectedComic ? (selectedComic.Title || selectedComic.title || '') : 'Unknown';
+
+                confirmMessage.innerHTML = `
+                    <div style="margin-bottom: 20px;">
+                        <div style="color: var(--color-text-muted); font-size: 13px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">eBay Item</div>
+                        <div style="color: var(--color-accent); font-weight: 600; word-wrap: break-word;">${currentLinkingEbayTitle}</div>
+                    </div>
+                    <div>
+                        <div style="color: var(--color-text-muted); font-size: 13px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Inventory Item</div>
+                        <div style="color: var(--color-text); word-wrap: break-word;"><strong>${sku}</strong> - ${title}</div>
+                    </div>
+                `;
+
+                confirmModal.style.display = 'block';
+            }
+        }
+
+        // Link comic to eBay listing when in linking mode (coming from comic page)
+        async function linkComicToEbayListing(ebayItemId, ebayTitle) {
+            const comicSKU = linkingComicSKU;
+
+            if (!comicSKU) {
+                showNotification('Error: Comic SKU not found', 'error');
+                return;
+            }
+
+            console.log('Linking comic', comicSKU, 'to eBay item', ebayItemId);
+
+            // Show confirmation modal using system popup UX
+            const modal = document.createElement('div');
+            modal.id = 'ebay-link-confirm-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: var(--overlay-medium);
+                z-index: 1000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: var(--color-surface); border: 1px solid var(--color-elevated); border-radius: 12px; max-width: 500px; padding: 24px; color: var(--color-text);">
+                    <h2 style="margin: 0 0 16px 0; color: var(--color-accent);">Link to eBay</h2>
+                    <p style="color: var(--color-text); margin-bottom: 24px; line-height: 1.6;">This will link this comic to an existing eBay listing.<br><br>SKU: ${comicSKU}<br>Listing: ${ebayTitle}<br><br>Continue?</p>
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button onclick="cancelLinkComic()" style="padding: 10px 24px; background: transparent; border: 1px solid var(--color-border-hover); color: var(--color-accent); border-radius: 6px; cursor: pointer; font-weight: 600;">Cancel</button>
+                        <button onclick="confirmLinkComicToEbay('${comicSKU}', '${ebayItemId}')" style="padding: 10px 24px; background: var(--color-accent); color: var(--color-accent-text); border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Link to eBay</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Add keyboard support
+            document.addEventListener('keydown', handleEbayLinkModalKeydown);
+        }
+
+        function handleEbayLinkModalKeydown(event) {
+            const modal = document.getElementById('ebay-link-confirm-modal');
+            if (!modal) {
+                document.removeEventListener('keydown', handleEbayLinkModalKeydown);
+                return;
+            }
+
+            if (event.key === 'Escape') {
+                cancelLinkComic();
+            }
+        }
+
+        function cancelLinkComic() {
+            // Remove the modal
+            const modal = document.getElementById('ebay-link-confirm-modal');
+            if (modal) {
+                modal.remove();
+            }
+
+            // Remove keyboard listener
+            document.removeEventListener('keydown', handleEbayLinkModalKeydown);
+
+            // Close the popup window instead of navigating
+            closeEbayLinkingPopup();
+        }
+
+        // Execute the link from comic page
+        async function confirmLinkComicToEbay(comicSKU, ebayItemId) {
+            try {
+                const token = window.csrfToken;
+
+                if (!token || token.length === 0) {
+                    alert('Error: CSRF token not available. Please refresh the page and try again.');
+                    return;
+                }
+
+                const response = await fetch(`/api/comic/${encodeURIComponent(comicSKU)}/ebay/item-id`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': token
+                    },
+                    body: JSON.stringify({
+                        item_id: ebayItemId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Remove the modal from DOM
+                    const modal = document.getElementById('ebay-link-confirm-modal');
+                    if (modal) {
+                        modal.remove();
+                    }
+
+                    // Remove keyboard listener
+                    document.removeEventListener('keydown', handleEbayLinkModalKeydown);
+
+                    // Clear the linking mode
+                    sessionStorage.removeItem('linkingComicSKU');
+
+                    // Show success notification
+                    showNotification(`✓ Successfully linked ${comicSKU} to eBay item!`, 'success');
+
+                    // Close the popup window after a delay
+                    setTimeout(() => {
+                        if (window.opener && !window.opener.closed) {
+                            // If this is a popup, close it
+                            window.close();
+                        } else {
+                            // If not a popup, navigate back
+                            window.location.href = `/add?sku=${encodeURIComponent(comicSKU)}&view=true`;
+                        }
+                    }, 1500);
+                } else {
+                    showNotification(`Error: ${data.error || 'Failed to link item'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error linking comic to eBay:', error);
+                showNotification('An error occurred while linking: ' + error.message, 'error');
+            }
+        }
+
+        async function confirmLink() {
+            const sku = pendingLinkData.sku;
+            const ebayItemId = pendingLinkData.ebayItemId;
+
+            if (!sku || !ebayItemId) {
+                console.error('Missing link data');
+                return;
+            }
+
+            try {
+                const token = window.csrfToken;
+
+                if (!token || token.length === 0) {
+                    alert('Error: CSRF token not available. Please refresh the page and try again.');
+                    return;
+                }
+
+
+                const response = await fetch(`/api/comic/${encodeURIComponent(sku)}/ebay/item-id`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': token
+                    },
+                    body: JSON.stringify({
+                        item_id: ebayItemId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    closeLinkConfirmation();
+                    closeLinkModal();
+
+                    // Show success using standard notification system
+                    showNotification(`✓ Successfully linked eBay item to ${sku}`, 'success');
+
+                    // Navigate to the comic view page after a delay
+                    setTimeout(() => {
+                        window.location.href = `/add?sku=${encodeURIComponent(sku)}&view=true`;
+                    }, 1500);
+                } else {
+                    showNotification(`Error: ${data.error || 'Failed to link item'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error linking item:', error);
+                showNotification('An error occurred while linking the item: ' + error.message, 'error');
+            }
+        }
+
+        function cancelLinkConfirmation() {
+            const confirmModal = document.getElementById('confirmationModal');
+            if (confirmModal) {
+                confirmModal.style.display = 'none';
+            }
+            pendingLinkData = { sku: null, ebayItemId: null };
+        }
+
+        function closeLinkConfirmation() {
+            const confirmModal = document.getElementById('confirmationModal');
+            if (confirmModal) {
+                confirmModal.style.display = 'none';
+            }
+            pendingLinkData = { sku: null, ebayItemId: null };
+        }
+
+        function showSuccessModal(message) {
+            showStatusModal(message, 'success');
+        }
+
+        function showErrorModal(message) {
+            showStatusModal(message, 'error');
+        }
+
+        function showNotification(message, type) {
+            window.showNotification(message, type || 'info');
+        }
+
+        function showStatusModal(message, type) {
+            window.showNotification(message, type === 'success' ? 'success' : 'error', 5000);
+        }
+
+        function createNewItemFromEbay(event) {
+            // Prevent event propagation to avoid closing the modal
+            if (event) {
+                event.stopPropagation();
+            }
+
+
+            // Check if we have eBay item data
+            if (!currentEbayItem) {
+                console.error('ERROR: currentEbayItem is null or undefined');
+                window.showNotification('eBay item data not found. Please click Link again.', 'error');
+                return;
+            }
+
+            // Prepare the eBay item data to pass to the add item page
+            const ebayData = {
+                title: currentEbayItem.Title || '',
+                price: currentEbayItem.CurrentPrice || 0,
+                description: currentEbayItem.Description || '',
+                condition_details: currentEbayItem.ConditionDetails || '',
+                photos_details: currentEbayItem.PhotosDetails || '',
+                shipping_details: currentEbayItem.ShippingDetails || '',
+                signoff: currentEbayItem.Signoff || '',
+                category: currentEbayItem.PrimaryCategoryName || '',
+                itemId: currentEbayItem.ItemID || currentEbayItem.itemId || '',
+                ebayItemId: currentEbayItem.ItemID || currentEbayItem.itemId || '',
+                imageUrl: currentEbayItem.image_url || '',
+                // Pass source item ID so draft can be deleted after listing
+                sourceEbayDraftId: (currentEbayItem.ListingStatus === 'Pending' || currentEbayItem.ListingStatus === 'Unsold')
+                    ? (currentEbayItem.ItemID || currentEbayItem.itemId || '')
+                    : ''
+            };
+
+            // Store the eBay data in sessionStorage so we can retrieve it on the add item page
+            sessionStorage.setItem('ebayItemData', JSON.stringify(ebayData));
+
+            // Navigate to the add item page
+            window.location.href = '/add';
+        }
+
+        // Relist an unsold item with the app's generated description
+        async function relistFromEbay(sku, oldItemId) {
+            const confirmed = await window.showConfirmDialog({
+                title: 'Relist this item?',
+                message: 'The old listing will be ended and a new one created with your latest description.',
+                confirmText: 'Relist',
+                cancelText: 'Cancel',
+                confirmVariant: 'primary'
+            });
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/comic/${sku}/ebay/relist`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken
+                    },
+                    body: JSON.stringify({ environment: 'production' })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showStatusModal(`Relisted successfully. New Item ID: ${data.item_id}`, 'success');
+                    // Clear cache and reload listings
+                    await fetch('/api/ebay/listings/clear-cache', {
+                        method: 'POST',
+                        headers: { 'X-CSRF-Token': csrfToken }
+                    });
+                    fetchAllEbayListings();
+                } else {
+                    showStatusModal(data.error || 'Failed to relist item', 'error');
+                }
+            } catch (error) {
+                console.error('Relist error:', error);
+                showStatusModal('Failed to relist item. Please try again.', 'error');
+            }
+        }
+
+        // Delete an eBay draft or ended listing
+        async function deleteEbayDraft(itemId) {
+            const confirmed = await window.showConfirmDialog({
+                title: 'Delete this eBay listing?',
+                message: 'This ends the listing on eBay and cannot be undone.',
+                confirmText: 'Delete listing',
+                cancelText: 'Cancel',
+                confirmVariant: 'danger'
+            });
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/ebay/item/${itemId}/end`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken
+                    },
+                    body: JSON.stringify({ environment: 'production' })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showStatusModal('Listing deleted from eBay.', 'success');
+                    // Clear cache and reload listings
+                    await fetch('/api/ebay/listings/clear-cache', {
+                        method: 'POST',
+                        headers: { 'X-CSRF-Token': csrfToken }
+                    });
+                    fetchAllEbayListings();
+                } else {
+                    showStatusModal(data.error || 'Failed to delete listing', 'error');
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                showStatusModal('Failed to delete listing. Please try again.', 'error');
+            }
+        }
+
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('linkModal');
+            const confirmModal = document.getElementById('confirmationModal');
+            if (event.target === modal) {
+                closeLinkModal();
+            }
+            if (event.target === confirmModal) {
+                cancelLinkConfirmation();
+            }
+        }
+
+        // Close modals with ESC key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const confirmModal = document.getElementById('confirmationModal');
+                const linkModal = document.getElementById('linkModal');
+
+                if (confirmModal && confirmModal.style.display === 'block') {
+                    cancelLinkConfirmation();
+                } else if (linkModal && linkModal.style.display === 'block') {
+                    closeLinkModal();
+                }
+            }
+        });
+    </script>
+{% endblock %}

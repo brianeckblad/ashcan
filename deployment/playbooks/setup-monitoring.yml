@@ -1,0 +1,130 @@
+---
+# Setup application monitoring: CloudWatch agent, log rotation, log monitoring cron.
+#
+# The CloudWatch agent is downloaded directly from AWS — it is not in the Ubuntu
+# default apt repository.  This playbook downloads the .deb, installs it, and
+# configures it to ship application logs to CloudWatch Logs.
+#
+# SHARED-SERVER NOTE: Each app writes its own config fragment to
+#   /opt/aws/amazon-cloudwatch-agent/etc/conf.d/{app_name}.json
+# All fragments are loaded by the agent via the --config flag with the conf.d
+# directory.  Do NOT write directly to config.json — that overwrites other apps' config.
+#
+# Usage:
+#   ansible-playbook playbooks/setup-monitoring.yml --vault-password-file ~/.vault_pass
+#
+# Prerequisites:
+#   - The server's IAM role must have the {app_name}-cloudwatch-access policy attached.
+#     Run create-iam-policies.yml first if you have not already.
+
+- name: Setup Application Monitoring
+  hosts: all
+  become: yes
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+
+  tasks:
+    - name: Download CloudWatch agent .deb (amd64)
+      get_url:
+        url: "https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb"
+        dest: /tmp/amazon-cloudwatch-agent.deb
+        mode: '0644'
+        timeout: 60
+
+    - name: Install CloudWatch agent from .deb
+      apt:
+        deb: /tmp/amazon-cloudwatch-agent.deb
+        state: present
+
+    - name: Remove CloudWatch agent installer
+      file:
+        path: /tmp/amazon-cloudwatch-agent.deb
+        state: absent
+
+    - name: Ensure CloudWatch agent conf.d directory exists
+      file:
+        path: /opt/aws/amazon-cloudwatch-agent/etc/conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Create per-app CloudWatch agent config fragment
+      # Writes to conf.d/{app_name}.json — safe on a shared server because
+      # each app gets its own file.  The agent is started with --config pointing
+      # at the conf.d directory so all fragments are merged at startup.
+      template:
+        src: ../templates/cloudwatch-config.json.j2
+        dest: /opt/aws/amazon-cloudwatch-agent/etc/conf.d/{{ app_name }}.json
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart cloudwatch agent
+
+    - name: Start CloudWatch agent with conf.d directory
+      command: >
+        /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl
+        -a fetch-config
+        -m ec2
+        -s
+        -c directory:/opt/aws/amazon-cloudwatch-agent/etc/conf.d
+      changed_when: true
+      notify: restart cloudwatch agent
+
+    - name: Ensure CloudWatch agent service is enabled
+      systemd:
+        name: amazon-cloudwatch-agent
+        enabled: yes
+
+    - name: Deploy log monitoring script
+      template:
+        src: ../templates/log-monitor.sh.j2
+        dest: /usr/local/bin/{{ app_name }}-log-monitor.sh
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Install logrotate configuration
+      template:
+        src: ../templates/logrotate.conf.j2
+        dest: /etc/logrotate.d/{{ app_name }}
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Verify logrotate configuration syntax
+      command: logrotate -d /etc/logrotate.d/{{ app_name }}
+      changed_when: false
+      failed_when: false
+
+    - name: Create log monitoring cron job
+      cron:
+        name: "{{ app_name }} log monitoring"
+        job: "/usr/local/bin/{{ app_name }}-log-monitor.sh"
+        minute: "*/5"
+        user: root
+
+    - name: Display monitoring summary
+      debug:
+        msg:
+          - "╔══════════════════════════════════════════════════════════╗"
+          - "║   Monitoring Setup Complete                              ║"
+          - "╚══════════════════════════════════════════════════════════╝"
+          - ""
+          - "  CloudWatch config:  /opt/aws/amazon-cloudwatch-agent/etc/conf.d/{{ app_name }}.json"
+          - "  Log rotation:       /etc/logrotate.d/{{ app_name }}"
+          - "  Log monitor cron:   every 5 minutes"
+          - ""
+          - "  View agent status: sudo systemctl status amazon-cloudwatch-agent"
+          - "  View logs:         sudo tail -f {{ log_dir }}/app.log"
+          - "  CloudWatch Logs:   AWS Console → CloudWatch → Log groups"
+
+  handlers:
+    - name: restart cloudwatch agent
+      command: >
+        /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl
+        -a fetch-config
+        -m ec2
+        -s
+        -c directory:/opt/aws/amazon-cloudwatch-agent/etc/conf.d

@@ -1,0 +1,352 @@
+---
+# Update deployed application — pull new code, install dependencies, restart.
+# Safe to run on a shared server; only touches this app's files and processes.
+#
+# Usage: ansible-playbook playbooks/update.yml --vault-password-file ~/.vault_pass
+
+- name: Update Listing App
+  hosts: all
+  become: yes
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+
+  tasks:
+    - name: Mark app directory as git safe.directory
+      become_user: "{{ server_admin_user }}"
+      command: git config --global --add safe.directory {{ app_dir }}
+      changed_when: false
+
+    - name: Display current status
+      block:
+        - name: Get current branch
+          become_user: "{{ server_admin_user }}"
+          command: git branch --show-current
+          args:
+            chdir: "{{ app_dir }}"
+          register: current_branch
+
+        - name: Get current commit
+          become_user: "{{ server_admin_user }}"
+          command: git log -1 --oneline
+          args:
+            chdir: "{{ app_dir }}"
+          register: current_commit
+
+        - name: Show current status
+          debug:
+            msg:
+              - "Current branch: {{ current_branch.stdout }}"
+              - "Current commit: {{ current_commit.stdout }}"
+
+    - name: Configure git credential cache (15 min timeout)
+      become_user: "{{ server_admin_user }}"
+      command: git config credential.helper 'cache --timeout=900'
+      args:
+        chdir: "{{ app_dir }}"
+      changed_when: false
+
+    - name: Stash local changes if any
+      become_user: "{{ server_admin_user }}"
+      command: git stash
+      args:
+        chdir: "{{ app_dir }}"
+      register: git_stash
+      changed_when: "'No local changes to save' not in git_stash.stdout"
+
+    - name: Pull latest code from git
+      become_user: "{{ server_admin_user }}"
+      command: git pull --rebase origin {{ git_branch }}
+      args:
+        chdir: "{{ app_dir }}"
+      register: git_pull
+
+    - name: Check if requirements.txt changed
+      become_user: "{{ server_admin_user }}"
+      command: git diff HEAD@{1} HEAD --name-only
+      args:
+        chdir: "{{ app_dir }}"
+      register: changed_files
+      changed_when: false
+      failed_when: false
+
+    - name: Check if root requirements.txt exists
+      stat:
+        path: "{{ app_dir }}/requirements.txt"
+      register: root_requirements
+
+    - name: Update Python dependencies
+      become_user: "{{ server_admin_user }}"
+      pip:
+        requirements: "{{ app_dir }}/requirements.txt"
+        virtualenv: "{{ venv_dir }}"
+        extra_args: "--upgrade"
+      when: root_requirements.stat.exists
+
+    - name: Migrate inventory CSV schema to latest format
+      become_user: "{{ app_runtime_user }}"
+      command: "{{ venv_dir }}/bin/python {{ app_dir }}/app/scripts/util_migrate_csv_schema.py"
+      args:
+        chdir: "{{ app_dir }}"
+      vars:
+        ansible_remote_tmp: /tmp
+      register: csv_migration
+      changed_when: "'[migrated]' in csv_migration.stdout or '[created]' in csv_migration.stdout"
+
+    - name: Ensure log directory exists
+      file:
+        path: "{{ log_dir }}"
+        state: directory
+        owner: "{{ app_runtime_user }}"
+        group: "{{ app_name }}"
+        mode: '2775'
+
+    - name: Check for old log directory
+      stat:
+        path: "{{ app_dir }}/logs"
+      register: old_log_dir
+
+    - name: Migrate logs from old location to standard path
+      shell: |
+        cp -a {{ app_dir }}/logs/* {{ log_dir }}/ 2>/dev/null || true
+        rm -rf {{ app_dir }}/logs
+      when: old_log_dir.stat.exists and old_log_dir.stat.isdir and log_dir != (app_dir + '/logs')
+
+    - name: Verify nginx and supervisor configuration inventory
+      block:
+        - name: Check for nginx site configs
+          find:
+            paths:
+              - /etc/nginx/sites-available
+              - /etc/nginx/sites-enabled
+            patterns: "*"
+            file_type: any
+          register: nginx_configs
+
+        - name: Display nginx configurations found
+          debug:
+            msg: "Found nginx configs: {{ nginx_configs.files | map(attribute='path') | list }}"
+
+        - name: Check for supervisor configs
+          find:
+            paths: /etc/supervisor/conf.d
+            patterns: "*.conf"
+          register: supervisor_configs
+
+        - name: Display supervisor configurations found
+          debug:
+            msg: "Found supervisor configs: {{ supervisor_configs.files | map(attribute='path') | list }}"
+
+        - name: Confirm this app config is present
+          debug:
+            msg: "✓ Config for '{{ app_name }}' is deployed alongside {{ (nginx_configs.files | map(attribute='path') | reject('search', '/default') | list | length) - 1 }} other app(s) on this host."
+
+    - name: Ensure instance directory exists
+      file:
+        path: "{{ app_dir }}/instance"
+        state: directory
+        owner: "{{ app_runtime_user }}"
+        group: "{{ app_name }}"
+        mode: '2775'
+
+    - name: Update app_version with commit count
+      block:
+        - name: Get commit count
+          become_user: "{{ server_admin_user }}"
+          command: git rev-list --count HEAD
+          args:
+            chdir: "{{ app_dir }}"
+          register: commit_count
+          changed_when: false
+
+        - name: Write commit count to app_version file
+          copy:
+            content: "{{ commit_count.stdout }}\n"
+            dest: "{{ app_dir }}/instance/app_version"
+            owner: "{{ app_runtime_user }}"
+            group: "{{ app_name }}"
+            mode: '0664'
+
+        - name: Display updated version
+          debug:
+            msg: "✓ Updated app_version to: {{ commit_count.stdout }}"
+
+    - name: Ensure app scripts directory exists
+      file:
+        path: "{{ app_dir }}/app/scripts"
+        state: directory
+        owner: "{{ app_runtime_user }}"
+        group: "{{ app_name }}"
+        mode: '2775'
+
+    - name: Ensure backup cleanup script is executable
+      file:
+        path: "{{ app_dir }}/app/scripts/cleanup_old_backups.py"
+        owner: "{{ app_runtime_user }}"
+        group: "{{ app_name }}"
+        mode: '0755'
+
+    - name: Remove old backup cleanup cron for app_runtime_user (legacy — nologin user cannot run crons)
+      cron:
+        name: "Cleanup old backups (>{{ backup_retention_days }} days)"
+        user: "{{ app_runtime_user }}"
+        state: absent
+      failed_when: false
+
+    - name: Ensure cron job exists for backup cleanup
+      cron:
+        name: "Cleanup old backups (>{{ backup_retention_days }} days)"
+        minute: "{{ backup_cleanup_minute }}"
+        hour: "{{ backup_cleanup_hour }}"
+        job: "cd {{ app_dir }} && {{ venv_dir }}/bin/python {{ app_dir }}/app/scripts/cleanup_old_backups.py >> {{ log_dir }}/cleanup.log 2>&1"
+        user: root
+        state: present
+
+    # =========================================================================
+    # LOG MONITORING CRON
+    # =========================================================================
+    - name: Deploy log monitoring script
+      template:
+        src: ../templates/log-monitor.sh.j2
+        dest: /usr/local/bin/{{ app_name }}-log-monitor.sh
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Ensure log monitoring cron job exists
+      cron:
+        name: "{{ app_name }} log monitoring"
+        job: "/usr/local/bin/{{ app_name }}-log-monitor.sh"
+        minute: "*/5"
+        user: root
+
+    # =========================================================================
+    # SSL RENEWAL CRON
+    # =========================================================================
+    - name: Ensure SSL renewal cron job exists
+      cron:
+        # Name must match setup.yml exactly so this creates/updates one entry,
+        # not a second duplicate cron.  certbot renew covers ALL certs on the
+        # server — this is shared infrastructure but idempotent.
+        name: "Renew Let's Encrypt certificates for {{ app_name }}"
+        job: "certbot renew --quiet --post-hook 'systemctl reload nginx'"
+        special_time: daily
+        user: root
+
+    - name: Check if SSL certificate exists on server
+      stat:
+        path: "/etc/letsencrypt/live/{{ server_name }}/fullchain.pem"
+      register: ssl_cert_check
+
+    - name: Warn if SSL certificate is missing
+      debug:
+        msg: >
+          ⚠️  SSL certificate not found for {{ server_name }}.
+          SSL is required for production. Run setup.yml to install the certificate,
+          or run setup-ssl.yml separately:
+          ansible-playbook playbooks/setup-ssl.yml --vault-password-file ~/.vault_pass
+      when: not ssl_cert_check.stat.exists
+
+    - name: Update nginx configuration
+      template:
+        src: ../templates/nginx.conf.j2
+        dest: /etc/nginx/sites-available/{{ service_name }}
+        owner: root
+        group: root
+        mode: '0644'
+      vars:
+        has_ssl: "{{ ssl_cert_check.stat.exists }}"
+
+    - name: Update supervisor configuration
+      template:
+        src: ../templates/supervisor.conf.j2
+        dest: /etc/supervisor/conf.d/{{ service_name }}.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Mark deployment maintenance window active
+      copy:
+        content: "{{ ansible_date_time.iso8601 }}\n"
+        dest: "/run/{{ app_name }}-monitor.maintenance"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Test nginx configuration
+      command: nginx -t
+      register: nginx_test
+      changed_when: false
+
+    - name: Restart nginx
+      # Use reload, not restart — reload applies config gracefully without
+      # dropping connections for other apps on the same shared server.
+      service:
+        name: nginx
+        state: reloaded
+      when: nginx_test.rc == 0
+
+    - name: Reload supervisor configuration
+      command: supervisorctl reread
+      register: supervisor_reread
+      changed_when: false
+      failed_when: false
+
+    - name: Update supervisor processes
+      command: supervisorctl update
+      changed_when: false
+      failed_when: false
+
+    - name: Restart application via supervisor
+      supervisorctl:
+        name: "{{ service_name }}"
+        state: restarted
+
+    - name: Wait for application to start
+      wait_for:
+        timeout: 5
+
+    - name: Check application status
+      command: supervisorctl status {{ service_name }}
+      register: app_status
+      changed_when: false
+      failed_when: false
+
+    - name: Clear deployment maintenance window
+      file:
+        path: "/run/{{ app_name }}-monitor.maintenance"
+        state: absent
+
+    - name: Display application status
+      debug:
+        msg: "{{ app_status.stdout_lines }}"
+
+    - name: Get recent logs
+      shell: tail -15 {{ log_dir }}/app.log
+      register: recent_logs
+      changed_when: false
+      failed_when: false
+
+    - name: Display recent logs
+      debug:
+        msg: "{{ recent_logs.stdout_lines }}"
+      when: recent_logs.stdout is defined
+
+    - name: Show new commit info
+      block:
+        - name: Get new commit
+          become_user: "{{ server_admin_user }}"
+          command: git log -1 --oneline
+          args:
+            chdir: "{{ app_dir }}"
+          register: new_commit
+
+        - name: Apply security permissions
+          import_tasks: harden-permissions-tasks.yml
+
+        - name: Display update summary
+          debug:
+            msg:
+              - "✓ Update Complete!"
+              - "New commit: {{ new_commit.stdout }}"
+              - "Application status: {{ app_status.stdout }}"

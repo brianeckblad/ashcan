@@ -1,0 +1,26 @@
+# ============================================================================
+# NGINX RATE LIMIT ZONES — {{ app_name | upper }}
+# ============================================================================
+# Location on server: /etc/nginx/conf.d/{{ app_name }}-rate-limits.conf
+#
+# Written by setup.yml. Loaded inside the nginx http {} block via the
+# standard conf.d include in /etc/nginx/nginx.conf.
+#
+# Kept separate from sites-available/{{ service_name }} so the zones are
+# defined exactly once. Defining limit_req_zone inside a sites-available file
+# causes nginx to declare the zone on every include — duplicate zone errors
+# crash nginx when two apps are on the same server or on a re-deploy.
+#
+# Zone names are prefixed with {{ app_name }}_ so they never collide with
+# zones from other apps hosted on the same nginx instance.
+# ============================================================================
+
+# Login endpoint — tight limit to slow brute-force attempts
+limit_req_zone $binary_remote_addr zone={{ app_name }}_login_limit:10m   rate=20r/m;
+
+# API endpoints — moderate limit
+limit_req_zone $binary_remote_addr zone={{ app_name }}_api_limit:10m     rate=200r/m;
+
+# All other requests — global per-IP limit
+limit_req_zone $binary_remote_addr zone={{ app_name }}_general_limit:10m rate=300r/m;
+

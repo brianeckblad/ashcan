@@ -1,0 +1,96 @@
+# =============================================================================
+# Python
+# =============================================================================
+__pycache__/
+*.py[cod]
+*.pyo
+
+# =============================================================================
+# Virtual environment
+# =================================================f============================
+.venv/
+
+# =============================================================================
+# Environment variables & secrets
+# =============================================================================
+.env
+.flaskenv
+
+# =============================================================================
+# Flask instance data (user-specific, generated at runtime)
+# =============================================================================
+instance/*
+!instance/README.md
+!instance/app_defaults.json
+!instance/app_version
+
+# =============================================================================
+# GitHub — only track copilot instructions
+# =============================================================================
+.github/*
+!.github/copilot-instructions.md
+
+# =============================================================================
+# AI agent local working memory
+# =============================================================================
+.copilot/
+
+# =============================================================================
+# IDE
+# =============================================================================
+.idea/
+.vscode/
+
+# =============================================================================
+# OS
+# =============================================================================
+.DS_Store
+*~
+
+# =============================================================================
+# Logs & temp files
+# =============================================================================
+*.log
+*.tmp
+*.bak
+*.retry
+
+# =============================================================================
+# Ansible runtime
+# =============================================================================
+.ansible/
+ansible_facts/
+
+# =============================================================================
+# Vault & secrets (NEVER COMMIT!)
+# =============================================================================
+# Vault password files — live outside repo at ~/.vault_pass
+**/vault_pass
+**/vault_password
+.vault_pass
+.vault_password
+vault_pass.txt
+
+# =============================================================================
+# Deployment — user configuration files
+# =============================================================================
+# all.yml is an empty stub (all real config lives in vault.yml)
+!deployment/group_vars/all.yml
+
+# vault.yml contains real secrets — NEVER COMMIT (use vault.yml.example as the template)
+!deployment/group_vars/vault.yml
+
+# =============================================================================
+# Deployment — runtime / state files
+# =============================================================================
+# hosts.yml contains real server IP/user — generated from vault by load-vars.sh
+deployment/inventories/hosts.yml
+deployment/instances/*.txt
+!deployment/instances/.gitkeep
+deployment/instance-info.txt
+deployment/secrets-manager-info.txt
+deployment/aws-setup-summary.txt
+deployment/deployment-summary.txt
+deployment/.deployment-config
+deployment/.last-rotation.txt
+deployment/.secret-rotation-info

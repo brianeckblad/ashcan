@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>{% block title %}Listing Tool{% endblock %}</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="/static/favicon/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/favicon/android-chrome-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/static/favicon/android-chrome-512x512.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/favicon/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Design System -->
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/components.css">
+
+    <style>
+        {% block extra_css %}{% endblock %}
+    </style>
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <a href="#main-content" class="skip-to-content">Skip to main content</a>
+
+    <!-- Notification Container -->
+    <div id="notification" class="notification"></div>
+
+    <!-- Global Confirm Dialog -->
+    <div id="globalConfirmDialog" class="confirm-dialog-overlay" onclick="if(event.target===this)window.closeConfirmDialog(false)">
+        <div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="globalConfirmDialogTitle">
+            <h3 id="globalConfirmDialogTitle" class="confirm-dialog-title">Confirm action</h3>
+            <p id="globalConfirmDialogBody" class="confirm-dialog-body"></p>
+            <div class="confirm-dialog-actions">
+                <button type="button" id="globalConfirmCancel" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="button" id="globalConfirmOk" class="btn btn-danger btn-sm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <header class="header" role="banner">
+        <div class="header-content">
+            <a href="/" style="text-decoration: none; display: flex; align-items: center;" aria-label="Listing Tool - Home">
+                <svg width="40" height="53" viewBox="0 0 302 400" xmlns="http://www.w3.org/2000/svg" style="stroke: var(--color-accent); stroke-width: 4; fill: none; stroke-linecap: round; stroke-linejoin: round;">
+                    <path d="M 136 370 L 137 369 L 138 370 L 138 371 L 139 372 L 138 373 L 137 373 L 136 372"/>
+                    <path d="M 83 369 L 84 368 L 85 368 L 86 369 L 86 370 L 85 371"/>
+                    <path d="M 135 368 L 135 370 L 136 371 L 136 372 L 137 373 L 139 373 L 139 371 L 137 369 L 137 368"/>
+                    <path d="M 83 368 L 83 370 L 84 371 L 86 371 L 86 369 L 85 368"/>
+                    <path d="M 126 365 L 127 364 L 130 367 L 130 369 L 129 370 L 126 370 L 124 368 L 126 366"/>
+                    <path d="M 126 364 L 126 365 L 125 366 L 125 367 L 124 368 L 125 369 L 125 370 L 126 371 L 126 372 L 126 371 L 127 370 L 128 371 L 128 372 L 128 371 L 130 369 L 130 367 L 129 366 L 129 365 L 128 364"/>
+                    <path d="M 75 363 L 74 364 L 73 364 L 72 365 L 72 368 L 72 365 L 73 364 L 74 364 L 75 363 L 79 363 L 80 364 L 79 365 L 80 365 L 80 363"/>
+                    <path d="M 114 360 L 116 360 L 117 361 L 117 363 L 119 366 L 119 367 L 117 370 L 117 379 L 115 381 L 111 381 L 110 380 L 110 368 L 109 368 L 108 367 L 109 366 L 112 366 L 112 362"/>
+                    <path d="M 114 360 L 112 362 L 112 365 L 111 366 L 109 366 L 108 367 L 110 369 L 110 380 L 111 381 L 116 381 L 116 380 L 117 379 L 117 370 L 119 368 L 119 365 L 117 363 L 117 361 L 116 360"/>
+                    <path d="M 101 360 L 100 362 L 100 365 L 96 369 L 96 375 L 98 378 L 98 381 L 98 377 L 96 375 L 96 369 L 100 366 L 100 362 L 102 360 L 104 361 L 104 366 L 101 371 L 101 373 L 100 374 L 100 377 L 100 374 L 101 373 L 101 371 L 104 367 L 104 360"/>
+                    <path d="M 250 292 L 251 291 L 253 291 L 256 294 L 256 298 L 254 300 L 250 308 L 234 324 L 222 330 L 217 330 L 215 328 L 215 324 L 218 321 L 220 321 L 227 318 L 236 309 L 237 309 L 244 301 L 244 299 L 249 292"/>
+                    <path d="M 250 291 L 247 294 L 242 303 L 235 310 L 234 310 L 229 316 L 223 320 L 216 322 L 215 324 L 215 328 L 217 330 L 223 330 L 225 328 L 228 328 L 233 324 L 235 324 L 249 310 L 256 298 L 256 293 L 253 291"/>
+                    <path d="M 118 238 L 126 244 L 126 249 L 136 266 L 136 280 L 133 286 L 125 292 L 115 292 L 110 287 L 108 287 L 104 290 L 97 290 L 90 283 L 90 280 L 94 274 L 94 272 L 112 244"/>
+                    <path d="M 118 238 L 113 242 L 99 263 L 90 280 L 91 285 L 96 290 L 104 290 L 109 287 L 114 292 L 125 292 L 130 290 L 134 285 L 134 283 L 136 281 L 136 265 L 126 249 L 126 243 L 119 239"/>
+                    <path d="M 140 183 L 134 187 L 135 189 L 135 194 L 136 195 L 136 201 L 137 202 L 139 202 L 143 199 L 146 198 L 149 193 L 149 187 L 151 185 L 149 187 L 149 193 L 148 195 L 144 199 L 141 200 L 139 202 L 137 202 L 136 201 L 136 195 L 135 194 L 135 189 L 134 187 L 140 183 L 141 184 L 148 184 L 141 184"/>
+                    <path d="M 82 178 L 83 177 L 89 177 L 90 178 L 93 178 L 94 179 L 94 182 L 93 183 L 93 188 L 92 189 L 90 194 L 84 200 L 83 200 L 80 202 L 77 202 L 76 201 L 76 198 L 73 194 L 73 190 L 72 189 L 72 185 L 70 183 L 73 180 L 74 180 L 75 179 L 80 179 L 81 178"/>
+                    <path d="M 83 177 L 80 179 L 75 179 L 74 180 L 71 181 L 71 182 L 70 183 L 72 186 L 72 189 L 73 190 L 73 194 L 74 195 L 74 196 L 76 199 L 76 201 L 77 202 L 80 202 L 81 201 L 86 199 L 90 195 L 90 193 L 92 191 L 92 189 L 93 188 L 93 183 L 94 182 L 94 178 L 90 178 L 89 177"/>
+                    <path d="M 158 174 L 166 173 L 170 175 L 177 182 L 177 189 L 171 200 L 171 203 L 167 211 L 163 216 L 156 222 L 144 226 L 136 226 L 129 219 L 129 213 L 127 210 L 127 197 L 125 193 L 124 183 L 128 177 L 135 175 L 152 175 L 153 174"/>
+                    <path d="M 159 173 L 152 175 L 135 175 L 128 177 L 124 183 L 125 193 L 127 197 L 127 210 L 129 213 L 129 219 L 132 224 L 136 226 L 144 226 L 151 223 L 155 223 L 161 219 L 166 213 L 177 189 L 177 181 L 172 176 L 166 173"/>
+                    <path d="M 85 169 L 86 168 L 109 169 L 116 176 L 116 188 L 114 191 L 114 215 L 110 221 L 102 225 L 90 223 L 77 216 L 70 208 L 64 197 L 64 192 L 60 180 L 69 171 L 74 171 L 78 169"/>
+                    <path d="M 86 168 L 69 171 L 64 174 L 60 180 L 64 192 L 64 197 L 75 215 L 89 223 L 99 225 L 108 223 L 112 220 L 114 216 L 114 191 L 116 189 L 116 175 L 109 169 L 100 168 L 87 169"/>
+                    <path d="M 82 96 L 85 96 L 88 99 L 88 102 L 90 105 L 90 108 L 95 111 L 98 111 L 102 115 L 102 118 L 100 120 L 93 120 L 92 119 L 90 119 L 89 118 L 88 118 L 82 112 L 82 110 L 80 107 L 80 104 L 78 102 L 79 99"/>
+                    <path d="M 81 96 L 80 97 L 78 102 L 80 105 L 80 107 L 82 110 L 82 112 L 83 113 L 83 114 L 87 118 L 89 118 L 90 119 L 92 119 L 93 120 L 100 120 L 102 118 L 102 114 L 100 112 L 99 112 L 98 111 L 95 111 L 90 108 L 90 105 L 88 102 L 88 98 L 86 96"/>
+                    <path d="M 245 90 L 251 89 L 255 93 L 255 96 L 253 98 L 242 100 L 234 105 L 229 112 L 228 119 L 229 124 L 238 133 L 242 135 L 255 136 L 257 138 L 257 143 L 255 145 L 246 145 L 232 140 L 223 131 L 219 122 L 219 114 L 224 103 L 232 95 L 243 90"/>
+                    <path d="M 246 89 L 230 96 L 225 101 L 219 114 L 219 122 L 221 128 L 227 137 L 237 143 L 246 145 L 257 144 L 257 138 L 253 135 L 243 135 L 238 133 L 229 124 L 228 117 L 229 112 L 236 104 L 242 100 L 255 97 L 255 92 L 251 89"/>
+                    <path d="M 58 58 L 61 58 L 65 62 L 75 82 L 80 85 L 83 85 L 88 82 L 94 82 L 106 92 L 106 97 L 105 98 L 99 98 L 92 91 L 90 91 L 85 94 L 78 94 L 72 91 L 64 82 L 64 80 L 62 78 L 62 75 L 54 62"/>
+                    <path d="M 58 58 L 54 62 L 59 70 L 65 84 L 70 90 L 77 94 L 85 94 L 91 91 L 99 98 L 106 98 L 106 91 L 94 82 L 88 82 L 82 85 L 77 83 L 72 77 L 70 70 L 66 65 L 66 63 L 61 58"/>
+                    <path d="M 219 56 L 223 56 L 227 60 L 227 68 L 225 72 L 223 74 L 219 76 L 215 76 L 213 77 L 211 79 L 210 79 L 204 85 L 201 85 L 197 82 L 197 80 L 207 70 L 211 68 L 213 68 L 214 67 L 218 66 L 218 64 L 217 63 L 217 58"/>
+                    <path d="M 219 56 L 217 58 L 217 63 L 218 65 L 216 67 L 211 68 L 205 71 L 198 78 L 197 82 L 198 84 L 200 84 L 201 85 L 204 85 L 206 84 L 209 80 L 210 80 L 215 76 L 219 76 L 225 73 L 225 71 L 227 69 L 227 60 L 226 58 L 223 56"/>
+                    <path d="M 237 36 L 240 36 L 243 39 L 243 44 L 240 46 L 238 46 L 235 48 L 233 48 L 232 49 L 231 49 L 230 50 L 228 50 L 227 51 L 224 51 L 223 52 L 219 52 L 216 54 L 213 53 L 211 51 L 211 48 L 215 44 L 217 44 L 218 43 L 220 43 L 221 42 L 225 42 L 228 40 L 231 40 L 232 39 L 235 38"/>
+                    <path d="M 237 36 L 231 40 L 228 40 L 225 42 L 221 42 L 220 43 L 218 43 L 217 44 L 215 44 L 214 45 L 213 45 L 211 48 L 211 51 L 214 54 L 217 54 L 219 52 L 223 52 L 224 51 L 227 51 L 228 50 L 231 50 L 233 48 L 236 48 L 238 46 L 240 46 L 241 45 L 242 45 L 243 44 L 243 38 L 240 36"/>
+                    <path d="M 151 33 L 157 32 L 161 34 L 168 34 L 171 36 L 174 36 L 178 38 L 180 41 L 184 41 L 187 43 L 187 48 L 185 50 L 180 51 L 173 46 L 163 42 L 149 42 L 145 44 L 141 44 L 134 48 L 131 48 L 122 53 L 117 58 L 112 58 L 109 54 L 114 48 L 126 40 L 148 33"/>
+                    <path d="M 152 32 L 136 36 L 117 45 L 111 50 L 109 54 L 111 58 L 118 58 L 124 52 L 131 48 L 149 42 L 163 42 L 171 45 L 177 50 L 180 51 L 186 50 L 187 49 L 186 42 L 181 41 L 174 36 L 168 34 L 161 34 L 157 32"/>
+                    <path d="M 166 16 L 233 25 L 260 47 L 274 258 L 266 297 L 238 332 L 153 349 L 152 302 L 203 297 L 205 247 L 239 236 L 204 233 L 197 288 L 153 290 L 141 302 L 142 359 L 70 354 L 69 292 L 21 281 L 19 185 L 35 162 L 35 106 L 55 52 L 94 25 L 164 16"/>
+                    <path d="M 167 15 L 94 25 L 56 50 L 37 95 L 35 162 L 19 185 L 21 281 L 69 292 L 70 354 L 103 349 L 142 360 L 141 302 L 153 290 L 197 289 L 195 245 L 206 232 L 239 235 L 206 245 L 201 298 L 152 302 L 153 349 L 236 334 L 262 306 L 274 259 L 260 47 L 236 26 L 174 15"/>
+                    <path d="M 164 6 L 246 20 L 274 58 L 283 260 L 274 302 L 250 334 L 198 357 L 158 358 L 144 383 L 95 389 L 60 366 L 62 299 L 13 290 L 10 182 L 22 165 L 28 92 L 42 55 L 91 16 L 162 8"/>
+                    <path d="M 164 6 L 91 16 L 47 47 L 28 92 L 22 165 L 10 182 L 13 290 L 62 300 L 65 376 L 110 391 L 149 381 L 158 358 L 198 357 L 247 338 L 274 302 L 283 260 L 282 135 L 269 45 L 246 20 L 178 6"/>
+                </svg>
+            </a>
+            <nav style="display: flex; gap: 32px; align-items: center;">
+                <a href="/" class="nav-item {% if active_page == 'home' %}active{% endif %}" aria-label="Home">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                    </svg>
+                    <span class="nav-label">Home</span>
+                </a>
+                <a href="/browse" class="nav-item {% if active_page == 'browse' %}active{% endif %}" aria-label="Browse Comics">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    <span class="nav-label">Browse</span>
+                </a>
+                <a href="/add" class="nav-item {% if active_page == 'add' %}active{% endif %}" aria-label="Add Comic">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="16"></line>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    <span class="nav-label">Add</span>
+                </a>
+                <a href="/price-lookup" class="nav-item {% if active_page == 'prices' %}active{% endif %}" aria-label="eBay Price Lookup">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                    <span class="nav-label">Prices</span>
+                </a>
+                <a href="/admin/analytics" class="nav-item {% if active_page == 'analytics' %}active{% endif %}" aria-label="Analytics & Heatmap" data-analytics="analytics-nav-button">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
+                        <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
+                        <circle cx="12" cy="12" r="1" fill="currentColor"></circle>
+                        <path d="M16 8l-4 4"></path>
+                    </svg>
+                    <span class="nav-label">Analytics</span>
+                </a>
+                <a href="/account" class="nav-item {% if active_page == 'account' %}active{% endif %}" aria-label="Account Settings">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 8v4"></path>
+                        <path d="M12 16h.01"></path>
+                        <circle cx="12" cy="8" r="2"></circle>
+                        <path d="M9 17c.5-.5 1.5-1 3-1s2.5.5 3 1"></path>
+                    </svg>
+                    <span class="nav-label">Account</span>
+                </a>
+                <a href="/logout" class="nav-item logout" aria-label="Logout">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    <span class="nav-label">Logout</span>
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <main id="main-content" role="main">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Export Options Modal -->
+    <div id="exportModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <button class="close-modal" id="closeExportModal">&times;</button>
+            <h3 style="font-size: 24px; font-weight: 600; color: var(--color-text); margin-bottom: 8px;">Export Inventory</h3>
+            <p style="color: var(--color-text-muted); font-size: 15px;">Choose how you want to export your comics</p>
+
+            <div class="export-options">
+                <a href="#" id="fullExportBtn" class="export-option">
+                    <div class="export-option-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                    </div>
+                    <div class="export-option-text">
+                        <h4>Full Download</h4>
+                        <p>Download your entire working inventory as a CSV file</p>
+                    </div>
+                </a>
+
+                <a href="/browse?mode=export" class="export-option">
+                    <div class="export-option-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                            <path d="M9 14l2 2 4-4"></path>
+                        </svg>
+                    </div>
+                    <div class="export-option-text">
+                        <h4>Selective Download</h4>
+                        <p>Pick specific items from your inventory to include in the export</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Options Modal -->
+    <div id="deleteModal" class="modal" style="display: none;">
+        <div class="modal-content" style="border-color: var(--color-danger-subtle);">
+            <button class="close-modal" id="closeDeleteModal">&times;</button>
+            <h3 style="font-size: 24px; font-weight: 600; color: var(--color-danger); margin-bottom: 8px;">Delete Inventory</h3>
+            <p style="color: var(--color-text-muted); font-size: 15px;">Choose how you want to clear your comics</p>
+
+            <div class="export-options">
+                <a href="#" id="fullDeleteBtn" class="export-option" style="border-color: var(--color-danger-subtle);">
+                    <div class="export-option-icon" style="color: var(--color-danger); background: var(--color-danger-subtle);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"></path>
+                        </svg>
+                    </div>
+                    <div class="export-option-text">
+                        <h4 style="color: var(--color-danger);">Full Delete</h4>
+                        <p>Permanently delete your entire working inventory</p>
+                    </div>
+                </a>
+
+                <a href="/browse?mode=delete" class="export-option" style="border-color: var(--color-danger-subtle);">
+                    <div class="export-option-icon" style="color: var(--color-danger); background: var(--color-danger-subtle);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                            <path d="M9 14l2 2 4-4"></path>
+                        </svg>
+                    </div>
+                    <div class="export-option-text">
+                        <h4 style="color: var(--color-danger);">Selective Delete</h4>
+                        <p>Pick specific items from your inventory to remove</p>
+                    </div>
+                </a>
+
+                <a href="javascript:void(0)" onclick="window.handleRestoreFromDelete()" class="export-option" style="border-color: var(--color-success-subtle);">
+                    <div class="export-option-icon" style="color: var(--color-success); background: var(--color-success-subtle);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                            <path d="M21 3v5h-5"></path>
+                            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                            <path d="M3 21v-5h5"></path>
+                        </svg>
+                    </div>
+                    <div class="export-option-text">
+                        <h4 style="color: var(--color-success);">Restore from Delete</h4>
+                        <p>Recover recently deleted comics from backups</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global CSRF token from Flask session
+        window.csrfToken = "{{ csrf_token() }}";
+
+        // Global user preferences (loaded from API)
+        // Start as null so pages know to wait for it
+        window.userPreferences = null;
+
+        // Helper function to check if response indicates session expired
+        // Returns true if response is OK (should continue processing)
+        // Returns false and redirects if session expired
+        window.checkSessionValid = function(response) {
+            if (response.redirected) {
+                window.location.href = '/login';
+                return false;
+            }
+            if (!response.ok && response.status === 401) {
+                window.location.href = '/login';
+                return false;
+            }
+            const contentType = response.headers.get('content-type');
+            if (contentType && !contentType.includes('application/json')) {
+                // Got HTML instead of JSON - likely login page redirect
+                window.location.href = '/login';
+                return false;
+            }
+            return true;
+        };
+
+        // Load user preferences
+        async function loadUserPreferences() {
+            try {
+                const response = await fetch('/api/account/preferences');
+                if (!window.checkSessionValid(response)) return;
+                const data = await response.json();
+                if (data.success && data.preferences) {
+                    window.userPreferences = data.preferences;
+                } else {
+                    // Set defaults if API fails
+                    window.userPreferences = {
+                        timezone: 'local',
+                        mobile_per_page: 8,
+                        desktop_per_page: 24,
+                        default_sort: 'sku_asc',
+                        micro_card_size: 60
+                    };
+                }
+            } catch (error) {
+                console.error('Error loading user preferences:', error);
+                // Set defaults if API fails
+                window.userPreferences = {
+                    timezone: 'local',
+                    mobile_per_page: 8,
+                    desktop_per_page: 24,
+                    default_sort: 'sku_asc',
+                    micro_card_size: 60
+                };
+            }
+        }
+
+        // Format date according to user's timezone preference
+        // Input: ISO 8601 string like "2026-01-11 22:57:57" or "2026-01-11T22:57:57"
+        // Output: "01/11/26 - 22:57" in local or UTC time
+        window.formatDate = function(dateString) {
+            if (!dateString) return '';
+
+            try {
+                // Parse the date string - assume it's UTC from server
+                const date = new Date(dateString.replace(' ', 'T') + 'Z');
+
+                if (isNaN(date.getTime())) {
+                    return dateString; // Return original if parsing fails
+                }
+
+                let displayDate = date;
+
+                // If user prefers UTC, use UTC methods; otherwise use local time
+                if (window.userPreferences.timezone === 'utc') {
+                    // Keep as UTC
+                    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(date.getUTCDate()).padStart(2, '0');
+                    const year = String(date.getUTCFullYear()).slice(-2);
+                    const hours = String(date.getUTCHours()).padStart(2, '0');
+                    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+
+                    return `${month}/${day}/${year} - ${hours}:${minutes}`;
+                } else {
+                    // Convert to local browser time
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const year = String(date.getFullYear()).slice(-2);
+                    const hours = String(date.getHours()).padStart(2, '0');
+                    const minutes = String(date.getMinutes()).padStart(2, '0');
+
+                    return `${month}/${day}/${year} - ${hours}:${minutes}`;
+                }
+            } catch (error) {
+                console.error('Error formatting date:', error);
+                return dateString;
+            }
+        };
+
+        // Load preferences on page load
+        document.addEventListener('DOMContentLoaded', loadUserPreferences);
+
+        // Universal notification system
+        function showNotification(message, type = 'success', duration = 4000) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = 'notification ' + type;
+
+            // Force reflow to restart animation
+            notification.style.display = 'block';
+            void notification.offsetWidth;
+
+            // Show notification
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
+
+            // Hide notification after duration
+            setTimeout(() => {
+                notification.classList.remove('show');
+                // Ensure it's hidden after transition completes
+                setTimeout(() => {
+                    notification.style.display = 'none';
+                }, 500);
+            }, duration);
+        }
+
+        // Make it available globally
+        window.showNotification = showNotification;
+
+        let confirmDialogResolver = null;
+
+        window.closeConfirmDialog = function(confirmed) {
+            const dialog = document.getElementById('globalConfirmDialog');
+            if (dialog) dialog.classList.remove('show');
+            if (confirmDialogResolver) {
+                confirmDialogResolver(Boolean(confirmed));
+                confirmDialogResolver = null;
+            }
+        };
+
+        window.showConfirmDialog = function(options = {}) {
+            const {
+                title = 'Confirm action',
+                message = 'Are you sure you want to continue?',
+                confirmText = 'Confirm',
+                cancelText = 'Cancel',
+                confirmVariant = 'danger'
+            } = options;
+
+            const dialog = document.getElementById('globalConfirmDialog');
+            const titleEl = document.getElementById('globalConfirmDialogTitle');
+            const bodyEl = document.getElementById('globalConfirmDialogBody');
+            const okBtn = document.getElementById('globalConfirmOk');
+            const cancelBtn = document.getElementById('globalConfirmCancel');
+
+            if (!dialog || !titleEl || !bodyEl || !okBtn || !cancelBtn) {
+                return Promise.resolve(window.confirm(message));
+            }
+
+            titleEl.textContent = title;
+            bodyEl.textContent = message;
+            okBtn.textContent = confirmText;
+            cancelBtn.textContent = cancelText;
+            okBtn.className = confirmVariant === 'primary' ? 'btn btn-primary btn-sm' : 'btn btn-danger btn-sm';
+
+            return new Promise((resolve) => {
+                confirmDialogResolver = resolve;
+                dialog.classList.add('show');
+
+                okBtn.onclick = () => window.closeConfirmDialog(true);
+                cancelBtn.onclick = () => window.closeConfirmDialog(false);
+            });
+        };
+
+        function openExportModal() {
+            const modal = document.getElementById('exportModal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+        window.openExportModal = openExportModal;
+
+        function closeExportModalFunc() {
+            const modal = document.getElementById('exportModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        window.closeExportModal = closeExportModalFunc;
+
+        function openDeleteModal() {
+            const modal = document.getElementById('deleteModal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+        window.openDeleteModal = openDeleteModal;
+
+        function closeDeleteModalFunc() {
+            const modal = document.getElementById('deleteModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        window.closeDeleteModal = closeDeleteModalFunc;
+
+        // Handle "Restore from Delete" action
+        window.handleRestoreFromDelete = function() {
+            window.closeDeleteModal();
+            // Navigate to landing page which has the restore backup modal
+            if (window.location.pathname === '/') {
+                // Already on landing page, call showRestoreBackupModal if it exists
+                if (typeof window.showRestoreBackupModal === 'function') {
+                    window.showRestoreBackupModal();
+                }
+            } else {
+                // Navigate to landing page with a flag to open restore modal
+                window.location.href = '/?restore=true';
+            }
+        };
+
+        // Global function to close any open modal
+        window.closeAllModals = function() {
+            // Base template modals
+            window.closeExportModal();
+            window.closeDeleteModal();
+
+            // Try to call page-specific close functions if they exist
+            if (typeof window.closeRestoreBackupModal === 'function') window.closeRestoreBackupModal();
+            if (typeof window.closeGradingModal === 'function') window.closeGradingModal();
+            if (typeof window.closeImageModal === 'function') window.closeImageModal();
+            if (typeof window.closeAdminModal === 'function') window.closeAdminModal();
+            if (typeof window.closeModal === 'function') window.closeModal(); // price_lookup.html uses closeModal for ebayModal
+
+            // Landing page modals
+            if (typeof window.closeExportTypeModal === 'function') window.closeExportTypeModal();
+            if (typeof window.closeExportBackupModal === 'function') window.closeExportBackupModal();
+            if (typeof window.closeDangerZoneModal === 'function') window.closeDangerZoneModal();
+            if (typeof window.closeCreateSnapshotModal === 'function') window.closeCreateSnapshotModal();
+            if (typeof window.closeSnapshotsModal === 'function') window.closeSnapshotsModal();
+            if (typeof window.closeConfirmDialog === 'function') window.closeConfirmDialog(false);
+        };
+
+        // Global Escape key listener
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' || event.key === 'Esc') {
+                // Mark on the event if the image viewer modal was open so that
+                // page-specific handlers (e.g. index.html) can detect it and skip
+                // their own edit-mode / unsaved-changes logic.
+                const imageModal = document.getElementById('imageModal');
+                if (imageModal && imageModal.classList.contains('show')) {
+                    event._closedImageModal = true;
+                }
+                window.closeAllModals();
+            }
+        });
+
+        // Header Export button handler - show modal
+        document.addEventListener('DOMContentLoaded', function() {
+            const exportModal = document.getElementById('exportModal');
+            const closeExportModal = document.getElementById('closeExportModal');
+            const fullExportBtn = document.getElementById('fullExportBtn');
+
+            const deleteModal = document.getElementById('deleteModal');
+            const closeDeleteModal = document.getElementById('closeDeleteModal');
+            const fullDeleteBtn = document.getElementById('fullDeleteBtn');
+
+            if (exportModal) {
+                // Ensure modal is hidden on load
+                exportModal.style.display = 'none';
+                if (deleteModal) deleteModal.style.display = 'none';
+
+                if (closeExportModal) {
+                    closeExportModal.addEventListener('click', function() {
+                        window.closeExportModal();
+                    });
+                }
+
+                if (closeDeleteModal) {
+                    closeDeleteModal.addEventListener('click', function() {
+                        window.closeDeleteModal();
+                    });
+                }
+
+                window.addEventListener('click', function(e) {
+                    if (e.target === exportModal) {
+                        window.closeExportModal();
+                    }
+                    if (e.target === deleteModal) {
+                        window.closeDeleteModal();
+                    }
+                });
+
+                if (fullDeleteBtn) {
+                    fullDeleteBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        // This will be handled by the specific page or a global handler
+                        // For the landing page, we want to trigger its delete all logic
+                        if (window.triggerFullDelete) {
+                            window.triggerFullDelete();
+                        }
+                    });
+                }
+
+                if (fullExportBtn) {
+                    fullExportBtn.addEventListener('click', async function(e) {
+                        e.preventDefault();
+                        
+                        // Prevent double clicks
+                        if (fullExportBtn.dataset.loading === 'true') return;
+                        
+                        try {
+                            fullExportBtn.dataset.loading = 'true';
+                            const originalContent = fullExportBtn.innerHTML;
+                            fullExportBtn.style.opacity = '0.7';
+                            fullExportBtn.style.cursor = 'wait';
+                            
+                            showNotification('Preparing full download...', 'success');
+                            const response = await fetch('/download');
+
+                            if (!response.ok) {
+                                showNotification('Error: Could not download the file', 'error');
+                                fullExportBtn.dataset.loading = 'false';
+                                fullExportBtn.style.opacity = '1';
+                                fullExportBtn.style.cursor = 'pointer';
+                                return;
+                            }
+
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'comics_export.csv';
+
+                            // Trigger download
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+
+                            // Cleanup
+                            setTimeout(() => {
+                                window.URL.revokeObjectURL(url);
+                            }, 100);
+
+                            // Show success notification
+                            showNotification('✓ CSV export downloaded successfully', 'success');
+                            
+                            // Close modal after success
+                            window.closeExportModal();
+
+                        } catch (error) {
+                            showNotification('Network Error: ' + error.message, 'error');
+                        } finally {
+                            fullExportBtn.dataset.loading = 'false';
+                            fullExportBtn.style.opacity = '1';
+                            fullExportBtn.style.cursor = 'pointer';
+                        }
+                    });
+                }
+            }
+        });
+    </script>
+
+    <!-- Analytics Tracking -->
+    <script>
+        (function() {
+            const analyticsQueue = [];
+            let isTracking = true;
+            const BATCH_SIZE = 10;
+            const SEND_INTERVAL = 5000; // Send every 5 seconds
+
+            function trackEvent(eventType, elementId, x, y) {
+                if (!isTracking) return;
+
+                const event = {
+                    event_type: eventType,
+                    page: window.location.pathname,
+                    element_id: elementId,
+                    x: x,
+                    y: y,
+                    viewport_width: window.innerWidth,
+                    viewport_height: window.innerHeight,
+                    timestamp: new Date().toISOString()
+                };
+
+                analyticsQueue.push(event);
+
+                // Send if batch is full
+                if (analyticsQueue.length >= BATCH_SIZE) {
+                    sendAnalytics();
+                }
+            }
+
+            async function sendAnalytics() {
+                if (analyticsQueue.length === 0) return;
+
+                const eventsToSend = analyticsQueue.splice(0, BATCH_SIZE);
+
+                try {
+                    await fetch('/api/analytics/track', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCsrfToken()
+                        },
+                        body: JSON.stringify({ events: eventsToSend })
+                    });
+                } catch (error) {
+                    // Silently fail - don't disrupt user experience
+                    // No console logging to keep console clean
+                }
+            }
+
+            function getCsrfToken() {
+                const match = document.cookie.match(/csrf_token=([^;]+)/);
+                return match ? match[1] : '';
+            }
+
+            // Track pageview
+            trackEvent('pageview', document.title, null, null);
+
+            // Track clicks with coordinates
+            document.addEventListener('click', (e) => {
+                const target = e.target.closest('[data-analytics]') || e.target;
+                const className = typeof target.className === 'string' ? target.className : '';
+                const elementId = target.dataset.analytics ||
+                                 target.id ||
+                                 target.getAttribute('aria-label') ||
+                                 `${target.tagName.toLowerCase()}${className ? '.' + className.split(' ')[0] : ''}`;
+
+                trackEvent('click', elementId, e.pageX, e.pageY);
+            });
+
+            // Track hovers on interactive elements
+            let hoverTimeout;
+            document.querySelectorAll('button, a, input, select, [data-analytics]').forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    clearTimeout(hoverTimeout);
+                    hoverTimeout = setTimeout(() => {
+                        const elementId = el.dataset.analytics ||
+                                        el.id ||
+                                        el.getAttribute('aria-label') ||
+                                        el.textContent.substring(0, 30);
+                        trackEvent('hover', elementId, null, null);
+                    }, 500); // Only track if hovering for 500ms
+                });
+
+                el.addEventListener('mouseleave', () => {
+                    clearTimeout(hoverTimeout);
+                });
+            });
+
+            // Track scroll depth
+            let lastScrollDepth = 0;
+            window.addEventListener('scroll', () => {
+                const scrollDepth = Math.round(window.scrollY / 100) * 100;
+                if (scrollDepth > lastScrollDepth) {
+                    trackEvent('scroll', `scroll-${scrollDepth}px`, null, scrollDepth);
+                    lastScrollDepth = scrollDepth;
+                }
+            });
+
+            // Send remaining events periodically
+            setInterval(sendAnalytics, SEND_INTERVAL);
+
+            // Send before page unload
+            window.addEventListener('beforeunload', () => {
+                if (analyticsQueue.length > 0) {
+                    // Use Blob to set correct Content-Type for sendBeacon
+                    const blob = new Blob(
+                        [JSON.stringify({ events: analyticsQueue })],
+                        { type: 'application/json' }
+                    );
+                    navigator.sendBeacon('/api/analytics/track', blob);
+                }
+            });
+        })();
+    </script>
+
+    <!-- Global BusyLock: blocks UI and navigation while a long-running op is in flight.
+         Usage:
+             const lock = BusyLock.acquire('Updating 12 items…');
+             lock.setMessage('5 of 12 items');
+             lock.release();
+         While a lock is active:
+           - A full-screen overlay blocks pointer input on the page.
+           - window.beforeunload prompts if the user tries to close/reload.
+           - Nav links (a[data-nav], .nav-link) are disabled.
+    -->
+    <script>
+        (function () {
+            if (window.BusyLock) return;
+
+            let _activeCount = 0;
+            let _overlay = null;
+            let _messageEl = null;
+            let _subEl = null;
+            const _handles = new Set();
+
+            function _ensureOverlay() {
+                if (_overlay) return;
+                _overlay = document.createElement('div');
+                _overlay.id = 'globalBusyOverlay';
+                _overlay.setAttribute('role', 'alertdialog');
+                _overlay.setAttribute('aria-live', 'assertive');
+                _overlay.style.cssText = [
+                    'position:fixed',
+                    'inset:0',
+                    'background:rgba(0,0,0,0.55)',
+                    'z-index:9999',
+                    'display:none',
+                    'align-items:center',
+                    'justify-content:center',
+                    'backdrop-filter:blur(2px)',
+                    '-webkit-backdrop-filter:blur(2px)'
+                ].join(';');
+                _overlay.innerHTML = `
+                    <div style="background:var(--color-elevated);border:1px solid var(--color-border-hover);border-radius:var(--radius-lg);padding:24px 32px;box-shadow:var(--shadow-lg);min-width:280px;max-width:420px;text-align:center;">
+                        <div style="display:flex;align-items:center;gap:14px;justify-content:center;margin-bottom:8px;">
+                            <div class="busy-spinner" style="width:22px;height:22px;border:2px solid var(--color-border-hover);border-top-color:var(--color-accent);border-radius:50%;animation:busyLockSpin 0.8s linear infinite;"></div>
+                            <div id="globalBusyMessage" style="color:var(--color-text);font-weight:600;font-size:15px;">Working…</div>
+                        </div>
+                        <div id="globalBusySubMessage" style="color:var(--color-text-muted);font-size:13px;"></div>
+                        <div style="color:var(--color-text-dim);font-size:11px;margin-top:10px;">Please do not navigate away.</div>
+                    </div>
+                `;
+                // Swallow clicks so nothing behind the overlay is interactable
+                _overlay.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); }, true);
+                _overlay.addEventListener('keydown', function (e) {
+                    // Block Enter/Space/Escape from triggering page handlers
+                    e.stopPropagation();
+                }, true);
+                document.body.appendChild(_overlay);
+                _messageEl = document.getElementById('globalBusyMessage');
+                _subEl = document.getElementById('globalBusySubMessage');
+
+                if (!document.getElementById('busyLockKeyframes')) {
+                    const style = document.createElement('style');
+                    style.id = 'busyLockKeyframes';
+                    style.textContent = '@keyframes busyLockSpin { to { transform: rotate(360deg); } }';
+                    document.head.appendChild(style);
+                }
+            }
+
+            function _beforeUnloadHandler(e) {
+                e.preventDefault();
+                e.returnValue = 'An update is still running. Leave anyway?';
+                return e.returnValue;
+            }
+
+            function _setNavDisabled(disabled) {
+                document.querySelectorAll('a[href], button[data-nav], .nav-link').forEach(el => {
+                    if (disabled) {
+                        if (el.dataset._busyPrevPointer === undefined) {
+                            el.dataset._busyPrevPointer = el.style.pointerEvents || '';
+                            el.dataset._busyPrevOpacity = el.style.opacity || '';
+                        }
+                        el.style.pointerEvents = 'none';
+                        el.style.opacity = '0.5';
+                        el.setAttribute('aria-disabled', 'true');
+                    } else {
+                        if (el.dataset._busyPrevPointer !== undefined) {
+                            el.style.pointerEvents = el.dataset._busyPrevPointer;
+                            el.style.opacity = el.dataset._busyPrevOpacity;
+                            delete el.dataset._busyPrevPointer;
+                            delete el.dataset._busyPrevOpacity;
+                        }
+                        el.removeAttribute('aria-disabled');
+                    }
+                });
+            }
+
+            function acquire(message, subMessage) {
+                _ensureOverlay();
+                _activeCount += 1;
+                if (_activeCount === 1) {
+                    window.addEventListener('beforeunload', _beforeUnloadHandler);
+                    _setNavDisabled(true);
+                    _overlay.style.display = 'flex';
+                }
+                if (message && _messageEl) _messageEl.textContent = message;
+                if (subMessage !== undefined && _subEl) _subEl.textContent = subMessage || '';
+
+                const handle = {
+                    _released: false,
+                    setMessage(msg, sub) {
+                        if (msg && _messageEl) _messageEl.textContent = msg;
+                        if (sub !== undefined && _subEl) _subEl.textContent = sub || '';
+                    },
+                    setSubMessage(sub) {
+                        if (_subEl) _subEl.textContent = sub || '';
+                    },
+                    release() {
+                        if (this._released) return;
+                        this._released = true;
+                        _handles.delete(this);
+                        _activeCount = Math.max(0, _activeCount - 1);
+                        if (_activeCount === 0) {
+                            if (_overlay) _overlay.style.display = 'none';
+                            window.removeEventListener('beforeunload', _beforeUnloadHandler);
+                            _setNavDisabled(false);
+                            if (_messageEl) _messageEl.textContent = 'Working…';
+                            if (_subEl) _subEl.textContent = '';
+                        }
+                    }
+                };
+                _handles.add(handle);
+                return handle;
+            }
+
+            function isBusy() { return _activeCount > 0; }
+
+            window.BusyLock = { acquire, isBusy };
+        })();
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,101 @@
+---
+# Playbook to delete S3 bucket and ALL its contents
+# Counterpart to: create-s3-bucket.yml
+#
+# ⚠️  WARNING: This PERMANENTLY DELETES all data in the bucket
+#
+# Usage: ansible-playbook playbooks/delete-s3-bucket.yml --vault-password-file ~/.vault_pass
+#
+# To recreate: ansible-playbook playbooks/create-s3-bucket.yml --vault-password-file ~/.vault_pass
+
+- name: Delete S3 Bucket
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+
+  vars_prompt:
+    - name: confirm_delete
+      prompt: |
+
+        ⚠️  This will PERMANENTLY DELETE the S3 bucket and ALL its data.
+        Bucket: (will be shown after variable loading)
+
+        Type YES to confirm
+      private: no
+
+  tasks:
+    - name: Skip if not confirmed
+      meta: end_play
+      when: confirm_delete != "YES"
+
+    - name: Show bucket being deleted
+      debug:
+        msg: "Deleting S3 bucket: {{ s3_bucket_name }} in {{ aws_region }}"
+
+    - name: Empty S3 bucket (remove all objects)
+      command: >
+        aws s3 rm s3://{{ s3_bucket_name }} --recursive
+        --region {{ aws_region }}
+      failed_when: false
+
+    - name: Delete all object versions (for versioned buckets)
+      shell: |
+        aws s3api list-object-versions \
+          --bucket {{ s3_bucket_name }} \
+          --query 'Versions[].{Key:Key,VersionId:VersionId}' \
+          --output json \
+          --region {{ aws_region }} | \
+        python3 -c "
+        import json, sys, subprocess
+        versions = json.load(sys.stdin)
+        if versions:
+            for v in versions:
+                subprocess.run([
+                    'aws', 's3api', 'delete-object',
+                    '--bucket', '{{ s3_bucket_name }}',
+                    '--key', v['Key'],
+                    '--version-id', v['VersionId'],
+                    '--region', '{{ aws_region }}'
+                ], check=False)
+        "
+      failed_when: false
+
+    - name: Delete S3 delete markers
+      shell: |
+        aws s3api list-object-versions \
+          --bucket {{ s3_bucket_name }} \
+          --query 'DeleteMarkers[].{Key:Key,VersionId:VersionId}' \
+          --output json \
+          --region {{ aws_region }} | \
+        python3 -c "
+        import json, sys, subprocess
+        markers = json.load(sys.stdin)
+        if markers:
+            for m in markers:
+                subprocess.run([
+                    'aws', 's3api', 'delete-object',
+                    '--bucket', '{{ s3_bucket_name }}',
+                    '--key', m['Key'],
+                    '--version-id', m['VersionId'],
+                    '--region', '{{ aws_region }}'
+                ], check=False)
+        "
+      failed_when: false
+
+    - name: Delete S3 bucket
+      amazon.aws.s3_bucket:
+        name: "{{ s3_bucket_name }}"
+        state: absent
+        force: yes
+        region: "{{ aws_region }}"
+
+    - name: Display result
+      debug:
+        msg:
+          - "✓ S3 bucket deleted: {{ s3_bucket_name }}"
+          - ""
+          - "To recreate:"
+          - "  ansible-playbook playbooks/create-s3-bucket.yml --vault-password-file ~/.vault_pass"
+

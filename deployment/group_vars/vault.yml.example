@@ -1,0 +1,147 @@
+---
+# ============================================================================
+# DEPLOYMENT CONFIGURATION — SINGLE SOURCE OF TRUTH
+# ============================================================================
+# Setup:
+#   1. cp vault.yml.example vault.yml
+#   2. Fill in all required values
+#   3. ansible-vault encrypt vault.yml --vault-password-file ~/.vault_pass
+#
+# See deployment/docs/guides/PREREQUISITES.md for a description of every variable.
+# ============================================================================
+# SHARED SERVER MODEL
+# ============================================================================
+# This deployment targets a server that is already provisioned and shared.
+# Each app manages its own AWS resources (S3, IAM, Secrets Manager) and its
+# own app stack (git, venv, supervisor process, nginx vhost, SSL cert).
+#
+# Multiple apps on one server need UNIQUE values for:
+#   app_name       — drives paths, group names, supervisor name, log dirs
+#   server_name    — domain this app's nginx vhost listens on
+#   gunicorn_port  — unique localhost port (app1=8000, app2=8001, …)
+# ============================================================================
+
+# ============================================================================
+# APPLICATION IDENTITY (REQUIRED)
+# ============================================================================
+app_name: "your_app_name"
+app_display_name: "My Application"
+server_name: "your-domain.example.com"       # Must resolve to server_host IP
+ssl_email: "you@example.com"                 # For Let's Encrypt renewal notices
+service_name: "{{ app_name }}"               # Supervisor process name
+
+# ============================================================================
+# SERVER CONNECTION (REQUIRED)
+# ============================================================================
+# server_host: SSH host/IP of the shared server. Find in EC2 Console → Instances →
+#   your server → Public IPv4 address.
+server_host: "YOUR_SERVER_IP"
+
+# ============================================================================
+# USERS (REQUIRED)
+# ============================================================================
+server_admin_user: "ubuntu"                  # OS user with SSH access; owns files, runs git
+app_deploy_user: "dockyard-deployer"         # AWS IAM user for deployment (S3, Secrets Manager, etc.)
+app_runtime_user: "dockyard_runtime"         # Unprivileged OS user that runs the app (no SSH, no shell)
+
+# ============================================================================
+# GIT (REQUIRED)
+# ============================================================================
+git_branch: "main"
+git_repo_url: "https://github.com/USER/REPO.git"
+git_token: ""                                # GitHub PAT with repo scope (empty = public repo)
+git_repo: "{{ git_repo_url | replace('https://', 'https://' + git_token + '@') if git_token | default('') else git_repo_url }}"
+
+# ============================================================================
+# AWS (REQUIRED)
+# ============================================================================
+aws_region: "us-east-2"
+s3_bucket_name: "yourname-appname-2026"      # Globally unique across all AWS accounts
+s3_folder: "data"
+secret_name: "{{ app_name }}/production"
+sns_topic_arn: ""                            # SNS ARN for alerts (leave empty to disable)
+
+# ============================================================================
+# IAM — SHARED SERVER ROLE (OPTIONAL)
+# ============================================================================
+# IAM instance role attached to the shared server. provision-app.yml attaches
+# the three app-scoped policies to this role automatically.
+# Find it: EC2 Console → Instances → your server → IAM role.
+# Leave empty to attach IAM policies manually after running create-iam-policies.yml.
+server_iam_role_name: ""                     # e.g., "shared-server-ec2-role"
+
+# ============================================================================
+# APPLICATION CREDENTIALS (REQUIRED)
+# ============================================================================
+app_default_username: "admin"
+app_default_password: "change-this-strong-password"   # Min 12 chars, include symbols
+users: "admin:change-this-strong-password"            # Format: user1:pass1,user2:pass2
+
+# ============================================================================
+# FLASK (REQUIRED)
+# ============================================================================
+# Generate: python3 -c "import secrets; print(secrets.token_hex(32))"
+secret_key: "replace-with-64-char-random-hex-string"
+flask_env: "production"
+
+
+# ============================================================================
+# PERFORMANCE
+# ============================================================================
+# gunicorn_port: MUST be unique per app on a shared server.
+# Assign sequentially: 8000, 8001, 8002, …
+gunicorn_port: "8000"
+gunicorn_bind: "127.0.0.1:{{ gunicorn_port }}"
+app_port: "{{ gunicorn_port }}"
+flask_port: "{{ gunicorn_port }}"
+
+# Shared-server tuning: 1 worker + threads is safe alongside other apps.
+# Multiple workers fork separate processes and each load the full app into RAM.
+# 1 worker + 4 threads gives 4 concurrent request slots with one memory footprint.
+# Increase gunicorn_workers only if this is the sole app on a dedicated server.
+gunicorn_workers: 1
+gunicorn_threads: 4
+gunicorn_timeout: 120
+
+# ============================================================================
+# LOG RETENTION
+# ============================================================================
+log_retention_days: 20
+log_max_size: "10M"
+
+# ============================================================================
+# BACKUPS
+# ============================================================================
+backup_cleanup_hour: "3"
+backup_cleanup_minute: "0"
+backup_retention_days: 30
+s3_version_retention_days: 30
+
+# ============================================================================
+# PATHS (derived from app_name — usually no need to change)
+# ============================================================================
+app_dir: "/opt/{{ app_name }}"
+venv_dir: "{{ app_dir }}/.venv"
+logs_root: "/var/log/apps"
+log_dir: "{{ logs_root }}/{{ app_name }}"
+instance_dir: "{{ app_dir }}/instance"
+
+# ============================================================================
+# SSH ACCESS CONTROL
+# ============================================================================
+# admin_ip: Your home/office public IP — used by fail2ban ignoreip so the
+#   admin can never be accidentally banned by the app's rate limiter.
+#   Find it: curl https://checkip.amazonaws.com
+#   Format: "x.x.x.x" (without /32)
+admin_ip: "YOUR_IP_ADDRESS"
+
+
+# ============================================================================
+# eBay API (OPTIONAL — leave all empty if not using eBay)
+# ============================================================================
+ebay_environment: "production"
+ebay_production_dev_id: ""
+ebay_production_cert_id: ""
+ebay_production_app_id: ""
+ebay_production_token: ""
+ebay_verification_token: ""

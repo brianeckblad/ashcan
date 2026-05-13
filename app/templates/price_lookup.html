@@ -1,0 +1,2893 @@
+{% extends "base.html" %}
+
+{% block body_class %}price-lookup-page{% endblock %}
+
+{% block extra_css %}
+        /* Show toggle labels outside buttons on mobile */
+        @media (max-width: 768px) {
+
+            .toggle-label-left,
+            .toggle-label-right {
+                display: block !important;
+                padding: 0 8px;
+                color: var(--color-text) !important;
+                font-size: 13px !important;
+            }
+
+            /* Stack section header elements on mobile */
+            .section-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+
+            .section-header h2 {
+                font-size: 20px;
+                text-align: left;
+            }
+
+            .search-container {
+                flex-direction: column;
+                gap: 12px;
+                width: 100%;
+            }
+
+            .search-box {
+                width: 100%;
+            }
+
+            /* Make action buttons smaller on mobile to fit in one line */
+            .lookup-btn {
+                font-size: 11px !important;
+                padding: 8px 10px !important;
+            }
+
+            /* Ensure buttons container doesn't wrap */
+            td[colspan="3"] > div {
+                gap: 6px !important;
+            }
+
+            /* Hide Actions column header on mobile */
+            .actions-header {
+                display: none;
+            }
+
+            /* Hide desktop actions cell on mobile */
+            .desktop-actions {
+                display: none !important;
+            }
+
+            /* Show mobile actions row */
+            .mobile-actions {
+                display: table-row !important;
+            }
+
+            /* Prevent horizontal scrolling on mobile */
+            .comics-table {
+                width: 100%;
+                table-layout: fixed;
+            }
+
+            .comics-table td {
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+
+            /* On mobile: Title, Price, Cond only - hide Actions column completely */
+            .comics-table th:nth-child(4),
+            .comics-table td:nth-child(4) {
+                display: none !important;
+            }
+
+            /* Adjust column widths for mobile - only 3 columns visible */
+            .comics-table th:nth-child(1),
+            .comics-table td:nth-child(1) {
+                width: 50% !important;
+            }
+
+            .comics-table th:nth-child(2),
+            .comics-table td:nth-child(2) {
+                width: 25% !important;
+            }
+
+            .comics-table th:nth-child(3),
+            .comics-table td:nth-child(3) {
+                width: 25% !important;
+            }
+
+            /* Fix table header border to stretch full width even with hidden columns */
+            .comics-table thead tr {
+                position: relative;
+            }
+
+            .comics-table thead tr::after {
+                content: '';
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 2px;
+                background: var(--color-border-hover);
+                pointer-events: none;
+            }
+
+            /* Hide debug settings text on mobile, show only icon */
+            /* Footer buttons on mobile - keep same style */
+            .grading-btn span,
+            .debug-settings-btn span {
+                font-size: 11px !important;
+            }
+
+            /* Change Condition header to COND on mobile */
+            .condition-header {
+                visibility: hidden;
+                position: relative;
+            }
+
+            .condition-header::before {
+                content: "COND";
+                visibility: visible;
+                position: absolute;
+                left: 0;
+                font-size: 11px;
+                letter-spacing: 0.5px;
+            }
+
+            /* Truncate title text on mobile in pricing table */
+            .comics-table .title-text {
+                display: block;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .comics-table tr.expanded .title-text {
+                white-space: normal;
+                word-wrap: break-word;
+                color: var(--color-accent) !important;
+            }
+
+            /* Always show mobile action buttons */
+            .mobile-actions {
+                display: table-row !important;
+            }
+
+            .comics-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+                width: 100%;
+                max-width: 100%;
+                margin: 20px auto 0;
+            }
+
+            .comic-card {
+                border-radius: 8px;
+            }
+
+            .comic-image {
+                height: 200px;
+            }
+
+            .comic-info {
+                padding: 12px;
+            }
+
+            .comic-title {
+                font-size: 14px;
+                margin-bottom: 6px;
+                -webkit-line-clamp: 2;
+            }
+
+            .comic-meta {
+                font-size: 11px;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+
+            .pricing-grid-actions {
+                padding: 0 12px 12px 12px;
+            }
+
+            .pricing-grid-actions .lookup-btn {
+                font-size: 11px !important;
+                padding: 8px 10px !important;
+            }
+        }
+
+
+        /* Desktop: hide mobile actions row */
+        .mobile-actions {
+            display: none;
+        }
+
+        /* Desktop: show actions in same row */
+        .desktop-actions {
+            white-space: nowrap;
+        }
+
+        /* Toggle labels are mobile-only; hide on desktop where .nav-label is visible */
+        .toggle-label-left,
+        .toggle-label-right {
+            display: none;
+        }
+
+        .view-toggle {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .view-btn {
+            background: none;
+            border: none;
+            color: var(--color-text-muted);
+            font-size: var(--font-size-sm);
+            font-family: var(--font-family);
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: var(--radius-sm);
+            transition: color 0.2s;
+        }
+
+        .view-btn:hover {
+            color: var(--color-text);
+        }
+
+        .view-btn.active {
+            color: var(--color-accent);
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px 16px 80px 16px;
+        }
+
+        .page-title {
+            margin-bottom: 32px;
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--color-accent);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .section-header h2 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        /* .filter-tabs / .filter-tab defined in components.css */
+
+        /* Title as clickable load-image button in table view */
+        .title-load-btn {
+            background: none;
+            border: none;
+            padding: 0;
+            margin: 0;
+            font: inherit;
+            color: var(--color-text);
+            cursor: pointer;
+            text-align: left;
+            transition: color 0.2s;
+        }
+        .title-load-btn:hover {
+            color: var(--color-accent);
+            text-decoration: underline;
+        }
+
+        /* Inline price editor (shared with browse page) */
+        .list-price {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-accent);
+            cursor: pointer;
+            padding: 3px 7px;
+            border-radius: var(--radius-sm);
+            border: 1px solid transparent;
+            transition: border-color 0.15s, background 0.15s;
+            white-space: nowrap;
+            display: inline-block;
+        }
+        .list-price:hover {
+            border-color: var(--color-border);
+            background: var(--color-inset);
+        }
+        .list-price.no-price {
+            color: var(--color-text-dim);
+            font-weight: 400;
+        }
+        .list-price-input {
+            width: 72px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: var(--font-family);
+            color: var(--color-accent);
+            background: var(--color-inset);
+            border: 1px solid var(--color-accent);
+            border-radius: var(--radius-sm);
+            padding: 3px 7px;
+            outline: none;
+            text-align: right;
+        }
+        .list-price-saving { color: var(--color-text-dim); font-size: 12px; }
+        .list-price-ok     { color: var(--color-success); font-size: 13px; font-weight: 700; }
+        .list-price-err    { color: var(--color-danger); font-size: 12px; }
+
+
+        /* Page-specific width override for form-input */
+        .search-box {
+            width: 300px;
+            background: var(--color-bg);
+        }
+
+        .inventory-summary {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 20px;
+        }
+
+        .summary-stat {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border-hover);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            flex: 1;
+        }
+
+        .comics-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 20px;
+            background: var(--color-surface);
+            border: 1px solid var(--color-elevated);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        .comics-table th {
+            background: var(--color-surface);
+            color: var(--color-text-muted);
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid var(--color-border-hover);
+        }
+
+        .comics-table .actions-header {
+            text-align: center;
+        }
+
+        .comics-table th:nth-child(2),
+        .comics-table td:nth-child(2) {
+            width: 1%;
+            white-space: nowrap;
+        }
+
+        .comics-table th:nth-child(3),
+        .comics-table td:nth-child(3) {
+            width: 1%;
+            white-space: nowrap;
+        }
+
+        .comics-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--color-elevated);
+            font-size: 14px;
+            color: var(--color-text);
+        }
+
+        .comics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 24px;
+            margin-top: 20px;
+        }
+
+        .comic-card {
+            background: var(--color-surface);
+            border-radius: 0;
+            overflow: hidden;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .comic-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+            border: none;
+        }
+
+        .comic-card.selected {
+            background: var(--color-elevated);
+            box-shadow: var(--shadow-md);
+            outline: 2px solid var(--color-accent);
+            outline-offset: -2px;
+        }
+
+        .comic-image {
+            width: 100%;
+            height: 280px;
+            object-fit: cover;
+            background: var(--color-elevated);
+            flex-shrink: 0;
+        }
+
+        .lazy-image {
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .lazy-image[src] {
+            opacity: 1;
+        }
+
+        .comic-info {
+            padding: 8px;
+        }
+
+        .comic-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--color-text);
+            margin-bottom: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            line-height: 1.4;
+        }
+
+        .comic-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 14px;
+            color: var(--color-text-muted);
+        }
+
+        .comic-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-indicators {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-left: auto;
+            padding-left: 8px;
+        }
+
+        .status-indicator-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-light {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            box-shadow: 0 0 4px currentColor;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+
+        .status-light.ebay {
+            color: var(--color-ebay);
+        }
+
+        .status-light.whatnot {
+            color: var(--color-whatnot);
+        }
+
+        .status-light.inactive {
+            color: var(--color-border-hover);
+            box-shadow: none;
+            opacity: 0.5;
+        }
+
+        .status-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            transition: all 0.2s;
+        }
+
+        .status-label.ebay {
+            color: var(--color-ebay);
+        }
+
+        .status-label.whatnot {
+            color: var(--color-whatnot);
+        }
+
+        .status-label.inactive {
+            color: var(--color-text-dim);
+            opacity: 0.5;
+        }
+
+        .pricing-grid-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 0 8px 8px 8px;
+            margin-top: auto;
+        }
+
+        .pricing-grid-actions .lookup-btn {
+            width: 100%;
+            justify-content: center;
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+         .comics-table tbody tr {
+             cursor: pointer;
+         }
+
+        .comics-table tbody tr:hover .title-cell .title-text {
+            color: var(--color-accent) !important;
+            transition: color 0.3s ease;
+        }
+
+        .no-comics {
+            text-align: center;
+            padding: 48px;
+            color: var(--color-text-muted);
+        }
+
+        /* Compact action button — extends shared .btn sizing with page-specific density */
+        .lookup-btn {
+            padding: 6px 16px;
+            font-size: var(--font-size-sm);
+        }
+
+        .lookup-btn:hover {
+            background: var(--color-accent-hover);
+        }
+
+        /* Price lookup modal overrides — animation + wider flex column layout */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .price-lookup-page .modal {
+            animation: fadeIn 0.2s;
+        }
+
+        .price-lookup-page .modal-content {
+            margin: 5% auto;
+            padding: 0;
+            max-width: 1200px;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .price-lookup-page .modal-header {
+            padding: 24px 32px;
+        }
+
+        .price-lookup-page .modal-header h2 {
+            font-size: 24px;
+        }
+
+        .price-lookup-page .modal-body {
+            padding: 32px;
+            flex: 1;
+        }
+
+        /* Footer button hover */
+        .footer-icon-btn {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            background-color: transparent;
+            border: none;
+            color: var(--color-text-muted);
+            padding: 0;
+            font-size: 12px;
+            font-weight: 400;
+            cursor: pointer;
+            transition: color 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .footer-icon-btn:hover {
+            color: var(--color-accent);
+        }
+
+        /* Edit icon hover */
+        .edit-icon-hover {
+            color: var(--color-accent);
+            transition: transform 0.2s;
+        }
+
+        .edit-icon-hover:hover {
+            transform: scale(1.1);
+        }
+
+        /* Grid view edit button */
+        .grid-edit-btn {
+            background: var(--overlay-light);
+            color: var(--color-accent);
+            text-decoration: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            border: 1px solid var(--color-accent-subtle);
+        }
+
+        .grid-edit-btn:hover {
+            background: var(--color-accent);
+            color: var(--color-surface);
+        }
+
+        /* Clickable stat cards (MIN/MAX in price stats) */
+        .stat-clickable {
+            background: var(--color-bg);
+            padding: 12px;
+            border-radius: var(--radius-md);
+            text-align: center;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .stat-clickable:hover {
+            background: var(--color-surface);
+        }
+
+        /* Table row edit icon */
+        .table-edit-icon {
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .edit-icon-link:hover .table-edit-icon {
+            opacity: 1;
+        }
+
+        .edit-icon-link:hover {
+            color: var(--color-accent);
+        }
+
+        /* Image selector item hover */
+        .image-selector-item {
+            border: 2px solid var(--color-border-hover);
+            border-radius: var(--radius-md);
+            padding: 12px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .image-selector-item:hover {
+            border-color: var(--color-accent);
+        }
+
+        /* Grading scale item hover */
+        .grading-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            padding: 16px;
+            margin-bottom: 12px;
+            background: var(--color-bg);
+            border: 1px solid var(--color-elevated);
+            border-radius: var(--radius-md);
+            transition: all 0.2s;
+        }
+
+        .grading-item:hover {
+            border-color: var(--color-accent);
+            background: var(--color-surface);
+        }
+
+        /* Status badge (used in modal headers) */
+        .status-badge {
+            background: var(--color-elevated);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            padding: 4px 10px;
+            font-size: var(--font-size-xs);
+            font-weight: 600;
+        }
+
+        /* Image search button — disabled state override */
+        #searchImageBtn:disabled {
+            background: var(--color-border-hover) !important;
+            color: var(--color-text-muted) !important;
+            cursor: not-allowed !important;
+            opacity: 0.6;
+        }
+
+        /* Loading state for action buttons */
+        .btn-loading {
+            opacity: 0.7;
+            cursor: wait !important;
+            pointer-events: none;
+        }
+
+
+{% endblock %}
+
+{% block content %}
+    <main id="main-content" class="container">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+            <a id="mainEditIcon" href="#" class="edit-icon-hover" style="display: none;" title="Edit current comic">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+            </a>
+            <div class="page-title" style="margin-bottom: 0;">eBay Price Analysis</div>
+        </div>
+
+        <!-- Image Search Section -->
+        <div style="background: var(--color-surface); border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 32px;">
+            <h2 style="margin-bottom: 16px; font-size: 20px; font-weight: 600; color: var(--color-text-muted); text-align: center;">eBay Image Search</h2>
+
+            <div id="imagePreview" style="display: none;">
+                <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 16px;">
+                    <button id="chooseImageBtn" class="btn btn-primary" onclick="showCurrentComicImageSelector()" style="display: none; padding: 12px 24px;">
+                        Choose Image
+                    </button>
+                    <button id="searchImageBtn" class="btn btn-secondary" onclick="searchByImage()" disabled style="cursor: not-allowed; padding: 12px 24px;">
+                        Search eBay
+                    </button>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <span id="imageFileName" style="color: var(--color-text-muted); font-size: 14px;"></span>
+                </div>
+                <img id="previewImg" alt="Selected comic preview" style="max-width: 200px; max-height: 200px; border-radius: var(--radius-md); border: 1px solid var(--color-border-hover);">
+            </div>
+        </div>
+
+        <!-- Controls row: View toggle + Sort + Search (matches browse page layout) -->
+        <div class="page-controls-row">
+            <!-- View toggle with border box -->
+            <div class="view-toggle" style="border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 2px; background: var(--color-surface);">
+                <button class="view-btn active" id="tableViewBtn" onclick="switchView('table')">Table</button>
+                <button class="view-btn" id="gridViewBtn" onclick="switchView('grid')">Grid</button>
+            </div>
+            <select id="priceSortSelect" class="form-input" title="Sort order" style="width: auto; min-width: 150px; padding: 4px 10px; font-size: 13px; cursor: pointer;" onchange="setPriceSort(this.value)">
+                <option value="sku_asc">SKU: Low → High</option>
+                <option value="sku_desc">SKU: High → Low</option>
+                <option value="title_asc">Title: A → Z</option>
+                <option value="title_desc">Title: Z → A</option>
+                <option value="price_asc">Price: Low → High</option>
+                <option value="price_desc">Price: High → Low</option>
+            </select>
+            <label for="searchBox" class="sr-only">Search comics</label>
+            <input type="text" id="searchBox" class="form-input search-box search-input" placeholder="🔍 Search comics...">
+        </div>
+
+        <!-- Listing Type Filter Tabs (scrollable, own row) -->
+        <div class="filter-tabs">
+            <button id="priceFilterAll" class="filter-tab active" onclick="setPriceLookupListingFilter('all')">All Comics</button>
+            <button id="priceFilterNotListed" class="filter-tab" onclick="setPriceLookupListingFilter('Not Listed')">Not Listed</button>
+            <button id="priceFilterForSaleEbay" class="filter-tab" onclick="setPriceLookupListingFilter('For Sale eBay')">eBay</button>
+            <button id="priceFilterWhatNot" class="filter-tab" onclick="setPriceLookupListingFilter('WhatNot')">WhatNot</button>
+            <button id="priceFilterGiveaway" class="filter-tab" onclick="setPriceLookupListingFilter('Giveaway')">Giveaway</button>
+        </div>
+        <div id="priceFilterSummary" class="filter-state-summary"></div>
+
+        <!-- Sub-filter tabs for "Not Listed" (hidden by default) -->
+        <div id="priceNotListedSubFilters" style="display: none; margin-bottom: 16px; padding: 10px 12px; background: var(--color-bg); border: 1px solid var(--color-border-hover); border-radius: 8px;">
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <span style="color: var(--color-text-muted); font-size: 13px; font-weight: 600; margin-right: 8px;">SHOW:</span>
+                <button id="priceSubfilterBoth" class="subfilter-btn active" onclick="setPriceNotListedSubFilter('both')" style="padding: 6px 14px; background: var(--color-accent); color: var(--color-surface); border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                    Missing from Both Platforms
+                </button>
+                <button id="priceSubfilterEbayOnly" class="subfilter-btn" onclick="setPriceNotListedSubFilter('ebay')" style="padding: 6px 14px; background: transparent; color: var(--color-accent); border: 2px solid var(--color-accent); border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                    Missing eBay Only
+                </button>
+                <button id="priceSubfilterWhatnotOnly" class="subfilter-btn" onclick="setPriceNotListedSubFilter('whatnot')" style="padding: 6px 14px; background: transparent; color: var(--color-accent); border: 2px solid var(--color-accent); border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                    Missing WhatNot Only
+                </button>
+            </div>
+        </div>
+
+        <div id="tableView">
+            <table class="comics-table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Price</th>
+                        <th class="condition-header">Condition</th>
+                        <th class="actions-header">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="comicsTableBody">
+                    <tr>
+                        <td colspan="4" class="no-comics">Loading comics...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="gridView" style="display: none;">
+            <div class="comics-grid" id="comicsGridBody">
+                <div class="no-comics">Loading comics...</div>
+            </div>
+        </div>
+
+        <!-- Admin Footer -->
+        <div style="position: fixed; bottom: 0; left: 0; right: 0; background: var(--color-surface); border-top: 1px solid var(--color-border-hover); padding: 16px 40px; display: flex; justify-content: space-between; z-index: 100;">
+            <div style="display: flex; gap: 16px;">
+                <button onclick="openPricingAdminModal()" title="Pricing Admin Settings" class="pricing-admin-btn footer-icon-btn">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+                    </svg>
+                    <span>Admin</span>
+                </button>
+                <button onclick="openGradingModal()" title="View CGC Grading Scale" class="grading-btn footer-icon-btn">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                        <path d="M2 17l10 5 10-5"/>
+                        <path d="M2 12l10 5 10-5"/>
+                    </svg>
+                    <span>Grading</span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Pricing Admin Modal -->
+    <div class="pricing-admin-modal" id="pricingAdminModal" onclick="closePricingAdminModalOnOutsideClick(event)" style="display: none; position: fixed; z-index: 1002; left: 0; top: 0; width: 100%; height: 100%; background: var(--overlay-heavy); align-items: center; justify-content: center;">
+        <div class="pricing-admin-modal-content" onclick="event.stopPropagation()" style="background: var(--color-surface); border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); max-width: 600px; width: 90%; max-height: 85vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 24px; border-bottom: 1px solid var(--color-elevated); position: sticky; top: 0; background: var(--color-surface); z-index: 1;">
+                <h2 style="color: var(--color-accent); font-size: 24px; font-weight: 600; margin: 0;">Pricing Page Settings</h2>
+                <button onclick="closePricingAdminModal()" style="background: none; border: none; color: var(--color-text); font-size: 32px; cursor: pointer; line-height: 1; padding: 0; width: 32px; height: 32px;">&times;</button>
+            </div>
+            <div style="padding: 24px;">
+                <p style="color: var(--color-text-muted); margin-bottom: 24px;">Configure default behavior for the pricing page search functions.</p>
+
+                <div style="margin-bottom: 24px;">
+                    <label for="imageSearchLimit" style="display: block; color: var(--color-text); font-weight: 600; margin-bottom: 8px;">Image Search Results Limit</label>
+                    <input type="number" id="imageSearchLimit" min="5" max="100" value="20" class="form-input" style="width: 100%; background: var(--color-bg);">
+                    <p style="color: var(--color-text-muted); font-size: 12px; margin-top: 4px;">Number of results to request when searching eBay by image (5-100)</p>
+                </div>
+
+                <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 32px;">
+                    <button onclick="closePricingAdminModal()" class="btn btn-secondary" style="padding: 12px 24px;">Cancel</button>
+                    <button onclick="savePricingAdminSettings()" class="btn btn-primary" style="padding: 12px 24px;">Save Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grading Scale Modal -->
+    <div class="grading-modal" id="gradingModal" onclick="closeGradingModalOnOutsideClick(event)" style="display: none; position: fixed; z-index: 1002; left: 0; top: 0; width: 100%; height: 100%; background: var(--overlay-heavy); align-items: center; justify-content: center;">
+        <div class="grading-modal-content" onclick="event.stopPropagation()" style="background: var(--color-surface); border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); max-width: 900px; width: 90%; max-height: 85vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 24px; border-bottom: 1px solid var(--color-elevated); position: sticky; top: 0; background: var(--color-surface); z-index: 1;">
+                <h2 style="color: var(--color-accent); font-size: 24px; font-weight: 600; margin: 0;">CGC Standard Grading Scale</h2>
+                <button onclick="closeGradingModal()" style="background: none; border: none; color: var(--color-text); font-size: 32px; cursor: pointer; line-height: 1; padding: 0; width: 32px; height: 32px;">&times;</button>
+            </div>
+            <div style="padding: 24px;">
+                <div id="gradingScaleContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- eBay Results Modal -->
+    <div id="ebayModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">eBay Sold Listings</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <div class="loading">Searching eBay...</div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+        let allComics = [];
+        let uploadedImageData = null;
+        let lastImageSearchResults = null;
+        let currentLoadedComic = null; // Store the currently loaded comic info
+        let currentPage = 1;
+        let totalPages = 1;
+        let isLoading = false;
+        let currentSearchTerm = '';
+        let searchDebounceTimer = null;
+        const itemsPerPage = 20; // For eBay image search results pagination
+        let maxLoadedPage = 1; // Track the highest page we've loaded
+        let currentListingTypeFilter = localStorage.getItem('pricingListingTypeFilter') || 'all';
+        let pricingNotListedSubFilter = localStorage.getItem('pricingNotListedSubFilter') || 'both';
+        // Guard against stale 'giveaway' value from a previous session
+        if (!['both', 'ebay', 'whatnot'].includes(pricingNotListedSubFilter)) {
+            pricingNotListedSubFilter = 'both';
+            localStorage.setItem('pricingNotListedSubFilter', 'both');
+        }
+        // Inline sort order for the pricing page
+        let priceSortOrder = localStorage.getItem('priceSortOrder') || 'sku_asc';
+
+        // Pricing view — persist in localStorage; 'table' or 'grid'
+        // Fall back to server-side user preference when localStorage is empty (first visit or cache cleared)
+        // 'list' preference maps to 'table' on this page
+        const _serverDefaultView = '{{ default_view | default("grid") }}';
+        const _pricingDefaultView = _serverDefaultView === 'grid' ? 'grid' : 'table';
+        // Seed localStorage from the server default once per browser session.
+        // sessionStorage is cleared on a new browser session (e.g. fresh login after app restart),
+        // so the server default wins on that first load and overrides any stale localStorage value.
+        if (!sessionStorage.getItem('priceViewSeeded')) {
+            localStorage.setItem('priceView', _pricingDefaultView);
+            sessionStorage.setItem('priceViewSeeded', 'true');
+        }
+        let currentView = localStorage.getItem('priceView') || _pricingDefaultView;
+
+        function updatePriceLookupFilterTabUI() {
+            const activeTabId = currentListingTypeFilter === 'all'
+                ? 'priceFilterAll'
+                : currentListingTypeFilter === 'Not Listed'
+                    ? 'priceFilterNotListed'
+                    : currentListingTypeFilter === 'For Sale eBay'
+                        ? 'priceFilterForSaleEbay'
+                        : currentListingTypeFilter === 'WhatNot'
+                            ? 'priceFilterWhatNot'
+                            : 'priceFilterGiveaway';
+
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            const activeTab = document.getElementById(activeTabId);
+            if (activeTab) {
+                activeTab.classList.add('active');
+            }
+
+            // Show / hide the Not Listed sub-filter bar
+            const subFilters = document.getElementById('priceNotListedSubFilters');
+            if (subFilters) {
+                subFilters.style.display = currentListingTypeFilter === 'Not Listed' ? 'block' : 'none';
+            }
+
+            // Sync sub-filter button active states
+            updatePriceNotListedSubFilterUI();
+        }
+
+        function updatePriceNotListedSubFilterUI() {
+            const buttons = {
+                'both':    document.getElementById('priceSubfilterBoth'),
+                'ebay':    document.getElementById('priceSubfilterEbayOnly'),
+                'whatnot': document.getElementById('priceSubfilterWhatnotOnly'),
+            };
+
+            Object.entries(buttons).forEach(([key, btn]) => {
+                if (!btn) return;
+                btn.classList.remove('active');
+                btn.style.background = 'transparent';
+                btn.style.color = 'var(--color-accent)';
+                btn.style.border = '2px solid var(--color-accent)';
+            });
+
+            const activeBtn = buttons[pricingNotListedSubFilter];
+            if (activeBtn) {
+                activeBtn.classList.add('active');
+                activeBtn.style.background = 'var(--color-accent)';
+                activeBtn.style.color = 'var(--color-surface)';
+                activeBtn.style.border = 'none';
+            }
+        }
+
+        function setPriceLookupListingFilter(type) {
+            const previousFilter = currentListingTypeFilter;
+            currentListingTypeFilter = type;
+            localStorage.setItem('pricingListingTypeFilter', type);
+            // Only reset sub-filter when switching TO Not Listed from a different tab
+            if (type === 'Not Listed' && previousFilter !== 'Not Listed') {
+                pricingNotListedSubFilter = 'both';
+                localStorage.setItem('pricingNotListedSubFilter', 'both');
+            }
+            sessionStorage.removeItem('pricing_maxLoadedPage');
+            maxLoadedPage = 1;
+            currentPage = 1;
+            allComics = [];
+            updatePriceLookupFilterTabUI();
+            updatePriceFilterSummary();
+            loadComics(1, false);
+        }
+        window.setPriceLookupListingFilter = setPriceLookupListingFilter;
+
+        function setPriceNotListedSubFilter(subFilter) {
+            pricingNotListedSubFilter = subFilter;
+            localStorage.setItem('pricingNotListedSubFilter', subFilter);
+            updatePriceNotListedSubFilterUI();
+            maxLoadedPage = 1;
+            currentPage = 1;
+            allComics = [];
+            loadComics(1, false);
+        }
+        window.setPriceNotListedSubFilter = setPriceNotListedSubFilter;
+
+        // Inline sort dropdown handler
+        function setPriceSort(value) {
+            priceSortOrder = value;
+            localStorage.setItem('priceSortOrder', value);
+            currentPage = 1;
+            maxLoadedPage = 1;
+            updatePriceFilterSummary();
+            loadComics(1, false);
+        }
+        window.setPriceSort = setPriceSort;
+
+        function updatePriceFilterSummary() {
+            const summaryEl = document.getElementById('priceFilterSummary');
+            if (!summaryEl) return;
+
+            const filterLabel = currentListingTypeFilter === 'all' ? 'All Comics' : currentListingTypeFilter;
+            const viewLabel = currentView === 'grid' ? 'Grid' : 'Table';
+            const sortLabelMap = {
+                sku_asc: 'SKU Low-High',
+                sku_desc: 'SKU High-Low',
+                title_asc: 'Title A-Z',
+                title_desc: 'Title Z-A',
+                price_asc: 'Price Low-High',
+                price_desc: 'Price High-Low'
+            };
+            const sortLabel = sortLabelMap[priceSortOrder] || priceSortOrder;
+            summaryEl.innerHTML = `<strong>Filter:</strong> ${filterLabel} | <strong>View:</strong> ${viewLabel} | <strong>Sort:</strong> ${sortLabel}`;
+        }
+
+        function switchView(view) {
+            currentView = view;
+            localStorage.setItem('priceView', view);
+            document.getElementById('tableView').style.display = view === 'table' ? 'block' : 'none';
+            document.getElementById('gridView').style.display = view === 'grid' ? 'block' : 'none';
+            
+            document.getElementById('tableViewBtn').classList.toggle('active', view === 'table');
+            document.getElementById('gridViewBtn').classList.toggle('active', view === 'grid');
+            updatePriceFilterSummary();
+
+            renderComics();
+        }
+
+        function renderComics(comics = null) {
+            const data = comics || allComics;
+            if (currentView === 'table') {
+                renderComicsTable(data);
+            } else {
+                renderComicsGrid(data);
+            }
+        }
+
+        function renderComicsGrid(comics) {
+            const grid = document.getElementById('comicsGridBody');
+            if (comics.length === 0) {
+                grid.innerHTML = '<div class="no-comics">No comics found</div>';
+                return;
+            }
+
+            grid.innerHTML = '';
+            comics.forEach(comic => {
+                const imageUrl = comic.image_urls?.[0] || comic['Image URL 1'] || '';
+                const thumbnailUrl = getThumbnailUrl(imageUrl);
+                const conditionAcronym = getConditionAcronym(comic.Condition);
+                const typeAbbreviation = getTypeAbbreviation(comic.Type || 'Auction', comic.Title);
+                const priceDisplay = comic.Price
+                    ? `<span class="list-price" data-sku="${comic.SKU}" data-price="${comic.Price}" title="Click to edit price" style="display:inline-block;">$${comic.Price}</span>`
+                    : `<span class="list-price no-price" data-sku="${comic.SKU}" data-price="" title="Click to set price" style="display:inline-block;">—</span>`;
+                let typeDisplay = [];
+                if (priceDisplay) typeDisplay.push(priceDisplay);
+                if (conditionAcronym) typeDisplay.push(`<span title="${comic.Condition || ''}">${conditionAcronym}</span>`);
+                if (typeAbbreviation) typeDisplay.push(typeAbbreviation);
+                typeDisplay = typeDisplay.join(' • ');
+
+                const ebayItemId = comic['eBay Item ID'] || comic.ebay_item_id || '';
+                const whatnotItemId = comic['WhatNot Item ID'] || comic.whatnot_item_id || '';
+                const isListedOnEbay = ebayItemId && ebayItemId.trim();
+                const isListedOnWhatNot = whatnotItemId === 'TRUE';
+                const ebayClasses = isListedOnEbay ? 'status-light ebay' : 'status-light ebay inactive';
+                const ebayLabelClasses = isListedOnEbay ? 'status-label ebay' : 'status-label ebay inactive';
+                const whatnotClasses = isListedOnWhatNot ? 'status-light whatnot' : 'status-light whatnot inactive';
+                const whatnotLabelClasses = isListedOnWhatNot ? 'status-label whatnot' : 'status-label whatnot inactive';
+                const statusIndicatorsHtml = `
+                    <div class="status-indicators">
+                        <div class="status-indicator-item">
+                            <div class="${ebayClasses}" title="${isListedOnEbay ? 'Listed on eBay' : 'Not listed on eBay'}"></div>
+                            <span class="${ebayLabelClasses}">eBay</span>
+                        </div>
+                        <div class="status-indicator-item">
+                            <div class="${whatnotClasses}" title="${isListedOnWhatNot ? 'Listed on WhatNot' : 'Not listed on WhatNot'}"></div>
+                            <span class="${whatnotLabelClasses}">WhatNot</span>
+                        </div>
+                    </div>
+                `;
+                const card = document.createElement('div');
+                card.className = 'comic-card';
+                card.setAttribute('data-sku', comic.SKU);
+                card.innerHTML = `
+                    <div style="position: absolute; top: 10px; right: 10px; z-index: 10;">
+                        <a href="/add?sku=${comic.SKU}" class="grid-edit-btn" title="Edit comic">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                        </a>
+                    </div>
+                    ${imageUrl
+                        ? `<img src="${thumbnailUrl || getProxiedUrl(imageUrl)}" alt="${comic.Title || 'Comic'}" class="comic-image lazy-image" style="background: var(--color-elevated);" onerror="this.onerror=null; this.src='${getProxiedUrl(imageUrl)}'">`
+                        : `<div class="comic-image" style="display: flex; align-items: center; justify-content: center; color: var(--color-text-dim);">No Image</div>`}
+                    <div class="comic-info">
+                        <div class="comic-title">${comic.Title || 'Untitled Comic'}</div>
+                        <div class="comic-meta">
+                            <div class="comic-meta-item" style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%; gap: 8px;">
+                                <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;">
+                                    <span style="flex-shrink: 0;">SKU: ${comic.SKU || 'N/A'}</span>
+                                    <span>Qty: ${comic.Quantity || '1'}</span>
+                                </div>
+                                ${statusIndicatorsHtml}
+                            </div>
+                            <div class="comic-meta-item">
+                                <span>${typeDisplay}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pricing-grid-actions">
+                        <button class="btn btn-sm btn-primary lookup-btn" onclick="lookupPrice('${comic.SKU}', event)">Load Image</button>
+                        <button class="btn btn-sm btn-primary lookup-btn" onclick="searchEbayActive('${comic.Title.replace(/'/g, "\\'")}', event)">Search eBay</button>
+                        <button class="btn btn-sm btn-info lookup-btn" onclick="searchEbayByTitle('${comic.Title.replace(/'/g, "\\'")}', event)">Search Sold</button>
+                    </div>
+                `;
+                card.onclick = (event) => {
+                    if (event.target.closest('a, button')) {
+                        return;
+                    }
+                    lookupPrice(comic.SKU, event);
+                };
+                grid.appendChild(card);
+
+                // Wire inline price editor on grid card price span
+                const gridPriceEl = card.querySelector('.list-price');
+                if (gridPriceEl) {
+                    gridPriceEl.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        activateInlinePriceEditor(this);
+                    });
+                }
+            });
+        }
+
+        function cleanEbayTitle(title) {
+            if (!title) return '';
+            
+            // Remove common eBay "fluff" words and symbols
+            let clean = title.replace(/[!@#$%^&*()_+={}\[\]|\\:;"'<,>.?/]/g, ' ');
+            
+            // Common marketing terms to remove
+            const fluff = [
+                /\bMINT\b/gi, /\bNM\b/gi, /\bVF\b/gi, /\bFN\b/gi, /\bVG\b/gi,
+                /\bHOT\b/gi, /\bLOOK\b/gi, /\bRARE\b/gi, /\bNR\b/gi, /\bL@@K\b/gi,
+                /\bCGC\b/gi, /\bCBCS\b/gi, /\bKEY\b/gi, /\bFIRST\b/gi, /\b1ST\b/gi,
+                /\bPRE ORDER\b/gi, /\bPRE-ORDER\b/gi, /\bSHIPS FAST\b/gi,
+                /\bESTATE\b/gi, /\bCOLLECTION\b/gi, /\bHUGE\b/gi, /\bLOT\b/gi
+            ];
+            
+            fluff.forEach(regex => {
+                clean = clean.replace(regex, '');
+            });
+            
+            // Consolidate whitespace
+            return clean.replace(/\s+/g, ' ').trim();
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Update filename display
+            document.getElementById('imageFileName').textContent = file.name;
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                uploadedImageData = e.target.result;
+                const previewDiv = document.getElementById('imagePreview');
+                const previewImg = document.getElementById('previewImg');
+                previewImg.src = uploadedImageData;
+                previewDiv.style.display = 'block';
+
+                // Hide "Choose Different Image" button for manual uploads
+                document.getElementById('chooseImageBtn').style.display = 'none';
+                currentLoadedComic = null;
+
+                // Enable search button
+                const searchBtn = document.getElementById('searchImageBtn');
+                searchBtn.disabled = false;
+                searchBtn.style.cssText = '';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function searchByImage() {
+            if (!uploadedImageData) return;
+
+            // Get the comic title from the currently selected row
+            const selectedRow = document.querySelector('tr.selected-row');
+            let comicTitle = '';
+            if (selectedRow && currentComicData) {
+                comicTitle = currentComicData.Title || '';
+            }
+
+            // Get the image search limit from settings (default to 20)
+            const imageSearchLimit = parseInt(localStorage.getItem('pricingImageSearchLimit') || '20');
+
+            // Open modal
+            const modal = document.getElementById('ebayModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+
+            modalTitle.textContent = 'eBay Image Search Results';
+            modalBody.innerHTML = '<div class="loading">Searching eBay for similar items...</div>';
+            modal.style.display = 'block';
+
+            try {
+                const response = await fetch('/api/ebay/search-by-image', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': window.csrfToken
+                    },
+                    body: JSON.stringify({
+                        image: uploadedImageData,
+                        title: comicTitle,
+                        limit: imageSearchLimit
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    modalBody.innerHTML = `<div class="error-message">Error: ${result.error || 'Unknown error occurred'}</div>`;
+                    return;
+                }
+
+                if (result.count === 0) {
+                    modalBody.innerHTML = '<div class="no-results">No similar items found on eBay.</div>';
+                    return;
+                }
+
+                // Render image search results
+                lastImageSearchResults = result;
+                renderImageSearchResults(result);
+
+            } catch (error) {
+                console.error('Error:', error);
+                modalBody.innerHTML = `<div class="error-message">Failed to search eBay by image. Please try again.</div>`;
+            }
+        }
+
+        function renderImageSearchResults(result, page = 1, modalTitleText = 'eBay Search Results') {
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+
+            // Scroll to top of modal when changing pages
+            modalBody.scrollTop = 0;
+
+            modalTitle.textContent = modalTitleText;
+            currentPage = page;
+
+            // Encode the modal title once for safe inclusion in inline onclick handlers
+            // (used by pagination buttons below so the title persists across pages).
+            const titleArg = JSON.stringify(modalTitleText);
+
+            // Optional labels supplied by the API endpoint. Defaults preserve
+            // the original "active market" presentation used by image search.
+            const marketLabel = result.market_label || 'ACTIVE MARKET';
+            const statsLabel  = result.stats_label  || 'Current Listing Price Statistics';
+            const isSoldView  = result.data_source === 'marketplace_insights'
+                              || result.data_source === 'finding_api';
+            const itemBadgeText  = isSoldView ? 'SOLD' : 'ACTIVE';
+            const priceLabelText = isSoldView ? 'Sold Price' : 'Current Price';
+
+            let html = '';
+
+            // Search stats summary (simulated since we don't have real-time active stats yet)
+            // But we can show a nice header
+            html += `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div>
+                        <h3 style="margin: 0; color: var(--color-text);">Showing ${result.count} Matching Listings</h3>
+                        <p style="margin: 4px 0 0; font-size: 13px; color: var(--color-accent);">Note: If eBay matches are unsuccessful, try adding additional relevant images.</p>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <span class="status-badge" style="color: var(--color-info);">${marketLabel}</span>
+                    </div>
+                </div>
+            `;
+
+            // Helper function to calculate stats
+            function calculateStats(items, label) {
+                const prices = items.map(item => item.price).filter(p => p > 0);
+                if (prices.length === 0) return null;
+
+                const sortedPrices = [...prices].sort((a, b) => a - b);
+                const minPrice = Math.min(...prices);
+                const maxPrice = Math.max(...prices);
+                const minItem = items.find(item => item.price === minPrice);
+                const maxItem = items.find(item => item.price === maxPrice);
+
+                return {
+                    average: (prices.reduce((sum, p) => sum + p, 0) / prices.length),
+                    median: sortedPrices[Math.floor(sortedPrices.length / 2)],
+                    min: minPrice,
+                    max: maxPrice,
+                    minUrl: minItem ? minItem.listing_url : '',
+                    maxUrl: maxItem ? maxItem.listing_url : '',
+                    total_items: prices.length,
+                    label: label
+                };
+            }
+
+            // Calculate statistics
+            const stats = result.items && result.items.length > 0 ? calculateStats(result.items, 'Current') : null;
+
+            // Display stats
+            if (stats) {
+                html += `
+                    <div style="background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-elevated) 100%); border: 2px solid var(--color-accent); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 24px;">
+                        <div style="color: var(--color-accent); font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                            <span>📊</span>
+                            <span>${statsLabel} (${stats.total_items} items)</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px;">
+                            <div style="background: var(--color-bg); padding: 12px; border-radius: var(--radius-md); text-align: center;">
+                                <div style="color: var(--color-text-muted); font-size: 11px; margin-bottom: 4px;">AVERAGE</div>
+                                <div style="color: var(--color-accent); font-size: 20px; font-weight: 700;">$${stats.average.toFixed(2)}</div>
+                            </div>
+                            <div style="background: var(--color-bg); padding: 12px; border-radius: var(--radius-md); text-align: center;">
+                                <div style="color: var(--color-text-muted); font-size: 11px; margin-bottom: 4px;">MEDIAN</div>
+                                <div style="color: var(--color-info); font-size: 20px; font-weight: 700;">$${stats.median.toFixed(2)}</div>
+                            </div>
+                            <div class="stat-clickable" onclick="window.open('${stats.minUrl}', '_blank')">
+                                <div style="color: var(--color-text-muted); font-size: 11px; margin-bottom: 4px;">MIN</div>
+                                <div style="color: var(--color-success); font-size: 18px; font-weight: 600;">$${stats.min.toFixed(2)}</div>
+                            </div>
+                            <div class="stat-clickable" onclick="window.open('${stats.maxUrl}', '_blank')">
+                                <div style="color: var(--color-text-muted); font-size: 11px; margin-bottom: 4px;">MAX</div>
+                                <div style="color: var(--color-danger); font-size: 18px; font-weight: 600;">$${stats.max.toFixed(2)}</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--color-border-hover); color: var(--color-text-muted); font-size: 11px; text-align: center;">
+                            💡 Click MIN or MAX to view those listings on eBay
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Pagination
+            const totalPages = Math.ceil(result.items.length / itemsPerPage);
+            const startIndex = (page - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedItems = result.items.slice(startIndex, endIndex);
+
+            html += `
+                <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+                    <div class="stat-label">Showing ${startIndex + 1}-${Math.min(endIndex, result.items.length)} of ${result.items.length} items</div>
+                    ${totalPages > 1 ? `
+                        <div style="display: flex; gap: 8px;">
+                            ${page > 1 ? `<button class="btn btn-sm btn-secondary" onclick="renderImageSearchResults(lastImageSearchResults, ${page - 1}, ${titleArg})">← Previous</button>` : ''}
+                            <span style="color: var(--color-text-muted); padding: 8px 16px;">Page ${page} of ${totalPages}</span>
+                            ${page < totalPages ? `<button class="btn btn-sm btn-secondary" onclick="renderImageSearchResults(lastImageSearchResults, ${page + 1}, ${titleArg})">Next →</button>` : ''}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+
+            // Build the results as a comics-table-styled grid (matches the
+            // browse table on this page so the look is consistent across the
+            // app). Inline column widths win over .comics-table nth-child
+            // rules without needing dedicated CSS.
+            html += `
+                <table class="comics-table" style="margin-top: 0;">
+                    <thead>
+                        <tr>
+                            <th style="width: 70px;"></th>
+                            <th>Title</th>
+                            <th style="width: 1%; white-space: nowrap; text-align: right;">${priceLabelText}</th>
+                            <th style="width: 1%; white-space: nowrap;">Condition</th>
+                            <th style="width: 1%; white-space: nowrap; text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            paginatedItems.forEach(item => {
+                const escapedTitle = (item.title || '').replace(/"/g, '&quot;');
+                const listingUrl = item.listing_url || '#';
+                const conditionText = item.condition || '—';
+                const priceText = (typeof item.price === 'number' && item.price > 0)
+                    ? `$${item.price.toFixed(2)}`
+                    : '—';
+                const imageHtml = item.image_url
+                    ? `<img src="${item.image_url}" alt="${escapedTitle}" loading="lazy" style="width: 50px; height: 70px; object-fit: cover; border-radius: var(--radius-sm); background: var(--color-elevated); display: block;" onerror="this.style.visibility='hidden'">`
+                    : `<div style="width: 50px; height: 70px; border-radius: var(--radius-sm); background: var(--color-elevated); display: flex; align-items: center; justify-content: center; color: var(--color-text-dim); font-size: 10px;">No Img</div>`;
+
+                html += `
+                    <tr onclick="window.open('${listingUrl}', '_blank')">
+                        <td>${imageHtml}</td>
+                        <td>
+                            <div class="title-cell">
+                                <div class="title-text" style="font-weight: 600; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${item.title || 'Untitled'}</div>
+                                <div style="margin-top: 4px; font-size: 11px; color: var(--color-text-dim); display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <span style="color: ${isSoldView ? 'var(--color-danger)' : 'var(--color-info)'}; font-weight: 600; letter-spacing: 0.5px;">${itemBadgeText}</span>
+                                    ${item.itemId ? `<span>Item ${item.itemId}</span>` : ''}
+                                </div>
+                            </div>
+                        </td>
+                        <td style="text-align: right; white-space: nowrap;">
+                            <span style="color: var(--color-accent); font-weight: 700; font-size: 16px;">${priceText}</span>
+                        </td>
+                        <td style="white-space: nowrap; color: var(--color-text-muted);">${conditionText}</td>
+                        <td style="text-align: right; white-space: nowrap;">
+                            <a href="${listingUrl}" target="_blank" onclick="event.stopPropagation()" class="btn btn-sm btn-primary" style="text-decoration: none; padding: 4px 10px;">View →</a>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            // Add pagination at bottom
+            html += `
+                <div style="margin-top: 24px; display: flex; justify-content: space-between; align-items: center;">
+                    <div class="stat-label">Showing ${startIndex + 1}-${Math.min(endIndex, result.items.length)} of ${result.items.length} items</div>
+                    ${totalPages > 1 ? `
+                        <div style="display: flex; gap: 8px;">
+                            ${page > 1 ? `<button class="btn btn-sm btn-secondary" onclick="renderImageSearchResults(lastImageSearchResults, ${page - 1}, ${titleArg})">← Previous</button>` : ''}
+                            <span style="color: var(--color-text-muted); padding: 8px 16px;">Page ${page} of ${totalPages}</span>
+                            ${page < totalPages ? `<button class="btn btn-sm btn-secondary" onclick="renderImageSearchResults(lastImageSearchResults, ${page + 1}, ${titleArg})">Next →</button>` : ''}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+
+            modalBody.innerHTML = html;
+        }
+
+
+        async function lookupItemPrices(itemId, title) {
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+
+            modalTitle.textContent = `Sold Listings: ${title}`;
+            modalBody.innerHTML = '<div class="loading">Searching for sold listings...</div>';
+
+            try {
+                // Clean the title for better search results
+                const searchTitle = cleanEbayTitle(title);
+                const response = await fetch('/api/ebay/lookup-price', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': window.csrfToken
+                    },
+                    body: JSON.stringify({
+                        title: searchTitle
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    let errorMessage = result.error || 'Failed to fetch sold listings.';
+                    
+                    if (result.rate_limit || result.api_type === 'FindingAPI') {
+                        errorMessage = `
+                            <div style="color: var(--color-danger); font-weight: 600; margin-bottom: 8px;">eBay Service Limit Reached</div>
+                            <div style="font-size: 0.95em; line-height: 1.4;">${result.error}</div>
+                            <div style="margin-top: 16px; padding: 12px; background: var(--color-elevated); border-radius: var(--radius-md); font-size: 0.9em; color: var(--color-accent);">
+                                💡 <strong>Pro Tip:</strong> Use the prices shown in the Image Search results as your guide. They reflect the current active market value, which is usually very close to recent sold prices.
+                            </div>
+                        `;
+                    }
+                    
+                    let errorHtml = `<div class="error-message">${errorMessage}</div>`;
+                    if (lastImageSearchResults) {
+                        errorHtml += `
+                            <div style="margin-top: 20px; text-align: center;">
+                                <button class="btn btn-secondary" onclick="renderImageSearchResults(lastImageSearchResults)">
+                                    ← Back to Image Results
+                                </button>
+                            </div>
+                        `;
+                    }
+                    modalBody.innerHTML = errorHtml;
+                    return;
+                }
+
+                if (result.count === 0) {
+                    let noResultsHtml = '<div class="no-results">No sold listings found for this item.</div>';
+                    if (lastImageSearchResults) {
+                        noResultsHtml += `
+                            <div style="margin-top: 20px; text-align: center;">
+                                <button class="btn btn-secondary" onclick="renderImageSearchResults(lastImageSearchResults)">
+                                    ← Back to Image Results
+                                </button>
+                            </div>
+                        `;
+                    }
+                    modalBody.innerHTML = noResultsHtml;
+                    return;
+                }
+
+                // Use backend-calculated statistics
+                const stats = result.price_stats || {};
+                const hasStats = stats.total_items > 0;
+
+                // Render sold listings
+                let html = '';
+
+                if (lastImageSearchResults) {
+                    html += `
+                        <div style="margin-bottom: 20px;">
+                            <button class="btn btn-sm btn-secondary" onclick="renderImageSearchResults(lastImageSearchResults)">
+                                ← Back to Image Results
+                            </button>
+                        </div>
+                    `;
+                }
+
+                if (hasStats) {
+                    html += `
+                        <div style="background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-elevated) 100%); border: 2px solid var(--color-accent); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 24px;">
+                            <div style="color: var(--color-accent); font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                                <span>📊</span>
+                                <span>Price Statistics (${stats.total_items} items)</span>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px;">
+                                <div style="background: var(--color-bg); padding: 12px; border-radius: var(--radius-md); text-align: center;">
+                                    <div style="color: var(--color-text-muted); font-size: 11px; margin-bottom: 4px;">AVERAGE</div>
+                                    <div style="color: var(--color-accent); font-size: 20px; font-weight: 700;">$${stats.average.toFixed(2)}</div>
+                                </div>
+                                <div style="background: var(--color-bg); padding: 12px; border-radius: var(--radius-md); text-align: center;">
+                                    <div style="color: var(--color-text-muted); font-size: 11px; margin-bottom: 4px;">MEDIAN</div>
+                                    <div style="color: var(--color-info); font-size: 20px; font-weight: 700;">$${stats.median.toFixed(2)}</div>
+                                </div>
+                                <div style="background: var(--color-bg); padding: 12px; border-radius: var(--radius-md); text-align: center;">
+                                    <div style="color: var(--color-text-muted); font-size: 11px; margin-bottom: 4px;">MIN</div>
+                                    <div style="color: var(--color-success); font-size: 18px; font-weight: 600;">$${stats.min.toFixed(2)}</div>
+                                </div>
+                                <div style="background: var(--color-bg); padding: 12px; border-radius: var(--radius-md); text-align: center;">
+                                    <div style="color: var(--color-text-muted); font-size: 11px; margin-bottom: 4px;">MAX</div>
+                                    <div style="color: var(--color-danger); font-size: 18px; font-weight: 600;">$${stats.max.toFixed(2)}</div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--color-border-hover); color: var(--color-text-muted); font-size: 11px; text-align: center;">
+                                💡 Average and Median prices are most reliable for pricing your items
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Sort items by price
+                const sortedItems = [...result.items].sort((a, b) => b.sold_price - a.sold_price);
+
+                // Determine which items to show
+                let itemsToShow = sortedItems;
+                let showingSplit = false;
+
+                if (sortedItems.length > 20) {
+                    // Show top 10 (highest prices) and bottom 10 (lowest prices)
+                    const top10 = sortedItems.slice(0, 10);
+                    const bottom10 = sortedItems.slice(-10);
+                    itemsToShow = [...top10, ...bottom10];
+                    showingSplit = true;
+                }
+
+                html += `<div class="ebay-results">`;
+
+                // Add explanation if showing split view
+                if (showingSplit) {
+                    html += `
+                        <div style="background: var(--color-elevated); border-left: 3px solid var(--color-accent); padding: 12px 16px; margin-bottom: 20px; border-radius: var(--radius-sm);">
+                            <div style="color: var(--color-accent); font-weight: 600; margin-bottom: 4px;">📌 Showing Top 10 & Bottom 10 Prices</div>
+                            <div style="color: var(--color-text-muted); font-size: 12px; line-height: 1.4;">
+                                Displaying the 10 highest and 10 lowest priced items (${sortedItems.length} total found).
+                                This helps you see what factors affect pricing at both ends of the range.
+                            </div>
+                        </div>
+                    `;
+                }
+
+                itemsToShow.forEach((item, index) => {
+                    const date = new Date(item.end_time).toLocaleDateString();
+
+                    // Add separator between top 10 and bottom 10
+                    if (showingSplit && index === 10) {
+                        html += `
+                            <div style="grid-column: 1 / -1; padding: 16px 0; margin: 8px 0; border-top: 2px dashed var(--color-border-hover); border-bottom: 2px dashed var(--color-border-hover); text-align: center;">
+                                <div style="color: var(--color-text-muted); font-size: 13px; font-weight: 600;">
+                                    ⬇️ LOWEST PRICED ITEMS ⬇️
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    // Add badge for top priced items
+                    const isTopPriced = showingSplit ? (index < 10) : (index === 0 && sortedItems.length > 1);
+                    const badge = isTopPriced ?
+                        `<div style="position: absolute; top: 8px; right: 8px; background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-warning) 100%); color: var(--color-surface); padding: 4px 8px; border-radius: var(--radius-sm); font-size: 10px; font-weight: 700; box-shadow: var(--shadow-sm); border: 1px solid var(--color-border);">🏆 TOP PRICED</div>` : '';
+
+                    html += `
+                        <div class="ebay-item" style="position: relative; ${isTopPriced ? 'border-color: var(--color-accent); background: var(--color-accent-subtle);' : ''}">
+                            ${badge}
+                            <img src="${item.image_url || ''}" alt="${item.title}" class="ebay-item-image" style="${!item.image_url ? 'background: var(--color-elevated);' : ''}" onerror="this.style.background='var(--color-elevated)'">
+                            <div class="ebay-item-details">
+                                <span class="ebay-item-badge ebay-item-badge-sold">SOLD</span>
+                                <div class="ebay-item-title">${item.title}</div>
+                                <div class="ebay-item-info">
+                                    <div>
+                                        <div style="color: var(--color-text-muted); font-size: 12px;">Sold Price</div>
+                                        <div class="ebay-item-price">$${item.sold_price.toFixed(2)}</div>
+                                    </div>
+                                    <div>
+                                        <div style="color: var(--color-text-muted); font-size: 12px;">Condition</div>
+                                        <div style="color: var(--color-text);">${item.condition}</div>
+                                    </div>
+                                    <div>
+                                        <div style="color: var(--color-text-muted); font-size: 12px;">Sold Date</div>
+                                        <div style="color: var(--color-text);">${date}</div>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 12px; display: flex; gap: 12px; align-items: center;">
+                                    <a href="${item.listing_url}" target="_blank" class="btn btn-sm btn-primary" style="text-decoration: none; padding: 6px 12px;">View Listing →</a>
+                                    <a href="https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(item.title)}" target="_blank" class="btn btn-sm btn-secondary" style="text-decoration: none; color: var(--color-info); padding: 6px 12px;">More Like This →</a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+                modalBody.innerHTML = html;
+
+            } catch (error) {
+                console.error('Error:', error);
+                modalBody.innerHTML = '<div class="error-message">Failed to fetch sold listings. Please try again.</div>';
+            }
+        }
+
+        // Helper: route S3 URLs through the server proxy (bucket blocks public access)
+        function getProxiedUrl(url) {
+            if (!url) return '';
+            if (url.includes('s3.amazonaws.com')) {
+                return '/api/proxy-image?url=' + encodeURIComponent(url);
+            }
+            return url;
+        }
+
+        // Helper function to convert full image URL to thumbnail URL (WebP)
+        function getThumbnailUrl(fullUrl) {
+            if (!fullUrl) return '';
+            // If it's a placeholder or already a thumbnail, return as is
+            if (fullUrl.includes('placeholder.png') || fullUrl.includes('_thumb.')) return getProxiedUrl(fullUrl);
+
+            const lastDot = fullUrl.lastIndexOf('.');
+            if (lastDot === -1) return getProxiedUrl(fullUrl);
+            const thumbUrl = fullUrl.substring(0, lastDot) + '_thumb.webp';
+            return getProxiedUrl(thumbUrl);
+        }
+
+        async function loadComics(page = 1, append = false) {
+            if (isLoading) return;
+            isLoading = true;
+
+            try {
+                // Use user preferences for perPage; sort controlled by inline dropdown
+                const isMobile = window.innerWidth <= 768;
+                const perPage = isMobile
+                    ? (window.userPreferences?.mobile_per_page || 8)
+                    : (window.userPreferences?.desktop_per_page || 24);
+                // priceSortOrder is controlled by the inline sort dropdown (persisted in localStorage)
+                const sortBy = priceSortOrder;
+
+                // Build API URL with optional search parameter and sort order
+                let url = `/api/comics?page=${page}&per_page=${perPage}&sort_by=${sortBy}`;
+                if (currentListingTypeFilter && currentListingTypeFilter !== 'all') {
+                    url += `&listing_type=${encodeURIComponent(currentListingTypeFilter)}`;
+                    // Pass sub-filter when Not Listed is active
+                    if (currentListingTypeFilter === 'Not Listed') {
+                        url += `&not_listed_subfilter=${encodeURIComponent(pricingNotListedSubFilter)}`;
+                    }
+                }
+                if (currentSearchTerm) {
+                    url += `&search=${encodeURIComponent(currentSearchTerm)}`;
+                }
+
+                const response = await fetch(url);
+                const result = await response.json();
+
+                if (result.success && result.comics) {
+                    // Handle pagination data
+                    if (result.pagination) {
+                        currentPage = result.pagination.page;
+                        totalPages = result.pagination.total_pages;
+
+                        // Track the highest page we've loaded
+                        if (currentPage > maxLoadedPage) {
+                            maxLoadedPage = currentPage;
+                            // Save to sessionStorage so we can restore on navigation
+                            sessionStorage.setItem('pricing_maxLoadedPage', maxLoadedPage);
+                        }
+                    }
+
+                    // Add new comics to our collection
+                    if (append) {
+                        allComics = allComics.concat(result.comics);
+                    } else {
+                        allComics = result.comics;
+                    }
+
+                    renderComics();
+
+                    // Add or update Load More button
+                    updateLoadMoreButton(result.pagination);
+                } else {
+                    if (!append) {
+                        allComics = [];
+                        document.getElementById('comicsTableBody').innerHTML = '<tr><td colspan="4" class="no-comics">No comics added yet</td></tr>';
+                        document.getElementById('comicsGridBody').innerHTML = '<div class="no-comics">No comics added yet</div>';
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                if (!append) {
+                    document.getElementById('comicsTableBody').innerHTML = '<tr><td colspan="4" class="no-comics">Error loading comics</td></tr>';
+                    document.getElementById('comicsGridBody').innerHTML = '<div class="no-comics">Error loading comics</div>';
+                }
+            } finally {
+                isLoading = false;
+            }
+        }
+
+        function updateLoadMoreButton(pagination) {
+            const tableBody = document.getElementById('comicsTableBody');
+            const gridBody = document.getElementById('comicsGridBody');
+
+            // Remove existing load more buttons
+            document.querySelectorAll('.load-more-row, .load-more-btn').forEach(el => el.remove());
+
+            if (pagination && pagination.has_next) {
+                const isMobile = window.innerWidth <= 768;
+                const perPage = isMobile ? 10 : 50;
+                const remaining = pagination.total - allComics.length;
+                const nextLoad = Math.min(perPage, remaining);
+                const buttonText = `Load Next ${nextLoad} (${remaining} remaining)`;
+
+                // Add to table view
+                const tableRow = document.createElement('tr');
+                tableRow.className = 'load-more-row';
+                tableRow.innerHTML = `
+                    <td colspan="4" style="text-align: center; padding: 20px;">
+                        <button class="btn btn-primary" onclick="loadComics(${currentPage + 1}, true)" style="padding: 12px 32px;">
+                            ${buttonText}
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(tableRow);
+
+                // Add to grid view
+                const gridBtn = document.createElement('button');
+                gridBtn.className = 'btn btn-primary load-more-btn';
+                gridBtn.textContent = buttonText;
+                gridBtn.onclick = () => loadComics(currentPage + 1, true);
+                gridBtn.style.cssText = 'display: block; width: 100%; max-width: 400px; margin: 32px auto; padding: 16px 32px;';
+                gridBody.appendChild(gridBtn);
+            }
+        }
+
+        // Helper function to get condition acronym (matches browse page)
+        function getConditionAcronym(condition) {
+            if (!condition) return '';
+            const conditionMap = {
+                'Gem Mint': 'GM',
+                'Mint': 'MT',
+                'Near Mint/Mint': 'NM/M',
+                'Near Mint+': 'NM+',
+                'Near Mint': 'NM',
+                'Near Mint-': 'NM-',
+                'Very Fine/Near Mint': 'VF/NM',
+                'Very Fine+': 'VF+',
+                'Very Fine': 'VF',
+                'Very Fine-': 'VF-',
+                'Fine/Very Fine': 'FN/VF',
+                'Fine+': 'FN+',
+                'Fine': 'FN',
+                'Fine-': 'FN-',
+                'Very Good/Fine': 'VG/FN',
+                'Very Good+': 'VG+',
+                'Very Good': 'VG',
+                'Very Good-': 'VG-',
+                'Good/Very Good': 'G/VG',
+                'Good+': 'G+',
+                'Good': 'GD',
+                'Good-': 'G-',
+                'Fair/Good': 'FR/G',
+                'Fair': 'FR',
+                'Poor': 'PR'
+            };
+            return conditionMap[condition] || condition;
+        }
+
+        // Helper function to get type abbreviation (matches browse page)
+        function getTypeAbbreviation(type, title) {
+            if (!type) return '';
+
+            const titleUpper = (title || '').toUpperCase();
+            if (titleUpper.startsWith('G-') || titleUpper.startsWith('G -')) {
+                return 'Giv';
+            }
+
+            const typeMap = {
+                'Buy it Now': 'Buy',
+                'Auction': 'Auc',
+                'Giveaway': 'Giv'
+            };
+            return typeMap[type] || type;
+        }
+
+        function renderComicsTable(comics) {
+            const tbody = document.getElementById('comicsTableBody');
+            if (comics.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="no-comics">No comics found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = '';
+            comics.forEach((comic, index) => {
+                const conditionAcronym = getConditionAcronym(comic.Condition);
+                const isMobile = window.innerWidth <= 768;
+                const titleText = isMobile && comic.Title.length > 40 ? comic.Title.substring(0, 40) + '...' : comic.Title;
+
+                // Main info row with desktop actions
+                const row = document.createElement('tr');
+                row.setAttribute('data-sku', comic.SKU);
+                row.className = 'pricing-table-row';
+                row.style.background = index % 2 === 0 ? 'var(--color-bg)' : 'var(--color-surface)';
+                row.dataset.defaultBg = index % 2 === 0 ? 'var(--color-bg)' : 'var(--color-surface)';
+                row.innerHTML = `
+                    <td class="title-cell">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <a href="/add?sku=${comic.SKU}" class="edit-icon-link" style="color: var(--color-text-muted); text-decoration: none; display: flex; align-items: center; transition: color 0.2s;" title="Edit comic" onclick="event.stopPropagation();">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="table-edit-icon">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                </svg>
+                            </a>
+                            <button class="title-text title-load-btn" data-full-title="${comic.Title}" onclick="lookupPrice('${comic.SKU}', event); event.stopPropagation();" title="Load image &amp; search eBay">${titleText}</button>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="list-price${comic.Price ? '' : ' no-price'}" data-sku="${comic.SKU}" data-price="${comic.Price || ''}" title="Click to edit price">${comic.Price ? '$' + comic.Price : '—'}</span>
+                    </td>
+                    <td><span class="badge badge-condition">${conditionAcronym}</span></td>
+                    <td class="desktop-actions">
+                        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                            <button class="btn btn-sm btn-primary lookup-btn" onclick="lookupPrice('${comic.SKU}', event)">Load Image</button>
+                            <button class="btn btn-sm btn-primary lookup-btn" onclick="searchEbayActive('${comic.Title.replace(/'/g, "\\'")}', event)">Search eBay</button>
+                            <button class="btn btn-sm btn-info lookup-btn" onclick="searchEbayByTitle('${comic.Title.replace(/'/g, "\\'")}', event)">Search Sold</button>
+                        </div>
+                    </td>
+                `;
+
+                // Mobile: tap to expand title, double tap to load image
+                let tapTimeout;
+                row.addEventListener('click', function(e) {
+                    if (window.innerWidth > 768) return; // Desktop - do nothing
+                    if (e.target.closest('button')) return; // Don't trigger on buttons
+
+                    const titleCell = this.querySelector('.title-text');
+                    const isExpanded = this.classList.contains('expanded');
+
+                    if (isExpanded) {
+                        // Already expanded - check for double tap
+                        if (tapTimeout) {
+                            // Double tap detected - trigger Load Image
+                            clearTimeout(tapTimeout);
+                            tapTimeout = null;
+                            lookupPrice(comic.SKU, e);
+                            return;
+                        }
+
+                        // Single tap - set timeout to detect double tap
+                        tapTimeout = setTimeout(() => {
+                            tapTimeout = null;
+                        }, 300);
+                    } else {
+                        // Not expanded - expand the title
+                        // Collapse all other rows first
+                        document.querySelectorAll('.pricing-table-row').forEach(r => {
+                            r.classList.remove('expanded');
+                            const tt = r.querySelector('.title-text');
+                            if (tt) {
+                                tt.textContent = tt.dataset.fullTitle;
+                                tt.style.color = '';
+                            }
+                        });
+
+                        // Expand this row
+                        this.classList.add('expanded');
+                        const fullTitle = titleCell.dataset.fullTitle;
+                        titleCell.textContent = fullTitle;
+                        titleCell.style.color = 'var(--color-accent)';
+                    }
+                });
+
+                tbody.appendChild(row);
+
+                // Wire inline price editor on the price span
+                const priceSpan = row.querySelector('.list-price');
+                if (priceSpan) {
+                    priceSpan.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        activateInlinePriceEditor(this);
+                    });
+                }
+
+                // Always add action buttons row on mobile
+                const actionsRow = document.createElement('tr');
+                actionsRow.className = 'mobile-actions';
+                const actionsBg = index % 2 === 0 ? 'var(--color-bg)' : 'var(--color-surface)';
+                actionsRow.innerHTML = `
+                    <td colspan="3" style="padding: 8px 16px; background: ${actionsBg}; border-bottom: 2px solid var(--color-elevated);">
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+                            <button class="btn btn-sm btn-primary lookup-btn" onclick="lookupPrice('${comic.SKU}', event)">Load Image</button>
+                            <button class="btn btn-sm btn-primary lookup-btn" onclick="searchEbayActive('${comic.Title.replace(/'/g, "\\'")}', event)">Search eBay</button>
+                            <button class="btn btn-sm btn-info lookup-btn" onclick="searchEbayByTitle('${comic.Title.replace(/'/g, "\\'")}', event)">Search Sold</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(actionsRow);
+            });
+        }
+
+        // Server-side search with debouncing
+        document.getElementById('searchBox').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.trim();
+
+            // Clear existing debounce timer
+            if (searchDebounceTimer) {
+                clearTimeout(searchDebounceTimer);
+            }
+
+            // Debounce search by 300ms
+            searchDebounceTimer = setTimeout(() => {
+                currentSearchTerm = searchTerm;
+                currentPage = 1;
+                allComics = [];
+                loadComics(1, false);
+            }, 300);
+        });
+
+        function searchEbayByTitle(title, event) {
+            event.stopPropagation();
+
+            // Open eBay sold listings in a new tab — Comics category, sold + completed,
+            // Buy It Now only, sorted by recently sold. The in-app sold-listings modal
+            // was rolled back because the Finding API is degraded and the Marketplace
+            // Insights API requires a Limited Release approval that has not been
+            // granted yet. The backend service methods (``EbayService.search_sold_items``
+            // and the ``/api/ebay/search-sold`` route) are intentionally retained so
+            // the in-app modal can be re-enabled by changing only this function once
+            // a working sold-data source is wired up.
+            const searchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(title)}&_sacat=259104&LH_Sold=1&LH_Complete=1&LH_BIN=1&_sop=13`;
+            window.open(searchUrl, '_blank');
+        }
+
+        function searchEbayActive(title, event) {
+            event.stopPropagation();
+
+            // Generate eBay search URL for active listings in Comics category, Buy It Now only
+            const searchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(title)}&_sacat=259104&LH_BIN=1`;
+
+            // Just open in browser - simple and clean
+            window.open(searchUrl, '_blank');
+        }
+
+
+        function openEbayInAppWindow(url, titleText) {
+            // Open modal
+            const modal = document.getElementById('ebayModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+
+            modalTitle.textContent = titleText;
+            modalBody.innerHTML = `
+                <div style="padding: 20px; text-align: center;">
+                    <div style="color: var(--color-text-muted); margin-bottom: 20px;">
+                        <p style="font-size: 16px; margin-bottom: 12px;">⚠️ eBay blocks in-app viewing for security reasons</p>
+                        <p style="font-size: 14px;">Click the button below to open in a new browser tab:</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="window.open('${url}', '_blank'); closeModal();" style="padding: 12px 24px;">
+                        Open in Browser
+                    </button>
+                </div>
+            `;
+            modal.style.display = 'block';
+        }
+
+        async function fetchAndShowEbayStats(title, type, searchUrl, limit) {
+            // Open modal with loading state
+            const modal = document.getElementById('ebayModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+            const typeLabel = type === 'sold' ? 'Sold' : 'Active';
+            modalTitle.textContent = `eBay ${typeLabel} Listings - ${title}`;
+            modalBody.innerHTML = `<div class="loading">Fetching ${typeLabel.toLowerCase()} listing data from eBay...</div>`;
+            modal.style.display = 'block';
+            try {
+                // Call the appropriate API endpoint
+                const endpoint = type === 'sold' ? '/api/ebay/lookup-price' : '/api/ebay/search-active';
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': window.csrfToken
+                    },
+                    body: JSON.stringify({
+                        title: title,
+                        limit: limit
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    // Check if it's a rate limit error - if so, show message and offer browser option
+                    if (result.rate_limit || (result.error && (result.error.includes('limit') || result.error.includes('unavailable')))) {
+                        modalBody.innerHTML = `
+                            <div style="padding: 40px; text-align: center;">
+                                <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
+                                <h3 style="color: var(--color-accent); margin-bottom: 16px;">Daily API Limit Reached</h3>
+                                <p style="color: var(--color-text-muted); margin-bottom: 24px; line-height: 1.6;">
+                                    eBay's Finding API has reached its daily limit of 5,000 calls.<br>
+                                    The limit resets at midnight PST.<br><br>
+                                    You can still search directly on eBay.com:
+                                </p>
+                                <button class="btn btn-primary" onclick="window.open('${searchUrl}', '_blank'); closeModal();" style="padding: 14px 28px; font-size: 16px;">
+                                    Open Search on eBay.com
+                                </button>
+                                <div style="margin-top: 24px; padding: 16px; background: var(--color-bg); border: 1px solid var(--color-border-hover); border-radius: var(--radius-md); text-align: left;">
+                                    <div style="color: var(--color-info); font-weight: 600; margin-bottom: 8px;">💡 Alternative: Use Image Search</div>
+                                    <div style="color: var(--color-text-muted); font-size: 14px; line-height: 1.6;">
+                                        The "Search eBay by Image" feature uses a different API with separate limits and still works!<br>
+                                        Click "Load Image" on any comic to try it.
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    modalBody.innerHTML = `<div class="error-message">Error: ${result.error || 'Unknown error occurred'}</div>`;
+                    return;
+                }
+
+                if (result.count === 0) {
+                    modalBody.innerHTML = `
+                        <div class="no-results">No ${typeLabel.toLowerCase()} items found on eBay.</div>
+                        <div style="text-align: center; margin-top: 20px;">
+                            <button class="btn btn-primary" onclick="window.open('${searchUrl}', '_blank'); closeModal();" style="padding: 12px 24px;">
+                                Open Full Search in Browser
+                            </button>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Render results with stats
+                renderEbaySearchResults(result, typeLabel, searchUrl);
+
+            } catch (error) {
+                console.error('Error:', error);
+                modalBody.innerHTML = `<div class="error-message">Failed to fetch eBay ${typeLabel.toLowerCase()} listings. Please try again.</div>`;
+            }
+        }
+
+        function renderEbaySearchResults(result, typeLabel, searchUrl) {
+            const modalBody = document.getElementById('modalBody');
+
+            let html = '';
+
+            // Header
+            html += `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div>
+                        <h3 style="margin: 0; color: var(--color-text);">Found ${result.count} ${typeLabel} Listings</h3>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <span class="status-badge" style="color: ${typeLabel === 'Sold' ? 'var(--color-success)' : 'var(--color-info)'};">${typeLabel.toUpperCase()}</span>
+                    </div>
+                </div>
+            `;
+
+            // Calculate statistics
+            const prices = result.items.map(item => item.price).filter(p => p > 0);
+            if (prices.length > 0) {
+                const sortedPrices = [...prices].sort((a, b) => a - b);
+                const minPrice = Math.min(...prices);
+                const maxPrice = Math.max(...prices);
+                const avgPrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
+                const medianPrice = sortedPrices[Math.floor(sortedPrices.length / 2)];
+                const minItem = result.items.find(item => item.price === minPrice);
+                const maxItem = result.items.find(item => item.price === maxPrice);
+
+                html += `
+                    <div style="background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-elevated) 100%); border: 2px solid var(--color-accent); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 24px;">
+                        <div style="color: var(--color-accent); font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                            <span>📊</span>
+                            <span>${typeLabel} Price Statistics (${prices.length} items)</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px;">
+                            <div style="background: var(--color-bg); padding: 12px; border-radius: var(--radius-md); text-align: center;">
+                                <div style="color: var(--color-text-muted); font-size: 11px; margin-bottom: 4px;">AVERAGE</div>
+                                <div style="color: var(--color-accent); font-size: 20px; font-weight: 700;">$${avgPrice.toFixed(2)}</div>
+                            </div>
+                            <div style="background: var(--color-bg); padding: 12px; border-radius: var(--radius-md); text-align: center;">
+                                <div style="color: var(--color-text-muted); font-size: 11px; margin-bottom: 4px;">MEDIAN</div>
+                                <div style="color: var(--color-info); font-size: 20px; font-weight: 700;">$${medianPrice.toFixed(2)}</div>
+                            </div>
+                            <div style="background: var(--color-bg); padding: 12px; border-radius: var(--radius-md); text-align: center;">
+                                <div style="color: var(--color-text-muted); font-size: 11px; margin-bottom: 4px;">MIN</div>
+                                <div style="color: var(--color-success); font-size: 18px; font-weight: 600;">$${minPrice.toFixed(2)}</div>
+                            </div>
+                            <div style="background: var(--color-bg); padding: 12px; border-radius: var(--radius-md); text-align: center;">
+                                <div style="color: var(--color-text-muted); font-size: 11px; margin-bottom: 4px;">MAX</div>
+                                <div style="color: var(--color-danger); font-size: 18px; font-weight: 600;">$${maxPrice.toFixed(2)}</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--color-border-hover); color: var(--color-text-muted); font-size: 11px; text-align: center;">
+                            💡 Click MIN or MAX to view those listings on eBay
+                        </div>
+                    </div>
+                `;
+            }
+
+            // "Open Full Search in Browser" button
+            html += `
+                <div style="margin-bottom: 24px; text-align: center; padding: 16px; background: var(--color-bg); border: 1px solid var(--color-border-hover); border-radius: var(--radius-md);">
+                    <p style="color: var(--color-text-muted); margin-bottom: 12px;">View all results with filters on eBay.com</p>
+                    <button class="btn btn-primary" onclick="window.open('${searchUrl}', '_blank');" style="padding: 12px 24px;">
+                        🔗 Open Full Search in Browser
+                    </button>
+                </div>
+            `;
+
+            // List ALL items (based on configured limit)
+            html += '<div class="ebay-results">';
+
+            result.items.forEach(item => {
+                const badge = typeLabel === 'Sold' ?
+                    '<span class="ebay-item-badge ebay-item-badge-sold">SOLD</span>' :
+                    '<span class="ebay-item-badge ebay-item-badge-active">ACTIVE</span>';
+
+                // Escape single quotes in title and price for onclick handler
+                const escapedTitle = item.title.replace(/'/g, "\\'");
+                const escapedPrice = item.price.toFixed(2);
+
+                html += `
+                    <div class="ebay-item">
+                        <img src="${item.image_url || ''}" alt="${item.title}" class="ebay-item-image" style="${!item.image_url ? 'background: var(--color-elevated);' : ''}" onerror="this.style.background='var(--color-elevated)'">
+                        <div class="ebay-item-details">
+                            ${badge}
+                            <div class="ebay-item-title">${item.title}</div>
+                            <div class="ebay-item-info">
+                                <div>
+                                    <div style="color: var(--color-text-muted); font-size: 12px;">${typeLabel} Price</div>
+                                    <div class="ebay-item-price">$${item.price.toFixed(2)}</div>
+                                </div>
+                                <div>
+                                    <div style="color: var(--color-text-muted); font-size: 12px;">Condition</div>
+                                    <div style="color: var(--color-text);">${item.condition}</div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+                                <a href="${item.listing_url}" target="_blank" onclick="event.stopPropagation()" class="btn btn-sm btn-primary" style="text-decoration: none; padding: 6px 12px;">View on eBay →</a>
+                                <button class="btn btn-sm btn-info" onclick="useThisListing('${escapedTitle}', ${escapedPrice}); event.stopPropagation();">📋 Use This</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            modalBody.innerHTML = html;
+        }
+
+        function useThisListing(title, price) {
+            // Find the currently selected comic
+            let selectedSKU = null;
+
+            if (currentView === 'grid') {
+                const selectedCard = document.querySelector('.comic-card.selected');
+                if (selectedCard) {
+                    selectedSKU = selectedCard.getAttribute('data-sku');
+                }
+            } else {
+                const selectedRow = document.querySelector('#comicsTableBody tr[style*="outline: 2px solid"]');
+                if (selectedRow) {
+                    selectedSKU = selectedRow.getAttribute('data-sku');
+                }
+            }
+
+            if (!selectedSKU) {
+                showNotification('Select a comic first by clicking "Load Image" on any row.', 'error');
+                return;
+            }
+
+            const comic = allComics.find(c => c.SKU === selectedSKU);
+            if (!comic) {
+                showNotification('Could not find selected comic.', 'error');
+                return;
+            }
+
+            // Confirm the update
+            if (!confirm(`Update "${comic.Title}" to:\n\nNew Title: ${title}\nNew Price: $${price}\n\nContinue?`)) {
+                return;
+            }
+
+            // Update via API - round price up to whole number
+            updateComicTitleAndPrice(selectedSKU, title, Math.ceil(price));
+        }
+        window.useThisListing = useThisListing;
+
+        async function updateComicTitleAndPrice(sku, title, price) {
+            try {
+                const response = await fetch('/api/comics/update-title-price', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': window.csrfToken
+                    },
+                    body: JSON.stringify({
+                        sku: sku,
+                        title: title,
+                        price: price
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`✓ Updated: ${title}`, 'success');
+
+                    // Update the comic in our local array
+                    const comic = allComics.find(c => c.SKU === sku);
+                    if (comic) {
+                        comic.Title = title;
+                        comic.Price = price;
+                    }
+
+                    // Refresh the display
+                    if (currentView === 'grid') {
+                        renderComicsGrid(allComics);
+                    } else {
+                        renderComicsTable(allComics);
+                    }
+
+                    // Close the modal
+                    closeModal();
+                } else {
+                    showNotification(`Failed to update comic: ${result.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error updating comic:', error);
+                showNotification('Failed to update comic. Please try again.', 'error');
+            }
+        }
+
+        /**
+         * Inline price editor — click a .list-price element to edit in place.
+         * Enter/blur saves via /api/comics/update-title-price; Escape cancels.
+         */
+        function activateInlinePriceEditor(priceEl) {
+            if (priceEl.querySelector('input')) return; // already editing
+
+            const sku = priceEl.dataset.sku;
+            const currentPrice = priceEl.dataset.price || '';
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.inputMode = 'numeric';
+            input.pattern = '[0-9]*';
+            input.value = currentPrice;
+            input.className = 'list-price-input';
+            input.title = 'Press Enter to save, Escape to cancel';
+
+            priceEl.textContent = '';
+            priceEl.classList.remove('no-price');
+            priceEl.appendChild(input);
+            input.focus();
+            input.select();
+
+            let handled = false;
+
+            async function savePrice(newValue) {
+                if (handled) return;
+                handled = true;
+
+                const parsed = parseFloat(newValue);
+                if (isNaN(parsed) || parsed < 0) {
+                    restoreDisplay(currentPrice);
+                    return;
+                }
+                const rounded = Math.ceil(parsed);
+
+                // No-op if the price didn't change — skip the API call and eBay update
+                if (rounded === parseInt(currentPrice, 10)) {
+                    restoreDisplay(currentPrice);
+                    return;
+                }
+
+                priceEl.textContent = '…';
+                priceEl.classList.add('list-price-saving');
+
+                try {
+                    const resp = await fetch('/api/comics/update-title-price', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': window.csrfToken || ''
+                        },
+                        body: JSON.stringify({ sku, price: rounded })
+                    });
+                    const result = await resp.json();
+                    priceEl.classList.remove('list-price-saving');
+
+                    if (resp.ok && result.success) {
+                        priceEl.dataset.price = rounded;
+                        priceEl.textContent = result.ebay_updated ? '✓ +eBay' : '✓';
+                        priceEl.classList.add('list-price-ok');
+                        setTimeout(() => {
+                            priceEl.classList.remove('list-price-ok', 'no-price');
+                            priceEl.textContent = `$${rounded}`;
+                        }, result.ebay_updated ? 1400 : 800);
+                        // Update in-memory record
+                        const comicInMem = allComics.find(c => c.SKU === sku);
+                        if (comicInMem) comicInMem.Price = String(rounded);
+                        // Sync any other price spans for the same SKU (table + grid both visible)
+                        document.querySelectorAll(`.list-price[data-sku="${sku}"]`).forEach(el => {
+                            if (el !== priceEl) {
+                                el.dataset.price = rounded;
+                                el.textContent = `$${rounded}`;
+                                el.classList.remove('no-price');
+                            }
+                        });
+                    } else {
+                        priceEl.classList.add('list-price-err');
+                        priceEl.textContent = '✗';
+                        setTimeout(() => {
+                            priceEl.classList.remove('list-price-err');
+                            restoreDisplay(currentPrice);
+                        }, 1200);
+                    }
+                } catch (_err) {
+                    priceEl.classList.remove('list-price-saving');
+                    priceEl.classList.add('list-price-err');
+                    priceEl.textContent = '✗';
+                    setTimeout(() => {
+                        priceEl.classList.remove('list-price-err');
+                        restoreDisplay(currentPrice);
+                    }, 1200);
+                }
+            }
+
+            function cancelEdit() {
+                if (handled) return;
+                handled = true;
+                restoreDisplay(currentPrice);
+            }
+
+            function restoreDisplay(price) {
+                priceEl.classList.remove('list-price-saving', 'list-price-ok', 'list-price-err');
+                if (price) {
+                    priceEl.textContent = `$${price}`;
+                    priceEl.classList.remove('no-price');
+                } else {
+                    priceEl.textContent = '—';
+                    priceEl.classList.add('no-price');
+                }
+            }
+
+            input.addEventListener('keydown', function(ev) {
+                if (ev.key === 'Enter') {
+                    ev.preventDefault();
+                    savePrice(input.value);
+                } else if (ev.key === 'Escape') {
+                    ev.preventDefault();
+                    cancelEdit();
+                }
+            });
+
+            input.addEventListener('blur', () => setTimeout(() => savePrice(input.value), 80));
+        }
+
+        async function lookupPrice(sku, event) {
+            if (event) event.stopPropagation();
+            const comic = allComics.find(c => c.SKU === sku);
+            if (!comic) return;
+
+            // Show loading state on the triggering button
+            const triggerBtn = event && event.target && event.target.closest('button');
+            const origText = triggerBtn ? triggerBtn.textContent : null;
+            if (triggerBtn) {
+                triggerBtn.classList.add('btn-loading');
+                triggerBtn.textContent = 'Loading…';
+            }
+
+            // Highlight the card or row being loaded
+            if (currentView === 'grid') {
+                const cards = document.querySelectorAll('.comic-card');
+                cards.forEach(card => {
+                    if (card.getAttribute('data-sku') === sku) {
+                        card.classList.add('selected');
+                        card.style.borderColor = 'var(--color-accent)';
+                        card.style.background = 'var(--color-elevated)';
+                        card.style.boxShadow = 'var(--shadow-md)';
+                    } else {
+                        card.classList.remove('selected');
+                        card.style.borderColor = 'var(--color-elevated)';
+                        card.style.background = 'var(--color-surface)';
+                        card.style.boxShadow = 'none';
+                    }
+                });
+            } else {
+                const rows = document.querySelectorAll('#comicsTableBody tr');
+                rows.forEach(row => {
+                    if (row.getAttribute('data-sku') === sku) {
+                        row.style.background = 'var(--color-elevated)';
+                        row.style.outline = '2px solid var(--color-accent)';
+                        row.style.outlineOffset = '-2px';
+                    } else {
+                        row.style.background = 'transparent';
+                        row.style.outline = 'none';
+                    }
+                });
+            }
+
+            // Get all images for this comic
+            let imageUrls = [];
+
+            // Try image_urls array first
+            if (comic.image_urls && Array.isArray(comic.image_urls)) {
+                imageUrls = comic.image_urls.filter(url => url && url.trim());
+            }
+
+            // Fall back to Image URL 1, 2, 3, etc. format
+            if (imageUrls.length === 0) {
+                for (let i = 1; i <= 10; i++) {
+                    const url = comic[`Image URL ${i}`];
+                    if (url && url.trim()) {
+                        imageUrls.push(url);
+                    }
+                }
+            }
+
+            if (imageUrls.length === 0) {
+                if (triggerBtn) {
+                    triggerBtn.classList.remove('btn-loading');
+                    triggerBtn.textContent = origText;
+                }
+                showNotification('This comic has no images — cannot search eBay by image.', 'error');
+                return;
+            }
+
+            try {
+                // Store current comic and all its images
+                currentLoadedComic = {
+                    comic: comic,
+                    imageUrls: imageUrls
+                };
+
+                // Always load Image 1 first
+                await loadComicImage(comic, imageUrls[0], 0);
+
+                // Update main edit icon
+                const mainEditIcon = document.getElementById('mainEditIcon');
+                if (mainEditIcon) {
+                    mainEditIcon.href = `/add?sku=${comic.SKU}`;
+                    mainEditIcon.style.display = 'flex';
+                }
+            } finally {
+                if (triggerBtn) {
+                    triggerBtn.classList.remove('btn-loading');
+                    triggerBtn.textContent = origText;
+                }
+            }
+        }
+
+        function showCurrentComicImageSelector() {
+            if (!currentLoadedComic) return;
+            showImageSelector(currentLoadedComic.comic, currentLoadedComic.imageUrls);
+        }
+
+        function showImageSelector(comic, imageUrls) {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--overlay-heavy); z-index: 10000; display: flex; align-items: center; justify-content: center; overflow-y: auto;';
+            overlay.id = 'image-selector-' + Date.now();
+
+            const popup = document.createElement('div');
+            popup.style.cssText = 'background: var(--color-surface); border: 2px solid var(--color-accent); border-radius: var(--radius-lg); padding: 24px; max-width: 800px; width: 90%; max-height: 90vh; overflow-y: auto;';
+
+            let imagesHtml = '';
+            imageUrls.forEach((url, index) => {
+                const proxiedUrl = getProxiedUrl(url);
+                imagesHtml += `
+                    <div class="image-selector-item"
+                         onclick="loadComicImageAndClose('${comic.SKU}', '${url.replace(/'/g, "\\'")}', ${index}, '${overlay.id}')">
+                        <div style="display: flex; align-items: center; gap: 16px;">
+                            <img src="${proxiedUrl}" style="width: 100px; height: 100px; object-fit: cover; border-radius: var(--radius-sm); background: var(--color-elevated);" onerror="this.style.background='var(--color-elevated)'; this.style.border='1px solid var(--color-border-hover)'">
+                            <div>
+                                <div style="color: var(--color-accent); font-weight: 600; margin-bottom: 4px;">Image ${index + 1}</div>
+                                <div style="color: var(--color-text-muted); font-size: 12px;">Click to use this image</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            popup.innerHTML = `
+                <div style="color: var(--color-accent); font-size: 18px; font-weight: 700; margin-bottom: 16px;">Select Image for ${comic.Title}</div>
+                <div style="color: var(--color-text-muted); font-size: 14px; margin-bottom: 20px;">Choose which image to use for eBay search (${imageUrls.length} images available)</div>
+                ${imagesHtml}
+                <button class="btn btn-secondary" onclick="document.getElementById('${overlay.id}').remove()" style="width: 100%; margin-top: 12px;">Cancel</button>
+            `;
+
+            overlay.appendChild(popup);
+            overlay.onclick = (e) => {
+                if (e.target === overlay) overlay.remove();
+            };
+
+            document.body.appendChild(overlay);
+        }
+
+        async function loadComicImageAndClose(sku, imageUrl, imageIndex, overlayId) {
+            const comic = allComics.find(c => c.SKU === sku);
+            if (!comic) return;
+
+            // Close the selector
+            const overlay = document.getElementById(overlayId);
+            if (overlay) overlay.remove();
+
+            // Load the selected image
+            await loadComicImage(comic, imageUrl, imageIndex);
+        }
+
+        async function loadComicImage(comic, imageUrl, imageIndex) {
+            // Scroll to the search by image section
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            try {
+                // Use proxy endpoint to avoid CORS issues with S3
+                const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+                const imageResponse = await fetch(proxyUrl);
+
+                if (!imageResponse.ok) {
+                    throw new Error(`Failed to fetch image: ${imageResponse.status} ${imageResponse.statusText}`);
+                }
+
+                const imageBlob = await imageResponse.blob();
+                // Convert blob to base64
+                const base64Image = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(imageBlob);
+                });
+                // Load the image into the search section
+                uploadedImageData = base64Image;
+
+                // Update UI
+                document.getElementById('imageFileName').textContent = `${comic.Title} - Image ${imageIndex + 1}`;
+                const previewDiv = document.getElementById('imagePreview');
+                const previewImg = document.getElementById('previewImg');
+                previewImg.src = base64Image;
+                previewDiv.style.display = 'block';
+
+                // Show "Choose Image" button if comic has multiple images
+                const chooseBtn = document.getElementById('chooseImageBtn');
+                if (currentLoadedComic && currentLoadedComic.imageUrls.length > 1) {
+                    chooseBtn.style.display = 'inline-block';
+                } else {
+                    chooseBtn.style.display = 'none';
+                }
+
+                // Enable search button
+                const searchBtn = document.getElementById('searchImageBtn');
+                searchBtn.disabled = false;
+                searchBtn.style.cssText = '';
+
+                // Highlight the search section briefly
+                const searchSection = document.querySelector('[style*="background: var(--color-surface)"]');
+                if (searchSection) {
+                    searchSection.style.border = '2px solid var(--color-accent)';
+                    setTimeout(() => {
+                        searchSection.style.border = '1px solid var(--color-border-hover)';
+                    }, 2000);
+                }
+
+            } catch (error) {
+                console.error('Error loading image:', error);
+                console.error('Image URL was:', imageUrl);
+                showNotification(`Failed to load image: ${error.message}`, 'error');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('ebayModal').style.display = 'none';
+        }
+        window.closeModal = closeModal;
+
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('ebayModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+
+        // Initialize page
+        async function initPage() {
+            // Wait for user preferences to be loaded
+            let attempts = 0;
+            while (!window.userPreferences && attempts < 50) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+                attempts++;
+            }
+
+            // Ensure Choose Different Image button is hidden on load
+            document.getElementById('chooseImageBtn').style.display = 'none';
+            document.getElementById('imagePreview').style.display = 'none';
+            if (document.getElementById('mainEditIcon')) {
+                document.getElementById('mainEditIcon').style.display = 'none';
+            }
+            currentLoadedComic = null;
+            uploadedImageData = null;
+            updatePriceLookupFilterTabUI();
+            updatePriceFilterSummary();
+
+            // Sync inline sort dropdown to stored value
+            const sortSel = document.getElementById('priceSortSelect');
+            if (sortSel) sortSel.value = priceSortOrder;
+
+            // Apply the restored/default view (updates buttons and panel visibility)
+            switchView(currentView);
+
+            // Load comics - restore previous state if available
+            const savedMaxPage = sessionStorage.getItem('pricing_maxLoadedPage');
+            if (savedMaxPage && parseInt(savedMaxPage) > 1) {
+                maxLoadedPage = parseInt(savedMaxPage);
+                // Load all pages up to the saved page
+                for (let page = 1; page <= maxLoadedPage; page++) {
+                    await loadComics(page, page > 1);
+                }
+            } else {
+                // Normal initial load
+                await loadComics();
+            }
+
+            // Check if SKU is in URL query params
+            const urlParams = new URLSearchParams(window.location.search);
+            const skuParam = urlParams.get('sku');
+            if (skuParam) {
+                lookupPrice(skuParam);
+            }
+        }
+
+        // Grading Modal Functions
+        const gradingScaleData = [
+            {grade: "10", name: "Gem Mint", desc: "The highest grade assigned. The collectible must have no evidence of any manufacturing or handling defects."},
+            {grade: "9.9", name: "Mint", desc: "Near perfect in every way. Only subtle bindery or printing defects are allowed. Cover is flat with no surface wear. Inks are bright with high reflectivity. Well centered and firmly secured to interior pages. Corners are cut square and sharp. No creases. No dates or stamped markings allowed. No soiling, staining or other discoloration. Spine is tight and flat. No spine stress or other spine defects. Staples must be original, generally centered, and clean with no rust. No staple tears or stress lines. Paper is supple and like new. No hint of acidity in the odor of the newsprint. Centerfold is firmly secure. No interior tears."},
+            {grade: "9.8", name: "Near Mint/Mint", desc: "Nearly perfect in every way with only minor imperfections that keep it from the next higher grade. Only subtle bindery or printing defects are allowed. Cover is flat with no surface wear. Inks are bright with high reflectivity. Generally well centered and firmly secured to interior pages. Corners are cut square and sharp with ever-so-slight blunting permitted. No creases. No dates or stamped markings allowed. No soiling, staining or other discoloration. Spine is tight and flat. No spine stress or other spine defects. Staples must be original, generally centered, and clean with no rust. No staple tears or stress lines. Paper is supple and like new. No hint of acidity in the odor of the newsprint. Centerfold is firmly secure. No interior tears."},
+            {grade: "9.6", name: "Near Mint+", desc: "Nearly perfect with a minor additional virtue or virtues that raise it from Near Mint. The overall look is as if it was just purchased and read once or twice. Only subtle bindery or printing defects are allowed. Cover is flat with no surface wear. Inks are bright with high reflectivity. Generally well centered and secured to interior pages. One corner may be almost imperceptibly blunted, but still almost sharp and cut square. Almost imperceptible indentations are permissible, but no creases, bends, or color break. Small, inconspicuous, lightly penciled, stamped or inked arrival dates are acceptable. No soiling, staining or other discoloration. Spine is tight and flat. No spine roll or split allowed. Staples may show some discoloration. No staple tears are allowed, although slight staple stress is allowed if it does not break color. Paper is cream to off-white and supple. No hint of acidity in the odor of the newsprint. Centerfold is mostly secure. Only the slightest interior tears are allowed."},
+            {grade: "9.4", name: "Near Mint", desc: "Nearly perfect with only minor imperfections that keep it from the next higher grade. Only subtle bindery or printing defects are allowed. Cover is flat with no surface wear. Inks are bright with high reflectivity. Generally well centered and secured to interior pages. Corners are cut square and sharp with ever-so-slight blunting permitted. Almost imperceptible indentations are permissible, but no creases, bends, or color break. Small, inconspicuous, lightly penciled, stamped or inked arrival dates are acceptable. No soiling, staining or other discoloration. Spine is tight and flat. No spine roll or split allowed. Staples may show some discoloration. No staple tears are allowed, although slight staple stress is allowed if it does not break color. Paper is cream to off-white and supple. No hint of acidity in the odor of the newsprint. Centerfold is mostly secure. Only the slightest interior tears are allowed."},
+            {grade: "9.2", name: "Near Mint-", desc: "Nearly perfect with only minor imperfections that keep it from the next higher grade. Only subtle bindery or printing defects are allowed. Cover is flat with no surface wear. Inks are bright with high reflectivity. Generally well centered and secured to interior pages. Corners are cut square and sharp with ever-so-slight blunting permitted. A 1/16\" bend is permitted with no color break. Small, inconspicuous, lightly penciled, stamped or inked arrival dates are acceptable. No soiling, staining or other discoloration. Spine is tight and flat. No spine roll or split allowed. Staples may show some discoloration. A very minor accumulation of stress lines, if nearly imperceptible, is permissible. No staple tears. Paper is tan to cream and supple. No hint of acidity in the odor of the newsprint. Centerfold is mostly secure. Only the slightest interior tears are allowed."},
+            {grade: "9.0", name: "Very Fine/Near Mint", desc: "Nearly perfect with outstanding eye appeal. A limited number of bindery or printing defects are allowed. Cover is flat with no surface wear. Inks are bright with slightly diminished reflectivity. An 1/8\" bend is permitted if color is not broken. Stamped or inked arrival dates may be present. No obvious soiling, staining or other discoloration, except for minor foxing. Spine is tight and flat. No spine roll or split allowed. Staples may show some discoloration. A minor accumulation of stress lines may be present. Slight staple tears and a few almost insignificant stress lines may be present. Paper is tan to cream, but not brown. No hint of acidity in the odor of the newsprint. Centerfold is mostly secure. Minor interior tears at the margin may be present."},
+            {grade: "8.5", name: "Very Fine+", desc: "Fits the criteria for Very Fine but with an additional virtue or small accumulation of virtues that improves the book's appearance by a perceptible amount."},
+            {grade: "8.0", name: "Very Fine", desc: "An excellent copy with outstanding eye appeal. Sharp, bright and clean with supple pages. A comic book in this grade has the appearance of having been carefully handled. A limited accumulation of minor bindery defects is allowed. Cover is relatively flat with minimal surface wear beginning to show, possibly including some minute wear at corners. Inks are generally bright with moderate to high reflectivity. A 1/4\" crease is acceptable if color is not broken. Stamped or inked arrival dates may be present. No obvious soiling, staining or other discoloration, except for minor foxing. Spine is tight and flat. No spine roll or split allowed. Staples may show some discoloration. A minor accumulation of stress lines may be present. Slight staple tears and a few almost insignificant stress lines may be present. Paper is tan to cream, but not brown. No hint of acidity in the odor of the newsprint. Centerfold is mostly secure. Minor interior tears at the margin may be present."},
+            {grade: "7.5", name: "Very Fine-", desc: "Fits the criteria for Very Fine but with an additional defect or small accumulation of defects that detracts from the book's appearance by a perceptible amount."},
+            {grade: "7.0", name: "Fine/Very Fine", desc: "An above-average copy that shows minor wear but is still relatively flat and clean with outstanding eye appeal. A small accumulation of minor bindery defects is allowed. Cover may have some slight surface wear or a printing defect. Inks show a major reduction in reflectivity. A 1/4\" crease is acceptable if color is not broken. Stamped or inked arrival dates may be present. No obvious soiling, staining or other discoloration, except for minor foxing. Spine is relatively flat with possible minor color break. Staples show minor discoloration. Minor staple tears are acceptable. A minor accumulation of stress lines may be present. Paper is tan to cream, but not brown. No hint of acidity in the odor of the newsprint. Centerfold is mostly secure. Minor interior tears at the margin may be present."},
+            {grade: "6.5", name: "Fine+", desc: "Fits the criteria for Fine but with an additional virtue or small accumulation of virtues that improves the book's appearance by a perceptible amount."},
+            {grade: "6.0", name: "Fine", desc: "An above-average copy that shows minor wear but is still relatively flat and clean with no significant creasing or other serious defects. Eye appeal is somewhat reduced because of slight surface wear and the accumulation of small defects, especially on the spine and edges. A Fine copy will have an overall fresh look. Cover may have some surface wear or a printing defect. Inks have major to extreme reduction in reflectivity. A 1/4\" crease is acceptable. Stamped or inked arrival dates may be present. No obvious soiling, staining or other discoloration, except for minor foxing. Spine may have a few small color breaks and minor stress lines. Staples show minor discoloration and minor staple tears are acceptable. Minor stress lines are acceptable. Paper is tan to cream, but not brown. No hint of acidity in the odor of the newsprint. Minor interior tears at the margin may be present."},
+            {grade: "5.5", name: "Fine-", desc: "Fits the criteria for Fine but with an additional defect or small accumulation of defects that detracts from the book's appearance by a perceptible amount."},
+            {grade: "5.0", name: "Very Good/Fine", desc: "An above-average copy that shows some moderate wear, but still has not accumulated enough defects to reduce eye appeal to the point that it is not a desirable copy. The overall look is somewhat below fresh. Cover shows moderate to significant wear and may have a reading or subscription crease, but it is relatively flat and has some moderate color loss or fading. No chunks missing. Stamped or inked arrival dates may be present. A minor spine roll may be present as well as possible moderate color break. Staples may be rusted or replaced. Minor to moderate staple tears and stress lines are acceptable. Paper is brown but not brittle. Minor to moderate interior tears may be present."},
+            {grade: "4.5", name: "Very Good+", desc: "Fits the criteria for Very Good but with an additional virtue or small accumulation of virtues that improves the book's appearance by a perceptible amount."},
+            {grade: "4.0", name: "Very Good", desc: "The average used comic book. A comic in this grade shows some significant moderate wear, but still has not accumulated enough total defects to reduce eye appeal to the point that it is not a desirable copy. Cover shows moderate to significant wear and may have a reading or subscription crease, but is relatively flat with some moderate color loss. May have an approximately 1.5\" to 2\" spine split. Stamped or inked arrival dates may be present. A minor spine roll may be present as well as possible moderate color break. Staples may be rusted or replaced. Moderate staple tears and moderate stress lines may be present. Paper is brown but not brittle. Centerfold may be loose or detached. Moderate to major interior tears may be present."},
+            {grade: "3.5", name: "Very Good-", desc: "Fits the criteria for Very Good but with an additional defect or small accumulation of defects that detracts from the book's appearance by a perceptible amount."},
+            {grade: "3.0", name: "Good/Very Good", desc: "A comic showing significant wear. Cover shows significant wear and may be loose but not completely detached. Cover reflectivity is very low. Can have a book-length crease and/or dimples. Store stamps, name stamps, arrival dates, etc. can be present. Can have up to a 2\" spine split. Corners may be blunted or abraded. Soiling and staining is generally present. Staples may be rusted, replaced, or moved. Moderate staple tears and stress lines may be present, as well as rust migration. Paper is brown but not brittle. Centerfold may be loose or detached. Moderate to major interior tears may be present."},
+            {grade: "2.5", name: "Good+", desc: "Fits the criteria for Good but with an additional virtue or small accumulation of virtues that improves the book's appearance by a perceptible amount."},
+            {grade: "2.0", name: "Good", desc: "A comic showing substantial wear. A copy in this grade has all pages and covers, although there may be small pieces missing. Books in this grade are commonly creased, scuffed, abraded, soiled, and unattractive. Some collectors consider this the lowest collectible grade because comic books in lesser condition are usually incomplete and/or brittle. Cover shows considerable wear and may be detached. Cover reflectivity is absent. Store stamps, name stamps, arrival dates, etc. can be present. Can have a spine split of anywhere from 1/3 to 2/3 the length of the book. Corners may be blunted or abraded. Soiling and staining is generally present. Staples may be rusted, replaced, or moved. Major staple tears and stress lines are very common, as is rust migration. Paper is brown and may show brittleness around the edges. Centerfold may be loose or detached. Major interior tears may be present."},
+            {grade: "1.8", name: "Good-", desc: "Fits the criteria for Good but with an additional defect or small accumulation of defects that detracts from the book's appearance by a perceptible amount."},
+            {grade: "1.5", name: "Fair/Good", desc: "A comic showing heavy wear. A copy in this grade has all pages and covers, although there may be small pieces missing. Books in this grade are commonly creased, scuffed, abraded, soiled, and unattractive. Some collectors consider this the lowest collectible grade, while others do collect lower-graded comics. Comic books in less than Poor condition are always incomplete and/or brittle."},
+            {grade: "1.0", name: "Fair", desc: "A copy in this grade shows heavy wear. Some collectors consider this the lowest collectible grade because comic books in lesser condition are usually incomplete and/or brittle. Comics in this grade are commonly creased, scuffed, abraded, soiled, and possibly unattractive. This is the last grade in which a comic remains generally readable. Cover may be detached, and inks have lost all reflectivity. Accumulation of defects is generally more severe than in a GD comic. Cover shows considerable wear and may be detached. Cover reflectivity is absent. Store stamps, name stamps, arrival dates, etc. can be present. Can have a spine split the entire length of the book. Corners may be blunted or abraded. Soiling and staining is generally present. Staples may be rusted, replaced, or moved. Major staple tears and stress lines are very common, as is rust migration. Paper is brown and may show brittleness around the edges but not in the central portion of the pages. Centerfold may be loose or detached. Major interior tears may be present. Multiple pages, but not the centerfold, may be missing that, if present, would affect the story."},
+            {grade: "0.5", name: "Poor", desc: "A heavily defaced copy with a number of major defects. Copies in this grade typically have all or most of the front cover present. Books in this grade are readable, although there may be difficulties due to extremely brittle pages or a large number of pages or pieces missing. Coupons may be cut. Some collectors consider this the lowest collectible grade, while others do collect lower-graded comics. Comic books in less than Poor condition are always incomplete and/or brittle."}
+        ];
+
+        function openGradingModal() {
+            const modal = document.getElementById('gradingModal');
+            const content = document.getElementById('gradingScaleContent');
+
+            // Lazy load content - only populate once
+            if (!content.innerHTML) {
+                content.innerHTML = gradingScaleData.map(item => `
+                    <div class="grading-item">
+                        <div style="min-width: 80px; text-align: center;">
+                            <div style="font-size: 32px; font-weight: 700; color: var(--color-accent); line-height: 1; margin-bottom: 4px;">${item.grade}</div>
+                            <div style="font-size: 14px; font-weight: 600; color: var(--color-text); white-space: nowrap;">${item.name}</div>
+                        </div>
+                        <div style="flex: 1; color: var(--color-text-muted); font-size: 14px; line-height: 1.6;">${item.desc}</div>
+                    </div>
+                `).join('');
+            }
+
+            modal.style.display = 'flex';
+            document.addEventListener('keydown', handleGradingModalEscape);
+        }
+
+        function closeGradingModal() {
+            document.getElementById('gradingModal').style.display = 'none';
+        }
+        window.closeGradingModal = closeGradingModal;
+
+        function closeGradingModalOnOutsideClick(event) {
+            if (event.target.id === 'gradingModal') {
+                closeGradingModal();
+            }
+        }
+
+        function handleGradingModalEscape(event) {
+            if (event.key === 'Escape') {
+                closeGradingModal();
+            }
+        }
+
+        // Pricing Admin Modal Functions
+        function openPricingAdminModal() {
+            const modal = document.getElementById('pricingAdminModal');
+
+            // Load current settings from localStorage
+            const imageSearchLimit = localStorage.getItem('pricingImageSearchLimit') || '20';
+
+            document.getElementById('imageSearchLimit').value = imageSearchLimit;
+
+            modal.style.display = 'flex';
+            document.addEventListener('keydown', handlePricingAdminModalEscape);
+        }
+        window.openPricingAdminModal = openPricingAdminModal;
+
+        function closePricingAdminModal() {
+            document.getElementById('pricingAdminModal').style.display = 'none';
+            document.removeEventListener('keydown', handlePricingAdminModalEscape);
+        }
+        window.closePricingAdminModal = closePricingAdminModal;
+
+        function closePricingAdminModalOnOutsideClick(event) {
+            if (event.target.id === 'pricingAdminModal') {
+                closePricingAdminModal();
+            }
+        }
+        window.closePricingAdminModalOnOutsideClick = closePricingAdminModalOnOutsideClick;
+
+        function handlePricingAdminModalEscape(event) {
+            if (event.key === 'Escape') {
+                closePricingAdminModal();
+            }
+        }
+
+        function savePricingAdminSettings() {
+            const imageSearchLimit = document.getElementById('imageSearchLimit').value;
+
+            // Validate image search limit
+            const imageLimit = parseInt(imageSearchLimit);
+            if (isNaN(imageLimit) || imageLimit < 5 || imageLimit > 100) {
+                showNotification('Image search limit must be between 5 and 100', 'error');
+                return;
+            }
+
+            // Save to localStorage
+            localStorage.setItem('pricingImageSearchLimit', imageSearchLimit);
+
+            // Close modal
+            closePricingAdminModal();
+
+            // Show success message
+            showNotification('Settings saved', 'success');
+        }
+        window.savePricingAdminSettings = savePricingAdminSettings;
+
+         // Function to clear/reset the image preview
+        function clearImagePreview() {
+            const previewDiv = document.getElementById('imagePreview');
+            const previewImg = document.getElementById('previewImg');
+            const searchBtn = document.getElementById('searchImageBtn');
+            const fileNameSpan = document.getElementById('imageFileName');
+
+            // Reset the image preview
+            previewDiv.style.display = 'none';
+            previewImg.src = '';
+            uploadedImageData = null;
+
+            // Reset filename display
+            fileNameSpan.textContent = '';
+
+            // Disable search button
+            searchBtn.disabled = true;
+            searchBtn.style.cssText = '';
+
+            // Reset file input
+            const fileInput = document.querySelector('input[type="file"]');
+            if (fileInput) {
+                fileInput.value = '';
+            }
+        }
+
+        // Global ESC key handler for modals and image preview
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' || event.key === 'Esc') {
+                // Check if eBay modal is open
+                const ebayModal = document.getElementById('ebayModal');
+                if (ebayModal && ebayModal.style.display === 'block') {
+                    closeModal();
+                    return;
+                }
+
+                // Check if image preview is visible (and not grading modal)
+                const gradingModal = document.getElementById('gradingModal');
+                const imagePreview = document.getElementById('imagePreview');
+                const isGradingModalOpen = gradingModal && gradingModal.style.display === 'flex';
+                const isImagePreviewVisible = imagePreview && imagePreview.style.display !== 'none';
+
+                if (!isGradingModalOpen && isImagePreviewVisible && uploadedImageData) {
+                    clearImagePreview();
+                    return;
+                }
+            }
+        });
+
+        // Wait for DOM to be ready before initializing
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initPage);
+        } else {
+            initPage();
+        }
+    </script>
+{% endblock %}

@@ -1,0 +1,61 @@
+---
+# Playbook to create S3 bucket for application storage
+# Single purpose: Create and configure S3 bucket
+#
+# Usage: ansible-playbook playbooks/create-s3-bucket.yml \
+#          --vault-password-file ~/.vault_pass
+#
+# IMPORTANT: If vault.yml is encrypted, provide vault password via:
+# 1. ~/.vault_pass file (recommended), OR
+# 2. --ask-vault-pass flag (will prompt for password)
+
+- name: Create S3 Bucket
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+
+  tasks:
+    - name: Create S3 bucket
+      amazon.aws.s3_bucket:
+        name: "{{ s3_bucket_name }}"
+        region: "{{ aws_region }}"
+        state: present
+        versioning: yes
+        tags:
+          Application: "{{ app_name }}"
+          Environment: production
+          ManagedBy: Ansible
+
+    - name: Block public access to S3 bucket
+      command: >
+        aws s3api put-public-access-block
+        --bucket {{ s3_bucket_name }}
+        --public-access-block-configuration
+        BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+        --region {{ aws_region }}
+
+    - name: Enable S3 bucket encryption
+      command: >
+        aws s3api put-bucket-encryption
+        --bucket {{ s3_bucket_name }}
+        --server-side-encryption-configuration '{
+          "Rules": [{
+            "ApplyServerSideEncryptionByDefault": {
+              "SSEAlgorithm": "AES256"
+            }
+          }]
+        }'
+        --region {{ aws_region }}
+
+    - name: Display S3 bucket info
+      debug:
+        msg:
+          - "✓ S3 bucket created successfully"
+          - "Bucket: {{ s3_bucket_name }}"
+          - "Region: {{ aws_region }}"
+          - "Versioning: Enabled"
+          - "Encryption: AES256"
+          - "Public access: Blocked"
+

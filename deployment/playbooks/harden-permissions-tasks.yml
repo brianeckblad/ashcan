@@ -1,0 +1,92 @@
+---
+# Reusable task list for file permission hardening
+# Included by: setup.yml, update.yml
+# Standalone playbook: harden-permissions.yml
+#
+# This is a task file (not a playbook) - it has no hosts/become/vars_files
+# It must be included by a playbook that provides those
+#
+# Group strategy:
+#   All files use group {{ app_name }} which contains both
+#   {{ server_admin_user }} (deploy) and {{ app_runtime_user }} (runtime).
+#   Setgid on directories ensures new files inherit the group.
+
+- name: Ensure base application directory is traversable
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ app_runtime_user }}"
+    group: "{{ app_name }}"
+    mode: '2775'
+  loop:
+    - "{{ app_dir }}"
+    - "{{ app_dir }}/instance"
+    - "{{ log_dir }}"
+
+
+- name: Secure user credentials file
+  file:
+    path: "{{ app_dir }}/instance/user_preferences.json"
+    owner: "{{ app_runtime_user }}"
+    group: "{{ app_name }}"
+    mode: '0640'
+  failed_when: false
+
+- name: Secure instance subdirectories
+  file:
+    path: "{{ app_dir }}/instance/{{ item }}"
+    state: directory
+    owner: "{{ app_runtime_user }}"
+    group: "{{ app_name }}"
+    mode: '2775'
+  loop:
+    - uploads
+    - all_comic_delete
+    - single_comic_delete
+  failed_when: false
+
+- name: Secure data files in instance
+  file:
+    path: "{{ app_dir }}/instance/{{ item }}"
+    owner: "{{ app_runtime_user }}"
+    group: "{{ app_name }}"
+    mode: '0664'
+  loop:
+    - items.csv
+    - sku.txt
+  failed_when: false
+
+- name: Set permissions on static files
+  file:
+    path: "{{ app_dir }}/app/static"
+    state: directory
+    owner: "{{ app_runtime_user }}"
+    group: "{{ app_name }}"
+    mode: '2775'
+    recurse: yes
+
+- name: Find log files
+  find:
+    paths: "{{ log_dir }}"
+    patterns: "*.log"
+  register: log_files
+
+- name: Ensure log files are not executable
+  file:
+    path: "{{ item.path }}"
+    owner: "{{ app_runtime_user }}"
+    group: "{{ app_name }}"
+    mode: '0664'
+  loop: "{{ log_files.files }}"
+  when: log_files.matched > 0
+
+- name: Secure scripts directory
+  file:
+    path: "{{ app_dir }}/app/scripts"
+    state: directory
+    owner: "{{ app_runtime_user }}"
+    group: "{{ app_name }}"
+    mode: '2775'
+    recurse: yes
+
+

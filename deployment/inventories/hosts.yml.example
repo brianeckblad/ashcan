@@ -1,0 +1,37 @@
+# ============================================================================
+# Server Inventory (EXAMPLE / TEMPLATE)
+# ============================================================================
+# PREFERRED — let load-vars.sh generate hosts.yml automatically:
+#   cd deployment && source scripts/load-vars.sh
+#
+# MANUAL fallback — copy and fill in values from vault.yml:
+#   cp inventories/hosts.yml.example inventories/hosts.yml
+#   (then replace the YOUR_* placeholders below)
+#
+# IMPORTANT: Do NOT use Jinja2 {{ }} templates in hosts.yml.
+#   Ansible resolves connection keywords (ansible_host, ansible_user,
+#   ansible_ssh_private_key_file) before vault variables are available,
+#   so any {{ vault_var }} reference will fail with 'undefined'.
+#   Use plain literal values only — load-vars.sh keeps them in sync.
+#
+# Playbook targeting:
+#   hosts: localhost    → AWS API calls (provision-app.yml and sub-playbooks)
+#   hosts: all          → Remote server (setup.yml, update.yml)
+#   hosts: app_servers  → Remote server (harden-permissions.yml)
+#   hosts: production   → Remote server (setup-ssl.yml, setup-monitoring.yml)
+
+all:
+  children:
+    app_servers:
+      children:
+        production:
+          hosts:
+            server:
+              ansible_host: YOUR_SERVER_IP
+              ansible_connection: ssh
+              ansible_user: YOUR_SERVER_ADMIN_USER
+              ansible_ssh_private_key_file: YOUR_SSH_KEY_PATH
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+

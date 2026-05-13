@@ -1,0 +1,27 @@
+# Application Requirements
+# Install on production server: pip install -r requirements.txt
+#
+# Packages are intentionally unpinned so the latest versions are installed.
+
+# Flask web framework
+Flask
+
+# Werkzeug (Flask dependency)
+Werkzeug
+
+# Production WSGI server
+gunicorn
+
+# AWS SDK for Python (S3 uploads, Secrets Manager, CloudWatch, SNS)
+boto3
+botocore[crt]
+
+# Image processing library for thumbnail generation
+Pillow
+
+# HTTP library for eBay API integration
+requests
+ebaysdk
+
+# Environment variable management (for local dev, production uses Secrets Manager)
+python-dotenv

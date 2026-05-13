@@ -1,0 +1,119 @@
+---
+# Playbook to decommission application-level AWS resources.
+# Removes per-app resources in REVERSE order of creation.
+# Does NOT touch the shared server or other applications on it.
+#
+# ⚠️  WARNING: This is DESTRUCTIVE and IRREVERSIBLE.
+# All data in S3 will be PERMANENTLY deleted.
+#
+# Recommended usage (interactive wrapper with confirmation):
+#   cd deployment
+#   ./scripts/decommission.sh
+#
+# Direct playbook usage (skips discovery menu):
+#   ansible-playbook playbooks/decommission.yml --vault-password-file ~/.vault_pass -e decommission_confirmed=true
+#
+# What gets deleted (in order):
+#   1. IAM managed policies (detached from server role, then deleted)
+#   2. Secrets Manager secret
+#   3. S3 Bucket (emptied then deleted — ALL DATA LOST)
+#
+# To decommission only a single resource, run its individual playbook:
+#   ansible-playbook playbooks/delete-iam-policies.yml --vault-password-file ~/.vault_pass
+#   ansible-playbook playbooks/delete-secrets-manager.yml --vault-password-file ~/.vault_pass
+#   ansible-playbook playbooks/delete-s3-bucket.yml --vault-password-file ~/.vault_pass
+
+# ==============================================================================
+# Safety Gate
+# ==============================================================================
+
+- name: Confirm Decommission
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+
+  tasks:
+    - name: Check confirmation flag
+      fail:
+        msg: |
+          This playbook should be run through the wrapper script:
+            cd deployment
+            ./scripts/decommission.sh
+
+          The script provides a discovery menu and graceful exits.
+
+          To run directly (skipping the script), pass:
+            -e decommission_confirmed=true
+      when: decommission_confirmed | default(false) | bool != true
+
+    - name: Display decommission plan
+      debug:
+        msg:
+          - "Decommissioning app resources for: {{ app_name }}"
+          - "Region: {{ aws_region }}"
+          - ""
+          - "Starting teardown in reverse order..."
+
+# ==============================================================================
+# Step 1: Delete IAM Policies
+# ==============================================================================
+
+- name: Step 1 - Delete IAM Policies
+  import_playbook: delete-iam-policies.yml
+
+# ==============================================================================
+# Step 2: Delete Secrets Manager Secret
+# ==============================================================================
+
+- name: Step 2 - Delete Secrets Manager
+  import_playbook: delete-secrets-manager.yml
+
+# ==============================================================================
+# Step 3: Delete S3 Bucket
+# ==============================================================================
+
+- name: Step 3 - Delete S3 Bucket
+  import_playbook: delete-s3-bucket.yml
+
+
+
+# ==============================================================================
+# Final Cleanup
+# ==============================================================================
+
+- name: Decommission Cleanup
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+
+  tasks:
+    - name: Remove local info files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ playbook_dir }}/../.last-rotation.txt"
+      failed_when: false
+
+    - name: Display decommission summary
+      debug:
+        msg:
+          - ""
+          - "╔══════════════════════════════════════════════════════════╗"
+          - "║   Application Resources Decommissioned                  ║"
+          - "╚══════════════════════════════════════════════════════════╝"
+          - ""
+          - "Deleted:"
+          - "  ✓ IAM Policies:      {{ app_name }}-s3-access, {{ app_name }}-secrets-access, {{ app_name }}-cloudwatch-access"
+          - "  ✓ Secrets Manager:   {{ secret_name }}"
+          - "  ✓ S3 Bucket:         {{ s3_bucket_name }}"
+          - ""
+          - "Note: The shared server and other applications on it are unchanged."
+          - ""
+          - "To recreate app resources:"
+          - "  ansible-playbook playbooks/provision-app.yml --vault-password-file ~/.vault_pass"
+

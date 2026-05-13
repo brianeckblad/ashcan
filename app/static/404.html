@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - Page Not Found</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #111210;
+            color: #E4E4DE;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .error-container {
+            text-align: center;
+            max-width: 600px;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .error-code {
+            font-size: 120px;
+            font-weight: 700;
+            color: #6B7244;
+            line-height: 1;
+            margin-bottom: 16px;
+            text-shadow: 0 4px 20px rgba(89, 95, 57, 0.4);
+        }
+
+        .error-image {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            margin: 0 auto 32px;
+            filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.4));
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 600;
+            color: #E4E4DE;
+            margin-bottom: 16px;
+            line-height: 1.3;
+        }
+
+        p {
+            font-size: 18px;
+            color: #C4C5BA;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+
+        .btn-home {
+            display: inline-block;
+            padding: 16px 48px;
+            background: #595F39;
+            color: #E4E4DE;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: 600;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .btn-home:hover {
+            background: #6B7244;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        .btn-home:active {
+            transform: translateY(0);
+        }
+
+        @keyframes echo {
+            0%, 100% {
+                opacity: 0;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.3;
+                transform: scale(1.5);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .error-code {
+                font-size: 80px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            p {
+                font-size: 16px;
+            }
+
+            .btn-home {
+                padding: 14px 36px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-code">404</div>
+
+        <svg class="error-image" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+            <!-- Server Character (calling out) -->
+            <g id="server">
+                <!-- Server Body -->
+                <rect x="150" y="100" width="100" height="140" rx="8" fill="#242422" stroke="#6B7244" stroke-width="3"/>
+
+                <!-- Server Face Panel -->
+                <rect x="160" y="115" width="80" height="60" rx="4" fill="#1B1B1B"/>
+
+                <!-- Eyes (LED displays looking around) -->
+                <circle cx="180" cy="135" r="8" fill="#6B7244">
+                    <animate attributeName="cx" values="180;175;180;185;180" dur="4s" repeatCount="indefinite"/>
+                </circle>
+                <circle cx="230" cy="135" r="8" fill="#6B7244">
+                    <animate attributeName="cx" values="230;225;230;235;230" dur="4s" repeatCount="indefinite"/>
+                </circle>
+
+                <!-- Mouth (speaker grill) -->
+                <rect x="185" y="155" width="30" height="15" rx="7" fill="#2E2E2A"/>
+                <line x1="188" y1="157" x2="188" y2="168" stroke="#7A7B72" stroke-width="1"/>
+                <line x1="192" y1="157" x2="192" y2="168" stroke="#7A7B72" stroke-width="1"/>
+                <line x1="196" y1="157" x2="196" y2="168" stroke="#7A7B72" stroke-width="1"/>
+                <line x1="200" y1="157" x2="200" y2="168" stroke="#7A7B72" stroke-width="1"/>
+                <line x1="204" y1="157" x2="204" y2="168" stroke="#7A7B72" stroke-width="1"/>
+                <line x1="208" y1="157" x2="208" y2="168" stroke="#7A7B72" stroke-width="1"/>
+                <line x1="212" y1="157" x2="212" y2="168" stroke="#7A7B72" stroke-width="1"/>
+
+                <!-- Server Slots -->
+                <rect x="160" y="185" width="80" height="15" rx="3" fill="#1B1B1B" stroke="#2E2E2A" stroke-width="1"/>
+                <rect x="160" y="205" width="80" height="15" rx="3" fill="#1B1B1B" stroke="#2E2E2A" stroke-width="1"/>
+
+                <!-- Server Lights -->
+                <circle cx="170" cy="192" r="2" fill="#5C8A5C">
+                    <animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite"/>
+                </circle>
+                <circle cx="170" cy="212" r="2" fill="#5C8A5C">
+                    <animate attributeName="opacity" values="1;0.3;1" dur="1.3s" repeatCount="indefinite"/>
+                </circle>
+
+                <!-- Arms/Cables reaching out -->
+                <path d="M 150 160 Q 120 165 100 170" fill="none" stroke="#2E2E2A" stroke-width="4" stroke-linecap="round"/>
+                <path d="M 250 160 Q 280 165 300 170" fill="none" stroke="#2E2E2A" stroke-width="4" stroke-linecap="round"/>
+            </g>
+
+            <!-- Sound waves emanating from server (calling out) -->
+            <g id="soundwaves">
+                <!-- Left side waves -->
+                <path d="M 140 140 Q 120 140 110 140" fill="none" stroke="#6B7244" stroke-width="2" stroke-linecap="round" opacity="0">
+                    <animate attributeName="opacity" values="0;0.6;0" dur="2s" repeatCount="indefinite"/>
+                    <animate attributeName="d" values="M 140 140 Q 120 140 110 140;M 140 140 Q 110 140 90 140;M 140 140 Q 100 140 80 140" dur="2s" repeatCount="indefinite"/>
+                </path>
+                <path d="M 135 155 Q 115 160 105 165" fill="none" stroke="#6B7244" stroke-width="2" stroke-linecap="round" opacity="0">
+                    <animate attributeName="opacity" values="0;0.6;0" dur="2s" begin="0.3s" repeatCount="indefinite"/>
+                    <animate attributeName="d" values="M 135 155 Q 115 160 105 165;M 135 155 Q 105 165 85 175;M 135 155 Q 95 170 75 185" dur="2s" begin="0.3s" repeatCount="indefinite"/>
+                </path>
+                <path d="M 135 125 Q 115 120 105 115" fill="none" stroke="#6B7244" stroke-width="2" stroke-linecap="round" opacity="0">
+                    <animate attributeName="opacity" values="0;0.6;0" dur="2s" begin="0.6s" repeatCount="indefinite"/>
+                    <animate attributeName="d" values="M 135 125 Q 115 120 105 115;M 135 125 Q 105 115 85 105;M 135 125 Q 95 110 75 95" dur="2s" begin="0.6s" repeatCount="indefinite"/>
+                </path>
+
+                <!-- Right side waves -->
+                <path d="M 260 140 Q 280 140 290 140" fill="none" stroke="#6B7244" stroke-width="2" stroke-linecap="round" opacity="0">
+                    <animate attributeName="opacity" values="0;0.6;0" dur="2s" repeatCount="indefinite"/>
+                    <animate attributeName="d" values="M 260 140 Q 280 140 290 140;M 260 140 Q 290 140 310 140;M 260 140 Q 300 140 320 140" dur="2s" repeatCount="indefinite"/>
+                </path>
+                <path d="M 265 155 Q 285 160 295 165" fill="none" stroke="#6B7244" stroke-width="2" stroke-linecap="round" opacity="0">
+                    <animate attributeName="opacity" values="0;0.6;0" dur="2s" begin="0.3s" repeatCount="indefinite"/>
+                    <animate attributeName="d" values="M 265 155 Q 285 160 295 165;M 265 155 Q 295 165 315 175;M 265 155 Q 305 170 325 185" dur="2s" begin="0.3s" repeatCount="indefinite"/>
+                </path>
+                <path d="M 265 125 Q 285 120 295 115" fill="none" stroke="#6B7244" stroke-width="2" stroke-linecap="round" opacity="0">
+                    <animate attributeName="opacity" values="0;0.6;0" dur="2s" begin="0.6s" repeatCount="indefinite"/>
+                    <animate attributeName="d" values="M 265 125 Q 285 120 295 115;M 265 125 Q 295 115 315 105;M 265 125 Q 305 110 325 95" dur="2s" begin="0.6s" repeatCount="indefinite"/>
+                </path>
+            </g>
+
+            <!-- Text bubbles (calling out names) -->
+            <g id="callouts">
+                <!-- Speech bubble 1 -->
+                <g opacity="0">
+                    <animate attributeName="opacity" values="0;1;1;0" dur="6s" repeatCount="indefinite"/>
+                    <rect x="270" y="90" width="110" height="35" rx="8" fill="#595F39" opacity="0.9"/>
+                    <polygon points="270,110 260,115 270,120" fill="#595F39" opacity="0.9"/>
+                    <text x="325" y="108" font-family="Outfit, sans-serif" font-size="14" font-weight="600" fill="#E4E4DE" text-anchor="middle">Hello?</text>
+                    <text x="325" y="120" font-family="Outfit, sans-serif" font-size="10" fill="#E4E4DE" text-anchor="middle">Anyone there?</text>
+                </g>
+
+                <!-- Speech bubble 2 -->
+                <g opacity="0">
+                    <animate attributeName="opacity" values="0;0;1;1;0;0" dur="6s" begin="2s" repeatCount="indefinite"/>
+                    <rect x="20" y="140" width="90" height="35" rx="8" fill="#595F39" opacity="0.9"/>
+                    <polygon points="110,155 120,160 110,165" fill="#595F39" opacity="0.9"/>
+                    <text x="65" y="158" font-family="Outfit, sans-serif" font-size="14" font-weight="600" fill="#E4E4DE" text-anchor="middle">Page?</text>
+                    <text x="65" y="170" font-family="Outfit, sans-serif" font-size="10" fill="#E4E4DE" text-anchor="middle">You here?</text>
+                </g>
+
+                <!-- Speech bubble 3 -->
+                <g opacity="0">
+                    <animate attributeName="opacity" values="0;0;0;0;1;1;0" dur="6s" begin="4s" repeatCount="indefinite"/>
+                    <rect x="280" y="200" width="95" height="35" rx="8" fill="#595F39" opacity="0.9"/>
+                    <polygon points="280,215 270,220 280,225" fill="#595F39" opacity="0.9"/>
+                    <text x="327" y="218" font-family="Outfit, sans-serif" font-size="14" font-weight="600" fill="#E4E4DE" text-anchor="middle">...Crickets...</text>
+                    <text x="327" y="230" font-family="Outfit, sans-serif" font-size="10" fill="#E4E4DE" text-anchor="middle">🦗</text>
+                </g>
+            </g>
+
+            <!-- Tumbleweed rolling by -->
+            <g id="tumbleweed" opacity="0.6">
+                <circle cx="0" cy="260" r="15" fill="none" stroke="#7A7B72" stroke-width="2">
+                    <animate attributeName="cx" values="-30;430" dur="8s" repeatCount="indefinite"/>
+                    <animateTransform attributeName="transform" type="rotate" values="0 0 260;360 0 260" dur="2s" repeatCount="indefinite"/>
+                </circle>
+                <path d="M -5,260 L 5,260 M 0,255 L 0,265 M -10,265 L -3,258 M 10,265 L 3,258" stroke="#7A7B72" stroke-width="1">
+                    <animate attributeName="d" values="M -5,260 L 5,260 M 0,255 L 0,265 M -10,265 L -3,258 M 10,265 L 3,258;M -7,260 L 7,260 M 0,253 L 0,267 M -12,267 L -4,257 M 12,267 L 4,257;M -5,260 L 5,260 M 0,255 L 0,265 M -10,265 L -3,258 M 10,265 L 3,258" dur="2s" repeatCount="indefinite"/>
+                    <animateTransform attributeName="transform" type="translate" values="0 0;430 0" dur="8s" repeatCount="indefinite"/>
+                </path>
+            </g>
+        </svg>
+
+        <h1>Oops! Nobody's Home 🔍</h1>
+        <p>The page you're looking for seems to have wandered off. Our server's been calling out, but there's no response. Let's get you back to somewhere that exists!</p>
+
+        <a href="/" class="btn-home">Back to Home</a>
+    </div>
+</body>
+</html>

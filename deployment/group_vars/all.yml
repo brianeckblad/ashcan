@@ -1,0 +1,14 @@
+---
+# ============================================================================
+# ALL CONFIGURATION IS IN vault.yml (ENCRYPTED)
+# ============================================================================
+# This file is intentionally minimal.  All deployment variables — identity,
+# credentials, tuning, infrastructure sizing, and computed paths — live in
+# vault.yml so the encrypted file can be committed to git.
+#
+# Edit configuration:
+#   ansible-vault edit group_vars/vault.yml --vault-password-file ~/.vault_pass
+#
+# View configuration:
+#   ansible-vault view group_vars/vault.yml --vault-password-file ~/.vault_pass
+# ============================================================================

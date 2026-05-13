@@ -1,0 +1,14 @@
+---
+# Ansible Galaxy Collection Requirements
+# Install: ansible-galaxy collection install -r requirements.yml --upgrade
+#
+# These are the Ansible collections needed for AWS infrastructure playbooks.
+
+collections:
+  # Core AWS modules (EC2, S3, IAM, CloudWatch, etc.)
+  - name: amazon.aws
+
+  # Additional AWS modules (Secrets Manager, etc.)
+  - name: community.aws
+
+

@@ -1,0 +1,129 @@
+---
+# Create app-scoped IAM managed policies for a shared-server deployment.
+# On a shared server the EC2 instance profile is managed by the server team.
+# This playbook creates three named managed policies scoped to this app only,
+# then attaches them to the server's existing IAM role if server_iam_role_name
+# is set in vault.yml.
+#
+# Usage: ansible-playbook playbooks/create-iam-policies.yml \
+#          --vault-password-file ~/.vault_pass
+#
+# To delete: ansible-playbook playbooks/delete-iam-policies.yml --vault-password-file ~/.vault_pass
+
+- name: Create App IAM Policies
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+
+  tasks:
+
+    # ── S3 access ─────────────────────────────────────────────────────────────
+    - name: Create S3 access managed policy
+      amazon.aws.iam_managed_policy:
+        policy_name: "{{ app_name }}-s3-access"
+        description: "S3 access for {{ app_display_name }} (scoped to {{ s3_bucket_name }})"
+        state: present
+        policy:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+                - s3:DeleteObject
+                - s3:ListBucket
+                - s3:GetBucketVersioning
+                - s3:ListBucketVersions
+                - s3:GetObjectVersion
+                - s3:DeleteObjectVersion
+              Resource:
+                - "arn:aws:s3:::{{ s3_bucket_name }}/*"
+                - "arn:aws:s3:::{{ s3_bucket_name }}"
+      register: s3_policy
+
+    # ── Secrets Manager access ────────────────────────────────────────────────
+    - name: Create Secrets Manager access managed policy
+      amazon.aws.iam_managed_policy:
+        policy_name: "{{ app_name }}-secrets-access"
+        description: "Secrets Manager access for {{ app_display_name }} (scoped to {{ app_name }}/)"
+        state: present
+        policy:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+                - secretsmanager:DescribeSecret
+                - secretsmanager:CreateSecret
+                - secretsmanager:PutSecretValue
+                - secretsmanager:DeleteSecret
+                - secretsmanager:TagResource
+              Resource: "arn:aws:secretsmanager:{{ aws_region }}:*:secret:{{ app_name }}/*"
+      register: secrets_policy
+
+    # ── CloudWatch / Logs access ───────────────────────────────────────────────
+    - name: Create CloudWatch access managed policy
+      amazon.aws.iam_managed_policy:
+        policy_name: "{{ app_name }}-cloudwatch-access"
+        description: "CloudWatch/Logs access for {{ app_display_name }}"
+        state: present
+        policy:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - cloudwatch:PutMetricData
+                - cloudwatch:GetMetricStatistics
+                - cloudwatch:ListMetrics
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+                - logs:DescribeLogStreams
+              Resource: "*"
+      register: cw_policy
+
+
+    # ── Attach to shared server role (if configured) ──────────────────────────
+    - name: Attach S3 policy to server IAM role
+      command: >
+        aws iam attach-role-policy
+        --role-name {{ server_iam_role_name }}
+        --policy-arn {{ s3_policy.policy.arn }}
+        --region {{ aws_region }}
+      when: server_iam_role_name is defined and server_iam_role_name | trim | length > 0
+      failed_when: false
+      changed_when: true
+
+    - name: Attach Secrets Manager policy to server IAM role
+      command: >
+        aws iam attach-role-policy
+        --role-name {{ server_iam_role_name }}
+        --policy-arn {{ secrets_policy.policy.arn }}
+        --region {{ aws_region }}
+      when: server_iam_role_name is defined and server_iam_role_name | trim | length > 0
+      failed_when: false
+      changed_when: true
+
+    - name: Attach CloudWatch policy to server IAM role
+      command: >
+        aws iam attach-role-policy
+        --role-name {{ server_iam_role_name }}
+        --policy-arn {{ cw_policy.policy.arn }}
+        --region {{ aws_region }}
+      when: server_iam_role_name is defined and server_iam_role_name | trim | length > 0
+      failed_when: false
+      changed_when: true
+
+    # ── Summary ───────────────────────────────────────────────────────────────
+    - name: Display result
+      debug:
+        msg:
+          - "✓ IAM policies created"
+          - "  {{ app_name }}-s3-access         — ARN: {{ s3_policy.policy.arn }}"
+          - "  {{ app_name }}-secrets-access    — ARN: {{ secrets_policy.policy.arn }}"
+          - "  {{ app_name }}-cloudwatch-access — ARN: {{ cw_policy.policy.arn }}"
+          - ""
+          - "{{ 'Attached to role: ' + server_iam_role_name if server_iam_role_name is defined and server_iam_role_name else '⚠️  server_iam_role_name not set. Attach the three policies above to your server IAM role manually.' }}"
+

@@ -1,0 +1,90 @@
+---
+# Playbook to setup SSL certificates using Let's Encrypt
+# This replaces ssl-setup.sh
+#
+# Usage: ansible-playbook playbooks/setup-ssl.yml \
+#          --vault-password-file ~/.vault_pass
+#
+# IMPORTANT: If vault.yml is encrypted, provide vault password via:
+# 1. ~/.vault_pass file (recommended), OR
+# 2. --ask-vault-pass flag (will prompt for password)
+
+- name: Setup SSL Certificate with Let's Encrypt
+  hosts: all
+  become: yes
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+  vars:
+    certbot_email: "{{ ssl_email | default('admin@' + server_name) }}"
+
+  tasks:
+    - name: Check if domain is provided
+      fail:
+        msg: "server_name must be set in group_vars/vault.yml (not '_')"
+      when: server_name == '_' or server_name is not defined
+
+    - name: Install certbot and nginx plugin
+      apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+        update_cache: yes
+
+    - name: Check if certificate already exists
+      stat:
+        path: "/etc/letsencrypt/live/{{ server_name }}/fullchain.pem"
+      register: cert_file
+
+    - name: Obtain SSL certificate
+      command: >
+        certbot --nginx
+        --non-interactive
+        --agree-tos
+        --email {{ certbot_email }}
+        --domains {{ server_name }}
+        --redirect
+      when: not cert_file.stat.exists
+
+    - name: Re-check SSL certificate after certbot
+      stat:
+        path: "/etc/letsencrypt/live/{{ server_name }}/fullchain.pem"
+      register: ssl_cert_after
+
+    - name: Re-generate nginx config with SSL enabled
+      template:
+        src: ../templates/nginx.conf.j2
+        dest: /etc/nginx/sites-available/{{ service_name }}
+        mode: '0644'
+      vars:
+        has_ssl: "{{ ssl_cert_after.stat.exists }}"
+
+    - name: Setup automatic renewal
+      cron:
+        name: "Renew Let's Encrypt certificates"
+        job: "certbot renew --quiet --post-hook 'systemctl reload nginx'"
+        special_time: daily
+        user: root
+
+    - name: Test nginx configuration
+      command: nginx -t
+      register: nginx_test
+      changed_when: false
+
+    - name: Reload nginx
+      systemd:
+        name: nginx
+        state: reloaded
+      when: nginx_test.rc == 0
+
+    - name: Display SSL information
+      debug:
+        msg:
+          - "SSL Certificate installed successfully!"
+          - "Domain: {{ server_name }}"
+          - "Certificate: /etc/letsencrypt/live/{{ server_name }}/fullchain.pem"
+          - "Auto-renewal: Enabled (daily check)"
+          - ""
+          - "Test your site: https://{{ server_name }}"
+

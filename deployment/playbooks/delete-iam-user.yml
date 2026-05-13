@@ -1,0 +1,91 @@
+---
+# Playbook to delete the IAM deployer user
+# Counterpart to: create-iam-user.yml
+#
+# What gets removed (in order):
+#   1. Access keys
+#   2. Inline policies (CloudWatchAlarmPolicy)
+#   3. Managed policy attachments
+#   4. IAM user
+#
+# Usage (recommended):
+#   ansible-playbook playbooks/delete-iam-user.yml --vault-password-file ~/.vault_pass
+#
+# Usage (fallback — if vault.yml unavailable):
+#   ansible-playbook playbooks/delete-iam-user.yml -e app_name=myapp
+#
+# To recreate: ansible-playbook playbooks/create-iam-user.yml --vault-password-file ~/.vault_pass
+
+- name: Delete IAM Deployer User
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+  vars:
+    # Use app_deploy_user from vault if set; fall back to {app_name}-deployer convention.
+    iam_user_name: "{{ app_deploy_user | default(app_name + '-deployer') }}"
+
+    managed_policies:
+      - "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
+      - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+      - "arn:aws:iam::aws:policy/IAMFullAccess"
+      - "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
+      - "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+
+  pre_tasks:
+    - name: Validate app_name is set
+      fail:
+        msg: |
+          app_name is required.  Pass it on the command line:
+            ansible-playbook playbooks/delete-iam-user.yml -e app_name=myapp
+      when: app_name is not defined or app_name | trim | length == 0
+
+  tasks:
+
+    # ── Step 1: Delete access keys ─────────────────────────────────────────
+    - name: "Step 1/4 — Find existing access keys"
+      amazon.aws.iam_access_key_info:
+        user_name: "{{ iam_user_name }}"
+      register: existing_keys
+      failed_when: false
+
+    - name: "Step 1/4 — Delete access keys"
+      amazon.aws.iam_access_key:
+        user_name: "{{ iam_user_name }}"
+        access_key_id: "{{ item.access_key_id }}"
+        state: absent
+      loop: "{{ existing_keys.access_keys | default([]) }}"
+      failed_when: false
+
+    # ── Step 2: Delete inline policies ─────────────────────────────────────
+    - name: "Step 2/4 — Delete inline policies"
+      amazon.aws.iam_policy:
+        iam_type: user
+        iam_name: "{{ iam_user_name }}"
+        policy_name: "CloudWatchAlarmPolicy"
+        state: absent
+      failed_when: false
+
+    # ── Step 3: Detach managed policies ────────────────────────────────────
+    - name: "Step 3/4 — Detach managed policies"
+      command: >
+        aws iam detach-user-policy
+        --user-name {{ iam_user_name }}
+        --policy-arn {{ item }}
+      loop: "{{ managed_policies }}"
+      failed_when: false
+      changed_when: false
+
+    # ── Step 4: Delete the user ────────────────────────────────────────────
+    - name: "Step 4/4 — Delete IAM user"
+      amazon.aws.iam_user:
+        name: "{{ iam_user_name }}"
+        state: absent
+
+    - name: Display result
+      debug:
+        msg:
+          - "✓ IAM user {{ iam_user_name }} deleted"
+          - "  All access keys, policies, and the user have been removed."
+

@@ -1,0 +1,82 @@
+---
+# Delete app-scoped IAM managed policies.
+# Counterpart to create-iam-policies.yml.
+# Detaches policies from the server role (if configured), then deletes them.
+#
+# Usage: ansible-playbook playbooks/delete-iam-policies.yml --vault-password-file ~/.vault_pass
+
+- name: Delete App IAM Policies
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+
+  tasks:
+
+    # ── Detach from server role first (must precede deletion) ─────────────────
+    - name: Get account ID for policy ARNs
+      command: aws sts get-caller-identity --query Account --output text
+      register: account_id
+      changed_when: false
+
+    - name: Detach S3 policy from server role
+      command: >
+        aws iam detach-role-policy
+        --role-name {{ server_iam_role_name }}
+        --policy-arn arn:aws:iam::{{ account_id.stdout }}:policy/{{ app_name }}-s3-access
+      when: server_iam_role_name is defined and server_iam_role_name | trim | length > 0
+      failed_when: false
+      changed_when: false
+
+    - name: Detach Secrets Manager policy from server role
+      command: >
+        aws iam detach-role-policy
+        --role-name {{ server_iam_role_name }}
+        --policy-arn arn:aws:iam::{{ account_id.stdout }}:policy/{{ app_name }}-secrets-access
+      when: server_iam_role_name is defined and server_iam_role_name | trim | length > 0
+      failed_when: false
+      changed_when: false
+
+    - name: Detach CloudWatch policy from server role
+      command: >
+        aws iam detach-role-policy
+        --role-name {{ server_iam_role_name }}
+        --policy-arn arn:aws:iam::{{ account_id.stdout }}:policy/{{ app_name }}-cloudwatch-access
+      when: server_iam_role_name is defined and server_iam_role_name | trim | length > 0
+      failed_when: false
+      changed_when: false
+
+    # ── Delete policies ───────────────────────────────────────────────────────
+    - name: Delete S3 managed policy
+      amazon.aws.iam_managed_policy:
+        policy_name: "{{ app_name }}-s3-access"
+        state: absent
+      failed_when: false
+
+    - name: Delete Secrets Manager managed policy
+      amazon.aws.iam_managed_policy:
+        policy_name: "{{ app_name }}-secrets-access"
+        state: absent
+      failed_when: false
+
+    - name: Delete CloudWatch managed policy
+      amazon.aws.iam_managed_policy:
+        policy_name: "{{ app_name }}-cloudwatch-access"
+        state: absent
+      failed_when: false
+
+    # ── Summary ───────────────────────────────────────────────────────────────
+    - name: Display result
+      debug:
+        msg:
+          - "✓ IAM policies deleted"
+          - "  {{ app_name }}-s3-access"
+          - "  {{ app_name }}-secrets-access"
+          - "  {{ app_name }}-cloudwatch-access"
+          - ""
+          - "{{ 'Detached from role: ' + server_iam_role_name if server_iam_role_name is defined and server_iam_role_name else 'server_iam_role_name not set — detach manually if needed.' }}"
+          - ""
+          - "To recreate:"
+          - "  ansible-playbook playbooks/create-iam-policies.yml --vault-password-file ~/.vault_pass"
+

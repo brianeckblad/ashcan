@@ -1,0 +1,93 @@
+---
+# Application resource provisioning — shared-server model
+# Creates all per-app AWS resources: S3, IAM policies, Secrets Manager.
+# Does NOT provision the server itself (handled by the shared server team).
+#
+# Run this ONCE to bootstrap a new application instance.
+#
+# Usage:
+#   ansible-playbook playbooks/provision-app.yml --vault-password-file ~/.vault_pass
+#
+# Individual resources can also be created separately:
+#   ansible-playbook playbooks/create-s3-bucket.yml --vault-password-file ~/.vault_pass
+#   ansible-playbook playbooks/create-iam-policies.yml --vault-password-file ~/.vault_pass
+#   ansible-playbook playbooks/setup-secrets-manager.yml --vault-password-file ~/.vault_pass
+
+# ==============================================================================
+# Overview
+# ==============================================================================
+
+- name: Display provisioning plan
+  hosts: localhost
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+  gather_facts: no
+  tasks:
+    - name: Show what will be created
+      debug:
+        msg:
+          - "╔══════════════════════════════════════════════════════════╗"
+          - "║   Application Resource Provisioning                     ║"
+          - "╚══════════════════════════════════════════════════════════╝"
+          - ""
+          - "This will create (in order):"
+          - "  1. S3 bucket for application data"
+          - "  2. IAM managed policies (S3, Secrets Manager, CloudWatch)"
+          - "     Attached to role: {{ server_iam_role_name | default('(not specified — attach manually)') }}"
+          - "  3. Secrets Manager secret (synced from vault)"
+          - ""
+          - "App:    {{ app_display_name }}"
+          - "Region: {{ aws_region }}"
+
+# ==============================================================================
+# Step 1: Create S3 Bucket
+# ==============================================================================
+
+- name: Step 1 - Create S3 Bucket
+  import_playbook: create-s3-bucket.yml
+
+# ==============================================================================
+# Step 2: Create IAM Policies
+# ==============================================================================
+
+- name: Step 2 - Create IAM Policies
+  import_playbook: create-iam-policies.yml
+
+# ==============================================================================
+# Step 3: Setup Secrets Manager
+# ==============================================================================
+
+- name: Step 3 - Setup Secrets Manager
+  import_playbook: setup-secrets-manager.yml
+
+
+# ==============================================================================
+# Summary
+# ==============================================================================
+
+- name: Display completion summary
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+  tasks:
+    - name: Display summary
+      debug:
+        msg:
+          - "╔══════════════════════════════════════════════════════════╗"
+          - "║   Application Resources Ready                           ║"
+          - "╚══════════════════════════════════════════════════════════╝"
+          - ""
+          - "✓ Created:"
+          - "    S3 Bucket:          {{ s3_bucket_name }}"
+          - "    IAM Policies:       {{ app_name }}-s3-access, {{ app_name }}-secrets-access, {{ app_name }}-cloudwatch-access"
+          - "    Secrets Manager:    {{ secret_name }}"
+          - ""
+          - "IAM policy attachment:"
+          - "{{ '    Attached to role: ' + server_iam_role_name if server_iam_role_name is defined and server_iam_role_name else '    ⚠️  server_iam_role_name not set — attach policies manually to your server role.' }}"
+          - ""
+          - "Next: deploy the application code to your shared server."
+          - "  ansible-playbook playbooks/setup.yml --vault-password-file ~/.vault_pass"
+
