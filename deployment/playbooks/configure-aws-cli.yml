@@ -1,0 +1,80 @@
+---
+# Configure the local AWS CLI with the deployer credentials stored in vault.yml.
+# Run this once after create-iam-user.yml, or on any new machine where you need
+# to restore the AWS CLI configuration.
+#
+# Usage:
+#   cd deployment
+#   ansible-playbook playbooks/configure-aws-cli.yml --vault-password-file ~/.vault_pass
+#
+# What it does:
+#   aws configure set aws_access_key_id     <from vault>
+#   aws configure set aws_secret_access_key <from vault>
+#   aws configure set region                <from vault>
+#   aws sts get-caller-identity             (verification)
+#
+# Prerequisites:
+#   - vault.yml exists and contains aws_access_key_id / aws_secret_access_key
+#     (written automatically by create-iam-user.yml)
+#   - AWS CLI is installed  (brew install awscli  /  pip install awscli)
+
+- name: Configure AWS CLI from vault credentials
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+
+  pre_tasks:
+    - name: Verify aws_access_key_id is set in vault
+      fail:
+        msg: |
+          aws_access_key_id is empty in vault.yml.
+          Run create-iam-user.yml first to create the deployer user and save the key:
+            ansible-playbook playbooks/create-iam-user.yml --vault-password-file ~/.vault_pass
+      when: aws_access_key_id is not defined or aws_access_key_id | trim | length == 0
+
+    - name: Verify aws_secret_access_key is set in vault
+      fail:
+        msg: |
+          aws_secret_access_key is empty in vault.yml.
+          Run create-iam-user.yml first to create the deployer user and save the key.
+      when: aws_secret_access_key is not defined or aws_secret_access_key | trim | length == 0
+
+  tasks:
+    - name: Set aws_access_key_id
+      command: aws configure set aws_access_key_id {{ aws_access_key_id }}
+      changed_when: true
+      no_log: true
+
+    - name: Set aws_secret_access_key
+      command: aws configure set aws_secret_access_key {{ aws_secret_access_key }}
+      changed_when: true
+      no_log: true
+
+    - name: Set default region
+      command: aws configure set region {{ aws_region }}
+      changed_when: true
+
+    - name: Set output format
+      command: aws configure set output json
+      changed_when: true
+
+    - name: Verify identity
+      command: aws sts get-caller-identity
+      register: identity
+      changed_when: false
+
+    - name: Display result
+      debug:
+        msg:
+          - "✓ AWS CLI configured"
+          - ""
+          - "  Profile:    default"
+          - "  Region:     {{ aws_region }}"
+          - "  Identity:   {{ (identity.stdout | from_json).Arn }}"
+          - ""
+          - "  Expected:   arn:aws:iam::*:user/{{ app_deploy_user | default(app_name + '-deployer') }}"
+          - ""
+          - "  Run 'aws sts get-caller-identity' at any time to confirm."
+

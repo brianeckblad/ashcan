@@ -83,7 +83,8 @@ Complete Chapter 2 or 3. Your application is live.
 
 | Playbook | Purpose |
 |----------|---------|
-| `create-iam-user.yml` | Create the `{app_name}-deployer` IAM user with access keys |
+| `create-iam-user.yml` | Create the `{app_name}-deployer` IAM user with access keys; saves credentials to vault automatically |
+| `configure-aws-cli.yml` | Configure the local AWS CLI from vault credentials (run after create-iam-user or on a new machine) |
 | `delete-iam-user.yml` | Delete the deployer IAM user |
 
 ---
