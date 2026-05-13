@@ -217,19 +217,32 @@ ansible-playbook playbooks/create-iam-user.yml --vault-password-file ~/.vault_pa
 This creates `{app_name}-deployer` with these permissions:
 `AmazonS3FullAccess`, `IAMFullAccess`, `SecretsManagerReadWrite`, `CloudWatchLogsFullAccess`, and an inline `CloudWatchAlarmPolicy`.
 
-The Access Key ID and Secret Key are printed at the end. Save them in your password manager.
+The playbook then writes the generated Access Key ID and Secret Key directly back into
+`vault.yml` (under `aws_access_key_id` and `aws_secret_access_key`) and re-encrypts it.
+The credentials are stored in the vault and do not need to be recorded anywhere else.
 
-### Step 5: Switch to the deployer credentials
+> Requires `~/.vault_pass`. If the vault password file is missing, the credentials are
+> printed once and you must add them to `vault.yml` manually before the next step.
+
+### Step 5: Configure the AWS CLI with deployer credentials
+
+Load the vault variables and configure the CLI in one step:
 
 ```bash
-aws configure
-# Enter the {app_name}-deployer credentials
+cd deployment
+source scripts/load-vars.sh
+
+aws configure set aws_access_key_id     $aws_access_key_id
+aws configure set aws_secret_access_key $aws_secret_access_key
+aws configure set region                $aws_region
 
 aws sts get-caller-identity
 # Arn should show: arn:aws:iam::ACCOUNT_ID:user/{app_name}-deployer
 ```
 
 Then **delete the temporary root access key** in the AWS Console. All subsequent playbooks run as the deployer user.
+
+On any future machine, repeat the `source scripts/load-vars.sh` + `aws configure set` commands — the credentials are always in the vault.
 
 ---
 

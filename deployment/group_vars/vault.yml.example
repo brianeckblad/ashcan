@@ -62,6 +62,20 @@ secret_name: "{{ app_name }}/production"
 sns_topic_arn: ""                            # SNS ARN for alerts (leave empty to disable)
 
 # ============================================================================
+# AWS DEPLOYER CREDENTIALS (written automatically by create-iam-user.yml)
+# ============================================================================
+# Access key for the {app_name}-deployer IAM user. Created by create-iam-user.yml
+# and saved here so credentials are never lost outside the vault.
+# NOT used by the app at runtime — the EC2 IAM role covers that.
+# To configure the AWS CLI after a fresh checkout:
+#   source scripts/load-vars.sh
+#   aws configure set aws_access_key_id     $aws_access_key_id
+#   aws configure set aws_secret_access_key $aws_secret_access_key
+#   aws configure set region                $aws_region
+aws_access_key_id: ""
+aws_secret_access_key: ""
+
+# ============================================================================
 # IAM — SHARED SERVER ROLE (OPTIONAL)
 # ============================================================================
 # IAM instance role attached to the shared server. provision-app.yml attaches

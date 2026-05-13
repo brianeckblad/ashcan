@@ -109,9 +109,6 @@
           - "  Access Key ID:     {{ new_key.access_key.access_key_id }}"
           - "  Secret Access Key: {{ new_key.secret_access_key }}"
           - ""
-          - "  ⚠️  SAVE THESE CREDENTIALS NOW — the secret key cannot"
-          - "     be retrieved again."
-          - ""
           - "  Managed Policies:"
           - "    • AmazonS3FullAccess"
           - "    • IAMFullAccess"
@@ -120,13 +117,103 @@
           - "  Inline Policy:"
           - "    • CloudWatchAlarmPolicy (alarms & metrics)"
           - ""
-          - "  Next steps:"
-          - "    1. Save the access key and secret in a password manager"
-          - "    2. Configure the AWS CLI with the new credentials:"
-          - "       aws configure"
-          - "    3. Verify:  aws sts get-caller-identity"
-          - ""
       when: new_key is changed
+
+    # ── Step 5: Write credentials back to vault.yml ───────────────────────
+    # Saves the key pair into vault.yml so they are never lost outside the vault.
+    # Requires ~/.vault_pass for encrypted vaults. Skipped if the key already
+    # existed (new_key is skipped) because the secret cannot be retrieved again.
+    - name: "Step 5/5 — Save credentials to vault.yml"
+      when: new_key is changed
+      block:
+        - name: Locate vault file
+          set_fact:
+            _vault_file: "{{ playbook_dir | dirname }}/group_vars/vault.yml"
+
+        - name: Check whether vault is encrypted
+          shell: "head -1 '{{ _vault_file }}' | grep -q ANSIBLE_VAULT && echo yes || echo no"
+          register: _vault_encrypted
+          changed_when: false
+
+        - name: Check whether ~/.vault_pass exists
+          stat:
+            path: "{{ ansible_env.HOME }}/.vault_pass"
+          register: _vpass_stat
+
+        - name: Decrypt vault to temp file
+          shell: >
+            ansible-vault decrypt '{{ _vault_file }}'
+            --vault-password-file '{{ ansible_env.HOME }}/.vault_pass'
+            --output /tmp/_vault_cred_tmp.yml
+          when: _vault_encrypted.stdout == 'yes' and _vpass_stat.stat.exists
+          changed_when: true
+
+        - name: Copy plaintext vault to temp file
+          shell: "cp '{{ _vault_file }}' /tmp/_vault_cred_tmp.yml"
+          when: _vault_encrypted.stdout != 'yes'
+          changed_when: true
+
+        - name: Confirm temp file is available
+          stat:
+            path: /tmp/_vault_cred_tmp.yml
+          register: _tmp_stat
+
+        - name: Write aws_access_key_id into temp vault
+          lineinfile:
+            path: /tmp/_vault_cred_tmp.yml
+            regexp: '^aws_access_key_id:'
+            line: 'aws_access_key_id: "{{ new_key.access_key.access_key_id }}"'
+            insertbefore: EOF
+          when: _tmp_stat.stat.exists
+
+        - name: Write aws_secret_access_key into temp vault
+          lineinfile:
+            path: /tmp/_vault_cred_tmp.yml
+            regexp: '^aws_secret_access_key:'
+            line: 'aws_secret_access_key: "{{ new_key.secret_access_key }}"'
+            insertbefore: EOF
+          when: _tmp_stat.stat.exists
+
+        - name: Re-encrypt vault with new credentials
+          shell: >
+            ansible-vault encrypt /tmp/_vault_cred_tmp.yml
+            --vault-password-file '{{ ansible_env.HOME }}/.vault_pass'
+            --output '{{ _vault_file }}'
+          when: _tmp_stat.stat.exists and _vault_encrypted.stdout == 'yes' and _vpass_stat.stat.exists
+          changed_when: true
+
+        - name: Copy updated plaintext vault back
+          shell: "cp /tmp/_vault_cred_tmp.yml '{{ _vault_file }}'"
+          when: _tmp_stat.stat.exists and _vault_encrypted.stdout != 'yes'
+          changed_when: true
+
+        - name: Remove temp file
+          file:
+            path: /tmp/_vault_cred_tmp.yml
+            state: absent
+
+        - name: Confirm credentials saved
+          debug:
+            msg:
+              - "✓ Credentials saved to vault.yml (encrypted)."
+              - ""
+              - "  To reconfigure the AWS CLI on any machine:"
+              - "    cd deployment && source scripts/load-vars.sh"
+              - "    aws configure set aws_access_key_id     $aws_access_key_id"
+              - "    aws configure set aws_secret_access_key $aws_secret_access_key"
+              - "    aws configure set region                $aws_region"
+              - ""
+              - "  Verify:  aws sts get-caller-identity"
+          when: _tmp_stat.stat.exists
+
+        - name: Warn when vault_pass unavailable
+          debug:
+            msg:
+              - "⚠️  ~/.vault_pass not found — credentials NOT saved to vault.yml."
+              - "  Add them manually before encrypting:"
+              - "    aws_access_key_id: {{ new_key.access_key.access_key_id }}"
+              - "    aws_secret_access_key: <secret shown above>"
+          when: _vault_encrypted.stdout == 'yes' and not _vpass_stat.stat.exists
 
     - name: Access key already exists
       debug:
