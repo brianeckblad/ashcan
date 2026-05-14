@@ -83,6 +83,16 @@
         extra_args: "--upgrade"
       when: root_requirements.stat.exists
 
+    - name: Fix ownership of instance/data so app_runtime_user can write migrations and backups
+      file:
+        path: "{{ app_dir }}/instance/data"
+        state: directory
+        owner: "{{ app_runtime_user }}"
+        group: "{{ app_name }}"
+        mode: '2775'
+        recurse: yes
+      failed_when: false
+
     - name: Migrate inventory CSV schema to latest format
       become_user: "{{ app_runtime_user }}"
       command: "{{ venv_dir }}/bin/python {{ app_dir }}/app/scripts/util_migrate_csv_schema.py"
