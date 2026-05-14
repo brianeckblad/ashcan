@@ -133,6 +133,27 @@
         mode: '2775'
 
     # =========================================================================
+    # SSH HARDENING
+    # =========================================================================
+    # Key-only auth, no root login, 60 s keepalive probes to keep AWS NAT
+    # tables warm and prevent idle session drops.
+    # Standalone: ansible-playbook playbooks/setup-ssh-hardening.yml
+
+    - name: Write SSH hardening config
+      template:
+        src: ../templates/sshd-hardening.conf.j2
+        dest: /etc/ssh/sshd_config.d/99-hardening.conf
+        owner: root
+        group: root
+        mode: '0600'
+      register: sshd_hardening_written
+      notify: reload sshd
+
+    - name: Validate sshd configuration
+      command: sshd -t
+      changed_when: false
+
+    # =========================================================================
     # CODE DEPLOYMENT
     # =========================================================================
 
@@ -488,6 +509,12 @@
           - "  View logs:     sudo tail -f {{ log_dir }}/app.log"
 
   handlers:
+    - name: reload sshd
+      # Reload, not restart — applies new config without dropping active sessions.
+      service:
+        name: ssh
+        state: reloaded
+
     - name: restart supervisor
       service:
         name: supervisor

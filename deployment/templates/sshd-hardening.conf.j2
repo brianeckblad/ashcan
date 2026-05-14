@@ -1,0 +1,36 @@
+# Managed by Ansible — do not edit manually.
+# Source: deployment/templates/sshd-hardening.conf.j2
+# Applied by: playbooks/setup-ssh-hardening.yml
+# Overrides: /etc/ssh/sshd_config and any cloud-init defaults.
+
+# ── Authentication ────────────────────────────────────────────────────────────
+# Key-only — no passwords, no keyboard-interactive fallbacks.
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+
+# No direct root login; admin escalates via sudo.
+PermitRootLogin no
+
+# ── Brute-force surface ───────────────────────────────────────────────────────
+# Limit auth retries and concurrent sessions server-wide.
+MaxAuthTries 3
+MaxSessions 5
+
+# ── Keepalive / idle timeout ─────────────────────────────────────────────────
+# Server probes the client every 60 s.  After 10 consecutive non-responses
+# (= 10 minutes of a truly dead connection) sshd closes the session.
+#
+# Rationale: AWS VPC connection-tracking idle timeout is ~5 minutes.
+# Probing every 60 s (matching ServerAliveInterval 60 in ~/.ssh/config)
+# keeps NAT table entries warm so interactive sessions are never wrongly killed.
+ClientAliveInterval 60
+ClientAliveCountMax 10
+
+# ── Forwarding ────────────────────────────────────────────────────────────────
+# Disable all tunnelling — this server is an app host, not a jump box.
+X11Forwarding no
+AllowAgentForwarding no
+AllowTcpForwarding no
+

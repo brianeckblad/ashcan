@@ -1,0 +1,63 @@
+---
+# Harden SSH daemon configuration on the target server.
+#
+# What this does:
+#   - Writes /etc/ssh/sshd_config.d/99-hardening.conf from the template
+#     deployment/templates/sshd-hardening.conf.j2
+#   - Validates the resulting sshd config with `sshd -t`
+#   - Reloads sshd (graceful — existing sessions are not dropped)
+#
+# Key settings applied:
+#   - Key-only authentication (no passwords)
+#   - No root login
+#   - MaxAuthTries 3, MaxSessions 5
+#   - ClientAliveInterval 60 / ClientAliveCountMax 10
+#     (probe every 60 s; matches ServerAliveInterval 60 in ~/.ssh/config
+#      so AWS VPC NAT tables stay warm and idle sessions are never wrongly killed)
+#   - X11Forwarding, AllowAgentForwarding, AllowTcpForwarding all disabled
+#
+# Idempotent: re-running writes the same file and reloads only if changed.
+#
+# Usage (standalone):
+#   ansible-playbook playbooks/setup-ssh-hardening.yml --vault-password-file ~/.vault_pass
+#
+# Also imported by setup.yml during initial deployment.
+
+- name: Harden SSH daemon configuration
+  hosts: all
+  become: yes
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+
+  tasks:
+
+    - name: Write SSH hardening config
+      template:
+        src: ../templates/sshd-hardening.conf.j2
+        dest: /etc/ssh/sshd_config.d/99-hardening.conf
+        owner: root
+        group: root
+        mode: '0600'
+      register: sshd_hardening_config
+      notify: reload sshd
+
+    - name: Validate sshd configuration
+      command: sshd -t
+      changed_when: false
+      # If this fails, the handler will NOT run — sshd keeps its current config.
+      # Fix the template, then re-run.
+
+    - name: Show hardening status
+      debug:
+        msg: >-
+          {{ 'SSH hardening config updated — sshd will reload.' if sshd_hardening_config.changed
+             else 'SSH hardening config already up-to-date — no reload needed.' }}
+
+  handlers:
+    - name: reload sshd
+      # Reload, not restart — applies new config without dropping active sessions.
+      service:
+        name: ssh
+        state: reloaded
+
