@@ -69,7 +69,7 @@
       debug:
         msg: "Running as: {{ (caller_identity.stdout | from_json).Arn }}"
 
-    - name: "Preflight — verify iam:CreateUser permission"
+    - name: "Preflight — verify iam:CreateUser permission via simulate-principal-policy"
       command: >
         aws iam simulate-principal-policy
         --policy-source-arn {{ (caller_identity.stdout | from_json).Arn }}
@@ -80,23 +80,37 @@
       changed_when: false
       failed_when: false
 
-    - name: "Preflight — fail if iam:CreateUser is denied"
+    - name: "Preflight — fail if iam:CreateUser is not explicitly allowed"
+      # Fail-closed: only "allowed" passes. implicitDeny, explicitDeny, or
+      # the simulate call itself failing (rc != 0) all trigger the failure.
+      # Root is exempt — its ARN ends in ":root" and simulate may not return
+      # a meaningful answer for the root account.
       fail:
         msg: |
-          Current identity lacks iam:CreateUser permission.
-          Identity: {{ (caller_identity.stdout | from_json).Arn }}
 
-          This playbook needs root or IAM admin credentials. The AWS_PROFILE
-          environment variable overrides aws configure — unset it first:
+          ╔══════════════════════════════════════════════════════════════════╗
+          ║  This playbook needs root or IAM admin credentials.              ║
+          ╚══════════════════════════════════════════════════════════════════╝
+
+          Current identity:  {{ (caller_identity.stdout | from_json).Arn }}
+          IAM check result:  {{ iam_check.stdout | default('') | trim }}{% if iam_check.rc != 0 %} (call failed: {{ iam_check.stderr | default('') | trim }}){% endif %}
+
+
+          The AWS_PROFILE environment variable OVERRIDES `aws configure`.
+          Unset it before exporting fresh root credentials:
 
             unset AWS_PROFILE
             export AWS_ACCESS_KEY_ID="AKIA..."
             export AWS_SECRET_ACCESS_KEY="..."
-            ansible-playbook playbooks/create-deploy-user.yml --vault-password-file ~/.vault_pass
+            aws sts get-caller-identity   # confirm Arn ends in :root
+            ansible-playbook playbooks/create-deploy-user.yml \
+                --vault-password-file ~/.vault_pass
             unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+
+          Then DELETE the temporary root access key in the AWS Console.
       when:
-        - iam_check.rc == 0
-        - iam_check.stdout | trim == "explicitDeny" or iam_check.stdout | trim == "implicitDeny"
+        - not (caller_identity.stdout | from_json).Arn.endswith(':root')
+        - iam_check.rc != 0 or (iam_check.stdout | trim) != 'allowed'
 
     - name: Resolve a SINGLE temp path for the decrypted vault
       # Bug to avoid: putting this in vars: — lookup('pipe', 'date +%s')
