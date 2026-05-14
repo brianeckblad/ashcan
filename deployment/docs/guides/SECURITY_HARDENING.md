@@ -17,8 +17,8 @@ These settings are applied automatically by `setup.yml` and re-applied on every 
 
 | Path | Owner | Group | Mode | Purpose |
 |------|-------|-------|------|---------|
-| `/opt/{app_name}/` | `{app_runtime_user}` | `{app_name}` | `2775` (setgid) | App directory |
-| `/opt/{app_name}/instance/` | `{app_runtime_user}` | `{app_name}` | `2775` (setgid) | Data directory |
+| `/opt/apps/{app_name}/` | `{app_runtime_user}` | `{app_name}` | `2775` (setgid) | App directory |
+| `/opt/apps/{app_name}/instance/` | `{app_runtime_user}` | `{app_name}` | `2775` (setgid) | Data directory |
 | `/var/log/apps/{app_name}/` | `{app_runtime_user}` | `{app_name}` | `2775` (setgid) | Log directory |
 | `instance/user_preferences.json` | `{app_runtime_user}` | `{app_name}` | `0640` | User credentials |
 | `instance/*.csv`, `instance/sku.txt` | `{app_runtime_user}` | `{app_name}` | `0664` | Data files |
@@ -83,7 +83,7 @@ ansible-playbook playbooks/update.yml --vault-password-file ~/.vault_pass
 ssh ubuntu@YOUR_SERVER
 
 # App directory ownership and setgid
-ls -la /opt/{app_name}/
+ls -la /opt/apps/{app_name}/
 # Expected: drwxrwsr-x  owner:group = {app_runtime_user}:{app_name}
 # The 's' in group-execute confirms setgid is set.
 

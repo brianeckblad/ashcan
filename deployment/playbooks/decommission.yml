@@ -33,6 +33,10 @@
   vars_files:
     - ../group_vars/all.yml
     - ../group_vars/vault.yml
+  environment:
+    # All AWS API calls (CLI + community.aws/amazon.aws modules) use the
+    # dedicated deploy profile created by create-deploy-user.yml.
+    AWS_PROFILE: "{{ app_deploy_user | default(app_name + '-deploy') }}"
 
   tasks:
     - name: Check confirmation flag
@@ -89,6 +93,10 @@
   vars_files:
     - ../group_vars/all.yml
     - ../group_vars/vault.yml
+  environment:
+    # All AWS API calls (CLI + community.aws/amazon.aws modules) use the
+    # dedicated deploy profile created by create-deploy-user.yml.
+    AWS_PROFILE: "{{ app_deploy_user | default(app_name + '-deploy') }}"
 
   tasks:
     - name: Remove local info files

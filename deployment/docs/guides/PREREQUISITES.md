@@ -10,7 +10,7 @@ Three distinct identities are involved in a deployment. Understanding these upfr
 
 | Identity | Vault variable | Scope | Who creates it |
 |----------|---------------|-------|----------------|
-| **AWS deployer IAM user** (`{app_name}-deployer`) | `app_deploy_user` | Per-app. Has S3, IAM, Secrets Manager, and CloudWatch permissions scoped to this app. Used by the person running Ansible. | `create-iam-user.yml` |
+| **AWS deploy IAM user** (`{app_name}-deploy`) | `app_deploy_user` | Per-app. Has S3, IAM, Secrets Manager, and CloudWatch permissions scoped to this app. Used by Ansible via a named CLI profile. | `create-deploy-user.yml` |
 | **OS admin user** (`ubuntu` or similar) | `server_admin_user` | Shared across all apps on the server. Used for SSH access. | Pre-existing on the shared server. |
 | **OS runtime user** (`{app_name}_runtime`) | `app_runtime_user` | Per-app. Unprivileged OS user that runs gunicorn. | `setup.yml` |
 
@@ -115,7 +115,7 @@ Edit `group_vars/vault.yml`. Every variable is required unless marked optional.
 |----------|-------------|---------|
 | `server_host` | SSH hostname or IP address of the shared server. | `13.58.136.177` |
 | `server_admin_user` | OS user used for SSH. Pre-existing on the shared server — usually `ubuntu` on AWS. Shared across all apps. | `ubuntu` |
-| `app_deploy_user` | AWS IAM user name used by Ansible to create and manage app resources. Created by `create-iam-user.yml`. | `myapp-deployer` |
+| `app_deploy_user` | AWS IAM user name used by Ansible to create and manage app resources. Created by `create-deploy-user.yml`. | `myapp-deploy` |
 | `app_runtime_user` | Dedicated per-app OS user that runs gunicorn. Created by `setup.yml` if it does not exist. | `myapp_runtime` |
 
 #### AWS credentials and resources
@@ -185,9 +185,6 @@ Edit `group_vars/vault.yml`. Every variable is required unless marked optional.
 
 #### SSH access control
 
-| Variable | Description | How to get it |
-|----------|-------------|---------------|
-| `admin_ip` | Your public IP address. Added to fail2ban `ignoreip` so the admin IP can never be accidentally banned. | `curl -s https://checkip.amazonaws.com` |
 
 Port 22 access is managed directly in the EC2 security group via the AWS Console. Add your IP manually before running any server playbook.
 
@@ -205,40 +202,42 @@ head -1 group_vars/vault.yml
 # Should output: $ANSIBLE_VAULT;1.1;AES256
 ```
 
-### Step 4: Create the per-app AWS deployer user
+### Step 4: Create the per-app AWS deploy user
 
 With your bootstrap (root or admin) AWS credentials still active, run:
 
 ```bash
 cd deployment
-ansible-playbook playbooks/create-iam-user.yml --vault-password-file ~/.vault_pass
+ansible-playbook playbooks/create-deploy-user.yml --vault-password-file ~/.vault_pass
 ```
 
 This one playbook does everything needed before provisioning:
 
-1. Creates `{app_name}-deployer` with `AmazonS3FullAccess`, `IAMFullAccess`, `SecretsManagerReadWrite`, `CloudWatchLogsFullAccess`, and an inline `CloudWatchAlarmPolicy`
-2. Saves `aws_access_key_id` and `aws_secret_access_key` into `vault.yml` (re-encrypted)
-3. Calls `aws configure set` to switch the local AWS CLI to the new deployer user immediately
+1. Creates `{app_name}-deploy` with `AmazonS3FullAccess`, `IAMFullAccess`, `SecretsManagerReadWrite`, `CloudWatchLogsFullAccess` (idempotent — re-running is safe).
+2. **Auto-rotates** any existing access keys (deletes them, issues a fresh one). The secret of an existing key cannot be retrieved, so rotation is the only safe path.
+3. Saves `deploy_aws_access_key_id` and `deploy_aws_secret_access_key` into `vault.yml` (re-encrypted; secrets are passed via environment variables, never shell-interpolated).
+4. Configures a dedicated **named AWS CLI profile** (`{app_name}-deploy`) — your default profile is untouched.
+5. Verifies the profile with `aws sts get-caller-identity` (retry loop — IAM is eventually consistent and fresh keys can throw `InvalidClientTokenId` for 10–30 seconds).
 
-When the playbook finishes, the terminal session is already authenticated as the deployer user. No manual `aws configure` step is needed.
+All subsequent deployment playbooks read the profile via `environment.AWS_PROFILE` — no further configuration needed.
 
-> Requires `~/.vault_pass`. If missing, credentials are printed once and must be added to vault manually, and `configure-aws-cli.yml` must be run manually.
+> Requires `~/.vault_pass`.
 
-### Step 5: Verify the deployer identity (optional)
+### Step 5: Verify the deploy identity (optional)
 
 ```bash
-aws sts get-caller-identity
-# Arn should show: arn:aws:iam::ACCOUNT_ID:user/{app_name}-deployer
+aws sts get-caller-identity --profile {app_name}-deploy
+# Arn should show: arn:aws:iam::ACCOUNT_ID:user/{app_name}-deploy
 ```
 
 Then **delete the temporary root access key** in the AWS Console.
 
-All subsequent playbooks (`provision-app.yml`, `setup.yml`, `update.yml`) now run as the deployer user automatically. `provision-app.yml` includes a preflight check that fails if it detects root credentials, so you cannot accidentally provision as root.
+`provision-app.yml` includes two preflight checks that fail fast if `deploy_aws_access_key_id` is missing from vault or if the active identity is the root account.
 
-On any future machine, run `configure-aws-cli.yml` to restore the AWS CLI from vault:
+On any future machine, run `configure-local-aws.yml` to restore the named profile from vault — no IAM API calls, just local CLI config:
 
 ```bash
-ansible-playbook playbooks/configure-aws-cli.yml --vault-password-file ~/.vault_pass
+ansible-playbook playbooks/configure-local-aws.yml --vault-password-file ~/.vault_pass
 ```
 
 
@@ -287,9 +286,9 @@ This also writes literal connection values to `inventories/hosts.yml` so Ansible
 Run these checks before continuing. Every command should succeed.
 
 ```bash
-# AWS credentials (deployer user)
-aws sts get-caller-identity
-# Arn should show: arn:aws:iam::ACCOUNT_ID:user/{app_name}-deployer
+# AWS credentials (deploy user profile)
+aws sts get-caller-identity --profile {app_name}-deploy
+# Arn should show: arn:aws:iam::ACCOUNT_ID:user/{app_name}-deploy
 
 # Local tools
 ansible --version       # 2.9 or higher

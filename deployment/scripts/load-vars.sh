@@ -201,6 +201,59 @@ if [ -f "$GROUP_VARS_DIR/all.yml" ]; then
 fi
 
 # =========================================================================
+# Second pass: resolve Jinja2 templates ({{ var }}) using loaded variables
+# =========================================================================
+# vault.yml stores derived fields as Jinja2 templates, e.g.:
+#   app_deploy_user: "{{ app_name }}-deployer"
+# The first pass skips these lines. This pass resolves them now that base
+# variables (app_name, etc.) are exported, so stale env vars from a previous
+# project's load-vars.sh session are overwritten with the correct values.
+# =========================================================================
+_resolve_jinja2_string() {
+    python3 -c "
+import re, os, sys
+val = sys.argv[1]
+def replace(m):
+    varname = m.group(1).strip()
+    return os.environ.get(varname, '')
+print(re.sub(r'\{\{([^}]+)\}\}', replace, val))
+" "$1"
+}
+
+_raw_vault_content=""
+if [ "$vault_encrypted" = true ] && [ -n "${vault_content:-}" ]; then
+    _raw_vault_content="$vault_content"
+elif [ "$vault_encrypted" != true ] && [ -f "$GROUP_VARS_DIR/vault.yml" ]; then
+    _raw_vault_content=$(cat "$GROUP_VARS_DIR/vault.yml")
+fi
+
+if [ -n "$_raw_vault_content" ]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" ]] && continue
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        if [[ "$line" =~ ^([a-z0-9_]+):[[:space:]]*(.+)$ ]]; then
+            if [[ -n "${BASH_REMATCH[1]}" ]]; then
+                _j2_key="${BASH_REMATCH[1]}"
+                _j2_val="${BASH_REMATCH[2]}"
+            elif [[ -n "${match[1]}" ]]; then
+                _j2_key="${match[1]}"
+                _j2_val="${match[2]}"
+            else
+                continue
+            fi
+            if [[ "$_j2_val" == *"{{"* ]]; then
+                _j2_val="${_j2_val//\"/}"
+                _j2_val="${_j2_val//\'/}"
+                _j2_val=$(echo "$_j2_val" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                _j2_resolved=$(_resolve_jinja2_string "$_j2_val")
+                [[ -n "$_j2_resolved" ]] && export "$_j2_key"="$_j2_resolved"
+            fi
+        fi
+    done <<< "$_raw_vault_content"
+    unset _raw_vault_content _j2_key _j2_val _j2_resolved
+fi
+
+# =========================================================================
 # Write inventories/hosts.yml from vault values
 # =========================================================================
 # Ansible cannot resolve vault variable templates for connection keywords
@@ -272,20 +325,34 @@ fi
 echo ""
 echo -e "${GREEN}✅ Variables loaded${NC}"
 echo ""
-  echo "  app_name=$app_name"
-  echo "  app_display_name=${app_display_name:-}"
-  echo "  aws_region=$aws_region"
-  echo "  server_admin_user=${server_admin_user:-ubuntu}"
-  echo "  app_deploy_user=${app_deploy_user:-${app_name}-deployer}"
-  echo "  app_runtime_user=${app_runtime_user:-}"
-  echo "  server_name=${server_name:-}"
-  echo "  server_host=${server_host:-  (not set — update in vault.yml)}"
-
+echo -e "  ${YELLOW}Identity${NC}"
+echo "    app_name=$app_name"
+echo "    app_display_name=${app_display_name:-}"
+echo "    service_name=${service_name:-${app_name}}"
+echo ""
+echo -e "  ${YELLOW}Server${NC}"
+echo "    server_host=${server_host:-  (not set — update in vault.yml)}"
+echo "    server_name=${server_name:-}"
+echo "    server_admin_user=${server_admin_user:-ubuntu}"
+echo "    app_deploy_user=${app_deploy_user:-${app_name}-deployer}"
+echo "    app_runtime_user=${app_runtime_user:-${app_name}_runtime}"
 if [ -n "${SERVER_IP:-}" ]; then
-    echo "  SERVER_IP=$SERVER_IP"
+    echo "    SERVER_IP=$SERVER_IP"
 fi
-
-
+echo ""
+echo -e "  ${YELLOW}Paths${NC}"
+echo "    app_dir=${app_dir:-/opt/apps/${app_name}}"
+echo "    log_dir=${log_dir:-/var/log/apps/${app_name}}"
+echo "    logs_root=${logs_root:-/var/log/apps}"
+echo ""
+echo -e "  ${YELLOW}AWS${NC}"
+echo "    aws_region=$aws_region"
+echo "    s3_bucket_name=${s3_bucket_name:-}"
+echo "    secret_name=${secret_name:-${app_name}/production}"
+echo "    aws_profile=${app_name}-deploy"
+echo ""
+echo -e "  ${YELLOW}SSL / Domain${NC}"
+echo "    ssl_email=${ssl_email:-}"
 echo ""
 
 # Show vault status only if there is a problem

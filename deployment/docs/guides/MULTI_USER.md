@@ -136,7 +136,7 @@ All users share one eBay developer account. Items are tracked by username in CSV
 
 ```
 AWS Secrets Manager:
-  app-item-listing-tool/secrets
+  {app_name}/production
     ├── EBAY_PRODUCTION_APP_ID    # Shared by all users
     ├── EBAY_PRODUCTION_CERT_ID
     ├── EBAY_PRODUCTION_DEV_ID
@@ -428,7 +428,7 @@ sudo supervisorctl restart {app_name}
 aws ssm start-session --target i-xxxxxxxxxxxxx
 
 # Run password reset script
-cd /opt/{app_name}
+cd /opt/apps/{app_name}
 source ~/.venv/bin/activate
 python3 << 'EOF'
 from app.models.user import user_manager
@@ -447,7 +447,7 @@ EOF
 NEW_HASH=$(python3 -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('TempPass123'))")
 
 # Edit user_preferences.json
-cd /opt/{app_name}/instance
+cd /opt/apps/{app_name}/instance
 cp user_preferences.json user_preferences.json.bak
 # Manually update the password_hash for the user
 nano user_preferences.json
@@ -528,7 +528,7 @@ aws secretsmanager create-secret \
 
 **For Shared Credentials:**
 
-Keep the existing `app-item-listing-tool/secrets` secret. All users will use it automatically if their user-specific secret doesn't exist.
+Keep the existing `{app_name}/production` secret. All users will use it automatically if their user-specific secret doesn't exist.
 
 ### 3. Grant IAM Permissions
 
@@ -544,7 +544,7 @@ Update the EC2 IAM role to allow access to user secrets:
         "secretsmanager:GetSecretValue"
       ],
       "Resource": [
-        "arn:aws:secretsmanager:us-east-2:*:secret:app-item-listing-tool/secrets-*",
+        "arn:aws:secretsmanager:us-east-2:*:secret:{app_name}/production-*",
         "arn:aws:secretsmanager:us-east-2:*:secret:*/production-*"
       ]
     }
@@ -605,7 +605,7 @@ echo ""
 
 # Connect to server and add user
 ssh ubuntu@your-server.com << EOF
-cd /opt/{app_name}
+cd /opt/apps/{app_name}
 source ~/.venv/bin/activate
 
 python3 << PYTHON
@@ -978,7 +978,7 @@ chmod 664 instance/data/brian/items.csv
 
 **Check:**
 1. User has credentials in Secrets Manager: `{username}/production`
-2. Or app-level credentials exist: `app-item-listing-tool/secrets`
+2. Or app-level credentials exist: `{app_name}/production`
 3. IAM role has permissions
 
 **Fix:**

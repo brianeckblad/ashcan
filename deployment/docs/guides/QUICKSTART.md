@@ -92,9 +92,11 @@ curl -I http://{server_name}
 
 ### Common pre-flight issues
 
-1. **AWS CLI not working:**
+1. **AWS CLI profile not configured:**
    ```bash
-   aws sts get-caller-identity
+   aws sts get-caller-identity --profile {app_name}-deploy
+   # If this fails, run: ansible-playbook playbooks/configure-local-aws.yml \
+   #                          --vault-password-file ~/.vault_pass
    ```
 
 2. **Vault not encrypted:**

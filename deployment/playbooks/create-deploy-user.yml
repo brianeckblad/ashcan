@@ -1,0 +1,237 @@
+---
+# Bootstrap the dedicated AWS deploy IAM user for this project.
+#
+# Run ONCE with root or admin AWS credentials in your shell:
+#     export AWS_PROFILE=root        # or AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+#     ansible-playbook playbooks/create-deploy-user.yml \
+#         --vault-password-file ~/.vault_pass
+#
+# What it does:
+#   1. Creates IAM user  {{ app_name }}-deploy           (idempotent)
+#   2. Attaches the minimum managed policies              (idempotent)
+#   3. Rotates ALL existing access keys (deletes them) and issues a fresh one
+#      — the secret of an existing key cannot be retrieved, so rotation is the
+#        only safe path. Never fail just because a key exists.
+#   4. Injects deploy_aws_access_key_id / deploy_aws_secret_access_key back
+#      into the encrypted vault.yml (decrypt → patch → re-encrypt → wipe tmp).
+#   5. Configures a LOCAL named AWS CLI profile:  {{ app_name }}-deploy
+#   6. Verifies the profile with aws sts get-caller-identity (with retries —
+#      fresh keys throw InvalidClientTokenId for ~10–30s while IAM converges).
+#
+# After this runs, every other deployment playbook will use the profile via:
+#     environment:
+#       AWS_PROFILE: "{{ app_name }}-deploy"
+
+- name: Bootstrap dedicated AWS deploy IAM user
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+  vars:
+    deploy_user_name: "{{ app_deploy_user | default(app_name + '-deploy') }}"
+    deploy_profile_name: "{{ deploy_user_name }}"
+    vault_file: "{{ playbook_dir | dirname }}/group_vars/vault.yml"
+
+    # Minimum managed policies this project needs.
+    # Scope down with custom policies when feasible.
+    managed_policies:
+      - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+      - "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
+      - "arn:aws:iam::aws:policy/IAMFullAccess"
+      - "arn:aws:iam::aws:policy/CloudWatchFullAccess"      # logs + alarms + metrics
+
+  pre_tasks:
+    - name: Validate app_name is set
+      fail:
+        msg: "app_name is required (set in group_vars/all.yml or vault.yml)."
+      when: app_name is not defined or app_name | trim | length == 0
+
+    - name: Validate aws_region is set
+      fail:
+        msg: "aws_region is required (set in vault.yml)."
+      when: aws_region is not defined or aws_region | trim | length == 0
+
+    - name: Resolve a SINGLE temp path for the decrypted vault
+      # Bug to avoid: putting this in vars: — lookup('pipe', 'date +%s')
+      # re-evaluates per reference, so decrypt and inject end up writing/reading
+      # different files. set_fact pins it once.
+      set_fact:
+        vault_tmp: "/tmp/{{ app_name }}_vault_plain_{{ lookup('pipe', 'date +%s') }}.yml"
+
+  tasks:
+
+    # ── Step 1: Create IAM user (idempotent) ─────────────────────────────────
+    - name: "Step 1/6 — Check whether IAM user {{ deploy_user_name }} exists"
+      command: aws iam get-user --user-name {{ deploy_user_name }}
+      register: get_user_result
+      changed_when: false
+      failed_when: false
+
+    - name: "Step 1/6 — Create IAM user {{ deploy_user_name }}"
+      command: >
+        aws iam create-user
+        --user-name {{ deploy_user_name }}
+        --tags Key=Application,Value={{ app_name }}
+               Key=Purpose,Value=deployer
+               Key=ManagedBy,Value=Ansible
+      when: get_user_result.rc != 0
+      changed_when: true
+
+    # ── Step 2: Attach managed policies (idempotent) ─────────────────────────
+    - name: "Step 2/6 — Attach managed policies"
+      command: >
+        aws iam attach-user-policy
+        --user-name {{ deploy_user_name }}
+        --policy-arn {{ item }}
+      loop: "{{ managed_policies }}"
+      register: attach_result
+      changed_when: attach_result.rc == 0
+      failed_when: false   # Re-attaching the same policy is a no-op we accept.
+
+    # ── Step 3: Rotate access keys ───────────────────────────────────────────
+    - name: "Step 3/6 — List existing access keys"
+      command: aws iam list-access-keys --user-name {{ deploy_user_name }}
+      register: list_keys_result
+      changed_when: false
+
+    - name: "Step 3/6 — Parse existing key IDs"
+      set_fact:
+        existing_key_ids: "{{ (list_keys_result.stdout | from_json).AccessKeyMetadata | map(attribute='AccessKeyId') | list }}"
+
+    - name: "Step 3/6 — Notice: rotating existing keys"
+      debug:
+        msg:
+          - "Found {{ existing_key_ids | length }} existing access key(s) for {{ deploy_user_name }}."
+          - "Rotating: the existing secret cannot be retrieved, so all old keys"
+          - "are being deleted and a fresh key will be issued."
+          - "Old keys: {{ existing_key_ids | join(', ') }}"
+      when: existing_key_ids | length > 0
+
+    - name: "Step 3/6 — Delete existing access keys"
+      command: >
+        aws iam delete-access-key
+        --user-name {{ deploy_user_name }}
+        --access-key-id {{ item }}
+      loop: "{{ existing_key_ids }}"
+      changed_when: true
+
+    - name: "Step 3/6 — Create fresh access key"
+      command: aws iam create-access-key --user-name {{ deploy_user_name }}
+      register: new_key_raw
+      changed_when: true
+      no_log: true
+
+    - name: "Step 3/6 — Parse new access key"
+      set_fact:
+        new_access_key_id: "{{ (new_key_raw.stdout | from_json).AccessKey.AccessKeyId }}"
+        new_secret_access_key: "{{ (new_key_raw.stdout | from_json).AccessKey.SecretAccessKey }}"
+      no_log: true
+
+    # ── Step 4: Inject credentials into encrypted vault.yml ──────────────────
+    - name: "Step 4/6 — Decrypt vault.yml to temp file"
+      command: >
+        ansible-vault decrypt {{ vault_file }}
+        --vault-password-file {{ ansible_env.HOME }}/.vault_pass
+        --output {{ vault_tmp }}
+      changed_when: true
+
+    - name: "Step 4/6 — Inject new credentials into temp vault (env-passed, never on cmdline)"
+      # Bug to avoid: shell-interpolating the secret. Pass via environment:
+      # so the value never appears in process args or -vvv debug output.
+      shell: |
+        python3 <<'PY'
+        import os, re
+
+        path = os.environ['VAULT_TMP']
+        access_key = os.environ['NEW_ACCESS_KEY_ID']
+        secret_key = os.environ['NEW_SECRET_ACCESS_KEY']
+
+        with open(path, 'r') as f:
+            text = f.read()
+
+        # Strip any prior deploy_aws_* lines, ignoring leading whitespace.
+        text = re.sub(r'(?m)^\s*deploy_aws_access_key_id:\s*.*\n?', '', text)
+        text = re.sub(r'(?m)^\s*deploy_aws_secret_access_key:\s*.*\n?', '', text)
+
+        # Ensure trailing newline before appending.
+        if text and not text.endswith('\n'):
+            text += '\n'
+
+        text += f'deploy_aws_access_key_id: "{access_key}"\n'
+        text += f'deploy_aws_secret_access_key: "{secret_key}"\n'
+
+        with open(path, 'w') as f:
+            f.write(text)
+        PY
+      environment:
+        VAULT_TMP: "{{ vault_tmp }}"
+        NEW_ACCESS_KEY_ID: "{{ new_access_key_id }}"
+        NEW_SECRET_ACCESS_KEY: "{{ new_secret_access_key }}"
+      changed_when: true
+      no_log: true
+
+    - name: "Step 4/6 — Re-encrypt vault.yml from temp file"
+      command: >
+        ansible-vault encrypt {{ vault_tmp }}
+        --vault-password-file {{ ansible_env.HOME }}/.vault_pass
+        --output {{ vault_file }}
+      changed_when: true
+
+    - name: "Step 4/6 — Wipe temp vault file"
+      file:
+        path: "{{ vault_tmp }}"
+        state: absent
+
+    # ── Step 5: Configure local AWS CLI named profile ────────────────────────
+    - name: "Step 5/6 — Configure AWS CLI profile {{ deploy_profile_name }} (access key id)"
+      command: aws configure set aws_access_key_id {{ new_access_key_id }} --profile {{ deploy_profile_name }}
+      changed_when: true
+      no_log: true
+
+    - name: "Step 5/6 — Configure AWS CLI profile (secret access key)"
+      command: aws configure set aws_secret_access_key {{ new_secret_access_key }} --profile {{ deploy_profile_name }}
+      changed_when: true
+      no_log: true
+
+    - name: "Step 5/6 — Configure AWS CLI profile (region)"
+      command: aws configure set region {{ aws_region }} --profile {{ deploy_profile_name }}
+      changed_when: true
+
+    - name: "Step 5/6 — Configure AWS CLI profile (output format)"
+      command: aws configure set output json --profile {{ deploy_profile_name }}
+      changed_when: true
+
+    # ── Step 6: Verify the profile (retry — IAM is eventually consistent) ────
+    - name: "Step 6/6 — Verify profile with sts get-caller-identity (retrying)"
+      command: aws sts get-caller-identity --profile {{ deploy_profile_name }}
+      register: verify_result
+      retries: 12
+      delay: 5
+      until: verify_result.rc == 0
+      changed_when: false
+
+    - name: Summary
+      debug:
+        msg:
+          - ""
+          - "╔══════════════════════════════════════════════════════════════════╗"
+          - "║   Deploy user bootstrap complete                                 ║"
+          - "╚══════════════════════════════════════════════════════════════════╝"
+          - ""
+          - "  IAM user:       {{ deploy_user_name }}"
+          - "  Verified ARN:   {{ (verify_result.stdout | from_json).Arn }}"
+          - "  CLI profile:    {{ deploy_profile_name }}"
+          - "  Region:         {{ aws_region }}"
+          - ""
+          - "  Credentials saved to:  group_vars/vault.yml  (re-encrypted)"
+          - "    deploy_aws_access_key_id"
+          - "    deploy_aws_secret_access_key"
+          - ""
+          - "  All subsequent deployment playbooks use this profile via:"
+          - "    environment:"
+          - "      AWS_PROFILE: {{ deploy_profile_name }}"
+          - ""
+          - "  You can now unset your root/admin AWS credentials and delete the"
+          - "  temporary root access key in the AWS Console."
+

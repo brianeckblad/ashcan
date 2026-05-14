@@ -14,36 +14,14 @@ After deployment, your application automatically sends logs to CloudWatch. Now y
 
 ## Prerequisites
 
-**You need permissions to create CloudWatch alarms:**
+The `{app_name}-deploy` IAM user created by `create-deploy-user.yml` already has `CloudWatchFullAccess`,
+which covers creating alarms, dashboards, and querying metrics. No additional policy is needed.
 
-Since there's no AWS managed policy for alarms, you need to create an inline policy:
+If you are running `setup-monitoring.yml` for the first time, confirm the named profile is active:
 
-1. Go to [IAM Users](https://console.aws.amazon.com/iam/home#/users)
-2. Find your user (e.g., `{app_name}-deployer`)
-3. Click **Add inline policy**
-4. Choose **JSON** tab and paste:
-   ```json
-   {
-     "Version": "2012-10-17",
-     "Statement": [
-       {
-         "Effect": "Allow",
-         "Action": [
-           "cloudwatch:PutMetricAlarm",
-           "cloudwatch:DeleteAlarms",
-           "cloudwatch:DescribeAlarms",
-           "cloudwatch:GetMetricStatistics",
-           "cloudwatch:ListMetrics"
-         ],
-         "Resource": "*"
-       }
-     ]
-   }
-   ```
-5. Name it: `CloudWatchAlarmPolicy`
-6. Click **Create policy**
-
-**Done!** You can now create alarms
+```bash
+aws sts get-caller-identity --profile {app_name}-deploy
+```
 
 ---
 
@@ -280,7 +258,7 @@ Alerts if disk space is running out (logs filling up, S3 sync issue, etc.).
 
 ```bash
 # SSH to server
-ssh -i ~/.ssh/{app_name}-key.pem ubuntu@YOUR_SERVER_IP
+ssh ubuntu@$server_host
 
 # Check recent errors
 sudo grep ERROR /var/log/apps/{app_name}/app.log | tail -100

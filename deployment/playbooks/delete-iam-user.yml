@@ -1,6 +1,6 @@
 ---
 # Playbook to delete the IAM deployer user
-# Counterpart to: create-iam-user.yml
+# Counterpart to: create-deploy-user.yml
 #
 # What gets removed (in order):
 #   1. Access keys
@@ -14,7 +14,7 @@
 # Usage (fallback — if vault.yml unavailable):
 #   ansible-playbook playbooks/delete-iam-user.yml -e app_name=myapp
 #
-# To recreate: ansible-playbook playbooks/create-iam-user.yml --vault-password-file ~/.vault_pass
+# To recreate: ansible-playbook playbooks/create-deploy-user.yml --vault-password-file ~/.vault_pass
 
 - name: Delete IAM Deployer User
   hosts: localhost
@@ -22,6 +22,10 @@
   vars_files:
     - ../group_vars/all.yml
     - ../group_vars/vault.yml
+  environment:
+    # All AWS API calls (CLI + community.aws/amazon.aws modules) use the
+    # dedicated deploy profile created by create-deploy-user.yml.
+    AWS_PROFILE: "{{ app_deploy_user | default(app_name + '-deploy') }}"
   vars:
     # Use app_deploy_user from vault if set; fall back to {app_name}-deployer convention.
     iam_user_name: "{{ app_deploy_user | default(app_name + '-deployer') }}"

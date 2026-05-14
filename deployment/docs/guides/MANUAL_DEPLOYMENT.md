@@ -3,8 +3,8 @@
 Deploy the application step-by-step with full explanations for each stage.
 
 > Prerequisite: Complete [Chapter 1: Prerequisites](PREREQUISITES.md) before continuing.
-> Your AWS CLI must already be configured as the `{app_name}-deployer` IAM user
-> (`create-iam-user.yml` does this automatically on completion).
+> Your AWS CLI named profile `{app_name}-deploy` must already be configured
+> (`create-deploy-user.yml` does this automatically on completion).
 
 ---
 
@@ -28,7 +28,7 @@ Your Local Machine
                            │
                     ┌──────▼───────────────────────────────┐
                     │  Shared Server (SSH)                  │
-                    │  /opt/{app_name}/     ← code + venv  │
+                    │  /opt/apps/{app_name}/     ← code + venv  │
                     │  /var/log/apps/{app_name}/  ← logs   │
                     │  Supervisor       ← process manager  │
                     │  Nginx vhost      ← web server       │
@@ -181,7 +181,7 @@ aws secretsmanager get-secret-value \
 ### Run all three Phase 1 steps at once
 
 `provision-app.yml` orchestrates Steps 1–3 in order. It also runs a preflight check
-that verifies your AWS CLI is authenticated as the deployer user, not as root, and
+that verifies the AWS CLI is using the `{app_name}-deploy` profile, not root, and
 fails with a clear message if it detects root credentials.
 
 ```bash
@@ -221,10 +221,10 @@ The `{server_admin_user}` (ubuntu) is added to this group so both users can read
 write application files. Separate group ownership is what allows the deploy user to
 push code while the runtime user runs it — neither has unnecessary access to the other.
 
-It then creates the application directory at `/opt/{app_name}/` and the log directory
+It then creates the application directory at `/opt/apps/{app_name}/` and the log directory
 at `/var/log/apps/{app_name}/`, clones your git repository into the app directory
 (using `git_token` from vault for private repos), and builds a Python virtual
-environment at `/opt/{app_name}/.venv` with all dependencies from `requirements.txt`.
+environment at `/opt/apps/{app_name}/.venv` with all dependencies from `requirements.txt`.
 
 With the code in place, it writes the Supervisor process manager configuration so
 gunicorn starts automatically and restarts on failure, and the Nginx vhost configuration

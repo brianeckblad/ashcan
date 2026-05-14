@@ -1,0 +1,77 @@
+---
+# Configure the local AWS CLI named profile from credentials already stored in
+# the encrypted vault. Run this on a fresh machine, or after rotating keys with
+# create-deploy-user.yml, to restore the local profile.
+#
+# Makes NO IAM API calls — purely local CLI configuration.
+#
+# Usage:
+#     ansible-playbook playbooks/configure-local-aws.yml \
+#         --vault-password-file ~/.vault_pass
+
+- name: Configure local AWS CLI profile from vault
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+  vars:
+    deploy_profile_name: "{{ app_deploy_user | default(app_name + '-deploy') }}"
+
+  pre_tasks:
+    - name: Verify deploy_aws_access_key_id is set in vault
+      fail:
+        msg: |
+          deploy_aws_access_key_id is empty in vault.yml.
+          Run create-deploy-user.yml first to create the IAM user and save the key:
+            ansible-playbook playbooks/create-deploy-user.yml --vault-password-file ~/.vault_pass
+      when:
+        - deploy_aws_access_key_id is not defined or deploy_aws_access_key_id | trim | length == 0
+
+    - name: Verify deploy_aws_secret_access_key is set in vault
+      fail:
+        msg: |
+          deploy_aws_secret_access_key is empty in vault.yml.
+          Run create-deploy-user.yml first.
+      when:
+        - deploy_aws_secret_access_key is not defined or deploy_aws_secret_access_key | trim | length == 0
+
+  tasks:
+    - name: "Configure AWS CLI profile {{ deploy_profile_name }} (access key id)"
+      command: aws configure set aws_access_key_id {{ deploy_aws_access_key_id }} --profile {{ deploy_profile_name }}
+      changed_when: true
+      no_log: true
+
+    - name: "Configure AWS CLI profile (secret access key)"
+      command: aws configure set aws_secret_access_key {{ deploy_aws_secret_access_key }} --profile {{ deploy_profile_name }}
+      changed_when: true
+      no_log: true
+
+    - name: "Configure AWS CLI profile (region)"
+      command: aws configure set region {{ aws_region }} --profile {{ deploy_profile_name }}
+      changed_when: true
+
+    - name: "Configure AWS CLI profile (output format)"
+      command: aws configure set output json --profile {{ deploy_profile_name }}
+      changed_when: true
+
+    - name: "Verify profile with sts get-caller-identity (retrying)"
+      command: aws sts get-caller-identity --profile {{ deploy_profile_name }}
+      register: verify_result
+      retries: 12
+      delay: 5
+      until: verify_result.rc == 0
+      changed_when: false
+
+    - name: Summary
+      debug:
+        msg:
+          - "✓ Local AWS CLI profile configured"
+          - ""
+          - "  Profile:   {{ deploy_profile_name }}"
+          - "  Region:    {{ aws_region }}"
+          - "  Identity:  {{ (verify_result.stdout | from_json).Arn }}"
+          - ""
+          - "  Deployment playbooks use this profile automatically via"
+          - "  environment.AWS_PROFILE — no further configuration needed."
+

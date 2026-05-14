@@ -62,18 +62,20 @@ secret_name: "{{ app_name }}/production"
 sns_topic_arn: ""                            # SNS ARN for alerts (leave empty to disable)
 
 # ============================================================================
-# AWS DEPLOYER CREDENTIALS (written automatically by create-iam-user.yml)
+# AWS DEPLOY USER CREDENTIALS (auto-populated by create-deploy-user.yml)
 # ============================================================================
-# Access key for the {app_name}-deployer IAM user. Created by create-iam-user.yml
-# and saved here so credentials are never lost outside the vault.
-# NOT used by the app at runtime — the EC2 IAM role covers that.
-# To configure the AWS CLI after a fresh checkout:
-#   source scripts/load-vars.sh
-#   aws configure set aws_access_key_id     $aws_access_key_id
-#   aws configure set aws_secret_access_key $aws_secret_access_key
-#   aws configure set region                $aws_region
-aws_access_key_id: ""
-aws_secret_access_key: ""
+# Access key for the {app_name}-deploy IAM user. Written automatically by
+# create-deploy-user.yml (decrypts vault → injects keys → re-encrypts).
+# Read by configure-local-aws.yml to restore the named AWS CLI profile on
+# any new machine without an IAM API call.
+#
+# NOT used by the app at runtime — the EC2 instance role covers that.
+#
+# To restore the CLI profile after a fresh checkout:
+#   ansible-playbook playbooks/configure-local-aws.yml \
+#       --vault-password-file ~/.vault_pass
+deploy_aws_access_key_id: ""
+deploy_aws_secret_access_key: ""
 
 # ============================================================================
 # IAM — SHARED SERVER ROLE (OPTIONAL)
@@ -134,20 +136,11 @@ s3_version_retention_days: 30
 # ============================================================================
 # PATHS (derived from app_name — usually no need to change)
 # ============================================================================
-app_dir: "/opt/{{ app_name }}"
+app_dir: "/opt/apps/{{ app_name }}"
 venv_dir: "{{ app_dir }}/.venv"
 logs_root: "/var/log/apps"
 log_dir: "{{ logs_root }}/{{ app_name }}"
 instance_dir: "{{ app_dir }}/instance"
-
-# ============================================================================
-# SSH ACCESS CONTROL
-# ============================================================================
-# admin_ip: Your home/office public IP — used by fail2ban ignoreip so the
-#   admin can never be accidentally banned by the app's rate limiter.
-#   Find it: curl https://checkip.amazonaws.com
-#   Format: "x.x.x.x" (without /32)
-admin_ip: "YOUR_IP_ADDRESS"
 
 
 # ============================================================================

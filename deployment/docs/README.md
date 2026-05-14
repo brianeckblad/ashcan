@@ -83,9 +83,9 @@ Complete Chapter 2 or 3. Your application is live.
 
 | Playbook | Purpose |
 |----------|---------|
-| `create-iam-user.yml` | Create the `{app_name}-deployer` IAM user with access keys; saves credentials to vault automatically |
-| `configure-aws-cli.yml` | Configure the local AWS CLI from vault credentials (run after create-iam-user or on a new machine) |
-| `delete-iam-user.yml` | Delete the deployer IAM user |
+| `create-deploy-user.yml` | Create the `{app_name}-deploy` IAM user, rotate keys, save credentials to vault, configure named AWS CLI profile, verify with retry |
+| `configure-local-aws.yml` | Restore the local AWS CLI named profile from vault credentials (no IAM calls — run on a new machine or after key rotation) |
+| `delete-iam-user.yml` | Delete the deploy IAM user and all its access keys |
 
 ---
 
@@ -93,7 +93,10 @@ Complete Chapter 2 or 3. Your application is live.
 
 ```bash
 cd deployment
-source scripts/load-vars.sh
+source scripts/load-vars.sh     # writes literal connection values to inventories/hosts.yml
+
+# Step 0: Bootstrap the deploy IAM user (run once with root/admin credentials)
+ansible-playbook playbooks/create-deploy-user.yml --vault-password-file ~/.vault_pass
 
 # Step 1: Create AWS resources (S3, IAM policies, Secrets Manager)
 ansible-playbook playbooks/provision-app.yml --vault-password-file ~/.vault_pass
@@ -106,4 +109,7 @@ ansible-playbook playbooks/update.yml --vault-password-file ~/.vault_pass
 
 # Teardown app resources only (server unchanged)
 ansible-playbook playbooks/decommission.yml --vault-password-file ~/.vault_pass
+
+# Restore the named AWS CLI profile on a new machine (no IAM calls)
+ansible-playbook playbooks/configure-local-aws.yml --vault-password-file ~/.vault_pass
 ```

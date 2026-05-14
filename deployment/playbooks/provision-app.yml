@@ -4,8 +4,9 @@
 # Does NOT provision the server itself (handled by the shared server team).
 #
 # Run this ONCE to bootstrap a new application instance.
-# Must be run as the {app_name}-deployer IAM user, NOT as root.
-# create-iam-user.yml switches the AWS CLI automatically — run it first.
+# Must be run AFTER create-deploy-user.yml has populated vault credentials and
+# configured the local AWS CLI profile ({app_name}-deploy). Every play here
+# uses that profile via environment.AWS_PROFILE.
 #
 # Usage:
 #   ansible-playbook playbooks/provision-app.yml --vault-password-file ~/.vault_pass
@@ -25,9 +26,32 @@
   vars_files:
     - ../group_vars/all.yml
     - ../group_vars/vault.yml
+  environment:
+    # All AWS API calls (CLI + community.aws/amazon.aws modules) use the
+    # dedicated deploy profile created by create-deploy-user.yml.
+    AWS_PROFILE: "{{ app_deploy_user | default(app_name + '-deploy') }}"
   vars:
-    _expected_user: "{{ app_deploy_user | default(app_name + '-deployer') }}"
+    _expected_user: "{{ app_deploy_user | default(app_name + '-deploy') }}"
   tasks:
+    - name: Preflight — deploy credentials must exist in vault
+      # Fail fast with a clear message if create-deploy-user.yml has not been
+      # run yet. Without this, downstream AWS calls would silently fall back
+      # to the user's default profile (often a root/admin account).
+      fail:
+        msg: |
+          deploy_aws_access_key_id is not set in group_vars/vault.yml.
+
+          Run this first:
+            ansible-playbook playbooks/create-deploy-user.yml \
+                --vault-password-file ~/.vault_pass
+
+          That playbook creates the {{ _expected_user }} IAM user, rotates
+          its access keys, writes them back into the encrypted vault, and
+          configures the local AWS CLI profile that every other playbook
+          uses via environment.AWS_PROFILE.
+      when:
+        - deploy_aws_access_key_id is not defined or deploy_aws_access_key_id | trim | length == 0
+
     - name: Get current AWS caller identity
       command: aws sts get-caller-identity
       register: _caller
@@ -42,14 +66,14 @@
         msg: |
           AWS CLI is currently configured as: {{ _caller_arn }}
 
-          provision-app.yml must run as the deployer user ({{ _expected_user }}),
+          provision-app.yml must run as the deploy user ({{ _expected_user }}),
           not as a root or admin account.
 
-          Switch first:
-            ansible-playbook playbooks/configure-aws-cli.yml --vault-password-file ~/.vault_pass
+          Restore the local profile from vault:
+            ansible-playbook playbooks/configure-local-aws.yml --vault-password-file ~/.vault_pass
 
-          Or run create-iam-user.yml if the deployer user does not exist yet — it
-          switches the CLI automatically on completion.
+          Or run create-deploy-user.yml if the deploy user does not exist yet — it
+          creates the user, rotates the access key, and configures the CLI profile.
       when: "'root' in _caller_arn"
 
     - name: Warn if not the expected deployer user
@@ -73,6 +97,10 @@
   vars_files:
     - ../group_vars/all.yml
     - ../group_vars/vault.yml
+  environment:
+    # All AWS API calls (CLI + community.aws/amazon.aws modules) use the
+    # dedicated deploy profile created by create-deploy-user.yml.
+    AWS_PROFILE: "{{ app_deploy_user | default(app_name + '-deploy') }}"
   gather_facts: no
   tasks:
     - name: Show what will be created
@@ -123,6 +151,10 @@
   vars_files:
     - ../group_vars/all.yml
     - ../group_vars/vault.yml
+  environment:
+    # All AWS API calls (CLI + community.aws/amazon.aws modules) use the
+    # dedicated deploy profile created by create-deploy-user.yml.
+    AWS_PROFILE: "{{ app_deploy_user | default(app_name + '-deploy') }}"
   tasks:
     - name: Display summary
       debug:

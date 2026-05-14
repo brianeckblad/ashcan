@@ -159,7 +159,7 @@ SSH as ubuntu (admin_user)
 ### Code Directory
 
 ```bash
-/opt/{app_name}/
+/opt/apps/{app_name}/
 ├── Owner: ubuntu (admin_user)
 ├── Permission: 755 (admin_user full access, app_user read-execute)
 └── Readable by: app_user ✅
@@ -169,7 +169,7 @@ SSH as ubuntu (admin_user)
 ### Python Virtual Environment
 
 ```bash
-/opt/{app_name}/.venv/
+/opt/apps/{app_name}/.venv/
 ├── Owner: ubuntu (admin_user)
 ├── Permission: 755 (admin_user full access, app_user read-execute)
 └── Used by: app_user for Python interpreter and libraries
@@ -187,7 +187,7 @@ SSH as ubuntu (admin_user)
 ### Instance Data Directory
 
 ```bash
-/opt/{app_name}/instance/
+/opt/apps/{app_name}/instance/
 ├── Owner: {app_name} (app_user)
 ├── Permission: 755
 └── Writable by: app_user ✅
@@ -214,14 +214,14 @@ getent passwd {app_name}
 ps aux | grep gunicorn
 
 # Should show:
-# {app_name}  12345  ...  /opt/{app_name}/.venv/bin/gunicorn ...
+# {app_name}  12345  ...  /opt/apps/{app_name}/.venv/bin/gunicorn ...
 ```
 
 ### Check File Ownership
 
 ```bash
 # Check code ownership
-ls -ld /opt/{app_name}
+ls -ld /opt/apps/{app_name}
 # drwxr-xr-x ubuntu ubuntu ...
 
 # Check log ownership
@@ -366,11 +366,11 @@ sudo chmod 755 /var/log/apps/{app_name}
 **Solution:**
 ```bash
 # Code should be owned by admin_user with shared group
-ls -ld /opt/{app_name}
+ls -ld /opt/apps/{app_name}
 
 # Fix with:
-sudo chown -R ubuntu:{app_name} /opt/{app_name}
-sudo chmod 2775 /opt/{app_name}
+sudo chown -R ubuntu:{app_name} /opt/apps/{app_name}
+sudo chmod 2775 /opt/apps/{app_name}
 ```
 
 ---

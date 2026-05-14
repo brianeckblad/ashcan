@@ -45,7 +45,7 @@ ps aux | grep gunicorn
 # Should show: {app_name} as user
 
 # Test isolation (should fail - good!)
-sudo -u {app_name} touch /opt/{app_name}/test.txt
+sudo -u {app_name} touch /opt/apps/{app_name}/test.txt
 # Should fail: Permission denied
 
 # Verify security
@@ -87,7 +87,7 @@ This deployment uses a **dedicated, non-privileged application user** with no SS
 │                                                          │
 │  Group: {app_name}                                      │
 │     Members: ubuntu, {app_name}                         │
-│     Setgid on /opt/{app_name} — new files inherit group │
+│     Setgid on /opt/apps/{app_name} — new files inherit group │
 │                                                          │
 │  👤 ubuntu (admin_user)                                │
 │     ├── SSH Access: ✅ YES                              │
@@ -95,7 +95,7 @@ This deployment uses a **dedicated, non-privileged application user** with no SS
 │     ├── sudo: ✅ YES (via Ansible)                      │
 │     ├── Group: {app_name} (shared)                      │
 │     ├── Purpose: Deployment, git, pip, system mgmt      │
-│     └── Home: /opt/{app_name}/                             │
+│     └── Home: /opt/apps/{app_name}/                             │
 │                                                          │
 │  👤 {app_name} (app_user)                               │
 │     ├── SSH Access: ❌ NO                               │
@@ -105,21 +105,21 @@ This deployment uses a **dedicated, non-privileged application user** with no SS
 │     ├── Home: ❌ NONE (system user)                     │
 │     ├── Purpose: Run application ONLY                   │
 │     └── Permissions:                                    │
-│          ├── READ:  /opt/{app_name}/* (code, via group) │
-│          ├── READ:  /opt/{app_name}/.venv/* (deps)      │
+│          ├── READ:  /opt/apps/{app_name}/* (code, via group) │
+│          ├── READ:  /opt/apps/{app_name}/.venv/* (deps)      │
 │          ├── WRITE: /var/log/apps/{app_name}/* (logs)       │
-│          └── WRITE: /opt/{app_name}/instance/* (data)   │
+│          └── WRITE: /opt/apps/{app_name}/instance/* (data)   │
 │                                                          │
 └─────────────────────────────────────────────────────────┘
 ```
 
 ### Shared Group Model
 
-Both users belong to the `{app_name}` group. All directories under `/opt/{app_name}` have the setgid bit set (`2775`), so every new file or directory automatically inherits the `{app_name}` group regardless of which user creates it.
+Both users belong to the `{app_name}` group. All directories under `/opt/apps/{app_name}` have the setgid bit set (`2775`), so every new file or directory automatically inherits the `{app_name}` group regardless of which user creates it.
 
 | Resource | Owner | Group | Mode | Why |
 |----------|-------|-------|------|-----|
-| `/opt/{app_name}` | ubuntu | {app_name} | 2775 | Admin deploys, setgid propagates group |
+| `/opt/apps/{app_name}` | ubuntu | {app_name} | 2775 | Admin deploys, setgid propagates group |
 | `.env` | {app_name} | {app_name} | 0640 | Runtime user owns secrets, admin can read |
 | `instance/` | {app_name} | {app_name} | 2775 | Runtime writes data, admin can read/manage |
 | `logs/` | {app_name} | {app_name} | 2775 | Runtime writes logs, admin can read |
@@ -164,7 +164,7 @@ ProtectHome=true
 
 # Only these directories are writable
 ReadWritePaths=/var/log/apps/{app_name}
-ReadWritePaths=/opt/{app_name}/instance
+ReadWritePaths=/opt/apps/{app_name}/instance
 
 # Protect kernel
 ProtectKernelLogs=true
@@ -230,8 +230,8 @@ admin_user: ubuntu                # Standard EC2 user
 # All directories have setgid so new files inherit the group.
 
 # Paths
-app_dir: /opt/{app_name}           # Mount point, group {app_name}
-venv_dir: /opt/{app_name}/.venv    # Python venv, group {app_name}
+app_dir: /opt/apps/{app_name}           # Mount point, group {app_name}
+venv_dir: /opt/apps/{app_name}/.venv    # Python venv, group {app_name}
 log_dir: /var/log/apps/{app_name}      # Logs, owner app_user, group {app_name}
 ```
 
@@ -243,7 +243,7 @@ log_dir: /var/log/apps/{app_name}      # Logs, owner app_user, group {app_name}
    ssh ubuntu@server
    
    # Pulls code, installs dependencies
-   cd /opt/{app_name}
+   cd /opt/apps/{app_name}
    git pull
    source .venv/bin/activate
    pip install -r requirements.txt
@@ -258,12 +258,12 @@ log_dir: /var/log/apps/{app_name}      # Logs, owner app_user, group {app_name}
    # Process runs as:
    User={app_name}
    Group={app_name}
-   WorkingDirectory=/opt/{app_name}
+   WorkingDirectory=/opt/apps/{app_name}
    
    # Can only:
    # - Read code files (via group membership)
    # - Write to /var/log/apps/{app_name}/
-   # - Write to /opt/{app_name}/instance/
+   # - Write to /opt/apps/{app_name}/instance/
    ```
 
 3. **Operations (as `ubuntu`):**
@@ -271,7 +271,7 @@ log_dir: /var/log/apps/{app_name}      # Logs, owner app_user, group {app_name}
    # ubuntu can do everything without su:
    tail -f /var/log/apps/{app_name}/app.log    # View logs
    sudo systemctl restart {app_name}       # Restart service
-   cat /opt/{app_name}/instance/items.csv  # Check data
+   cat /opt/apps/{app_name}/instance/items.csv  # Check data
    ```
 
 ## Verification
@@ -311,7 +311,7 @@ systemd-analyze security {app_name}
 
 ```bash
 # App user should NOT be able to write to code directory
-sudo -u {app_name} touch /opt/{app_name}/test.txt
+sudo -u {app_name} touch /opt/apps/{app_name}/test.txt
 # Should fail: Permission denied
 
 # App user SHOULD be able to write logs
@@ -319,7 +319,7 @@ sudo -u {app_name} touch /var/log/apps/{app_name}/test.log
 # Should succeed
 
 # App user SHOULD be able to write instance data
-sudo -u {app_name} touch /opt/{app_name}/instance/test.json
+sudo -u {app_name} touch /opt/apps/{app_name}/instance/test.json
 # Should succeed
 ```
 
@@ -334,7 +334,7 @@ User=ubuntu              # Admin user with SSH access
 Shell=/bin/bash         # Full shell available
 sudo=YES                # Can escalate privileges (via ansible)
 SSH=YES                 # Can SSH to server
-WorkingDirectory=/opt/{app_name}       # Full access to all deployment files
+WorkingDirectory=/opt/apps/{app_name}       # Full access to all deployment files
 
 # If app is compromised:
 # - Attacker has SSH user access
@@ -410,14 +410,14 @@ If you're already running with `app_user: ubuntu`, you can migrate to the secure
 1. **Backup instance data**
    ```bash
    ssh ubuntu@your-server
-   cd /opt/{app_name}
+   cd /opt/apps/{app_name}
    tar -czf ~/instance-backup-$(date +%Y%m%d-%H%M%S).tar.gz instance/
    ```
 
 2. **Pull latest code**
    ```bash
    ssh ubuntu@your-server
-   cd /opt/{app_name} && git pull
+   cd /opt/apps/{app_name} && git pull
    ```
 
 3. **Run setup playbook** (creates dedicated user)
@@ -432,14 +432,14 @@ If you're already running with `app_user: ubuntu`, you can migrate to the secure
    ssh ubuntu@your-server
    
    # Set shared group on everything
-   sudo chgrp -R {app_name} /opt/{app_name}
+   sudo chgrp -R {app_name} /opt/apps/{app_name}
    
    # Setgid on all directories
-   sudo find /opt/{app_name} -type d -exec chmod 2775 {} +
+   sudo find /opt/apps/{app_name} -type d -exec chmod 2775 {} +
    
    # App user owns logs and instance data
    sudo chown -R {app_name}:{app_name} /var/log/apps/{app_name}
-   sudo chown -R {app_name}:{app_name} /opt/{app_name}/instance
+   sudo chown -R {app_name}:{app_name} /opt/apps/{app_name}/instance
    ```
 
 5. **Restart service**
@@ -484,8 +484,8 @@ admin_user: ubuntu
 ```bash
 # Problem: App cannot read code files
 # Solution: Ensure shared group and setgid on app directory
-sudo chown -R ubuntu:{app_name} /opt/{app_name}
-sudo chmod 2775 /opt/{app_name}
+sudo chown -R ubuntu:{app_name} /opt/apps/{app_name}
+sudo chmod 2775 /opt/apps/{app_name}
 
 # Problem: App cannot write logs
 # Solution: Ensure app_user owns log directory with shared group
@@ -494,8 +494,8 @@ sudo chmod 2775 /var/log/apps/{app_name}
 
 # Problem: App cannot write instance data
 # Solution: Ensure app_user owns instance directory with shared group
-sudo chown -R {app_name}:{app_name} /opt/{app_name}/instance
-sudo chmod 2775 /opt/{app_name}/instance
+sudo chown -R {app_name}:{app_name} /opt/apps/{app_name}/instance
+sudo chmod 2775 /opt/apps/{app_name}/instance
 
 # Problem: ubuntu cannot write after permission hardening
 # Solution: Ensure ubuntu is in the app group
@@ -513,7 +513,7 @@ systemctl status {app_name}
 getent passwd {app_name}
 
 # Check permissions
-namei -l /opt/{app_name}
+namei -l /opt/apps/{app_name}
 namei -l /var/log/apps/{app_name}
 
 # View detailed logs

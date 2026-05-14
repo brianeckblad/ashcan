@@ -84,7 +84,7 @@ Browser → Nginx (SSL termination, static files, reverse proxy)
 |---------|------|----------|
 | **EC2** | Compute — runs the application | Yes |
 | **S3** | Object storage — images, backups, user data exports | Yes |
-| **IAM** | Instance role + deployer user + policies | Yes |
+| **IAM** | Instance role + deploy user + policies | Yes |
 | **Secrets Manager** | Runtime secrets (API keys, passwords) | Yes |
 | **CloudWatch** | Logs, metrics, alarms | Yes |
 | **SNS** | Alert delivery (email/SMS) | Recommended |
@@ -106,7 +106,7 @@ Browser → Nginx (SSL termination, static files, reverse proxy)
 | SSH key pair | `{app_name}-key` |
 | Security group | `{app_name}-sg` |
 
-The data EBS volume is mounted at `/opt/{app_name}/` and persists independently of
+The data EBS volume is mounted at `/opt/apps/{app_name}/` and persists independently of
 the root volume. If the instance is replaced, data survives.
 
 ### IAM Instance Role — `{app_name}-ec2-role`
@@ -122,36 +122,18 @@ No static access keys are stored on the instance.
 | `logs:CreateLogGroup`, `logs:CreateLogStream`, `logs:PutLogEvents` | Ship application logs to CloudWatch |
 | `ssm:GetParameter` (optional) | SSM Parameter Store access if used |
 
-### IAM Deployer User — `{app_name}-deployer`
+### IAM Deploy User — `{app_name}-deploy`
 
 A dedicated IAM user used only from your local machine to run Ansible playbooks.
-Uses long-lived access keys (stored in `~/.aws/credentials`, never in the repo).
+Long-lived access keys are stored in a named AWS CLI profile (`{app_name}-deploy`),
+written automatically to vault.yml by `create-deploy-user.yml` — never in the repo.
 
-Policies attached:
+Policies attached (`create-deploy-user.yml`):
 
-- `AmazonEC2FullAccess`
 - `AmazonS3FullAccess`
 - `IAMFullAccess`
 - `SecretsManagerReadWrite`
-- `CloudWatchLogsFullAccess`
-- Inline policy `CloudWatchAlarmPolicy`:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": [
-      "cloudwatch:PutMetricAlarm",
-      "cloudwatch:DeleteAlarms",
-      "cloudwatch:DescribeAlarms",
-      "cloudwatch:GetMetricStatistics",
-      "cloudwatch:ListMetrics"
-    ],
-    "Resource": "*"
-  }]
-}
-```
+- `CloudWatchFullAccess` (covers logs, alarms, and metrics)
 
 ### S3 Bucket — `{s3_bucket_name}`
 
@@ -207,7 +189,7 @@ systemd / supervisord
 ### Directory layout on the server
 
 ```
-/opt/{app_name}/          ← EBS data volume mount point
+/opt/apps/{app_name}/     ← EBS data volume mount point
 ├── .venv/                ← Python virtual environment
 ├── app/                  ← Application code (git clone)
 ├── instance/             ← Runtime state (CSV, logs, preferences)
@@ -476,9 +458,7 @@ deployment/
 │
 ├── scripts/
 │   ├── load-vars.sh                # Exports vault vars into shell for CLI use
-│   ├── local-dev-setup.sh          # Generates .env from vault for local dev
-│   ├── app-deploy.sh               # Wrapper: setup | update | logs | status
-│   └── app-hard-restart.sh         # Server-side: force restart + cache clear
+│   └── decommission.sh             # Interactive teardown with confirmation
 │
 └── instances/
     └── {app_name}-instance.txt     # Server IP and SSH command (auto-generated)

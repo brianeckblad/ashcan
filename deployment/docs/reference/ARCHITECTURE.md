@@ -23,7 +23,7 @@ Local Machine (Ansible)
 ┌──────────────────────────┐        ┌────────────────────────────────────────┐
 │  AWS                     │        │  Shared Server                         │
 │                          │        │                                        │
-│  S3 Bucket               │        │  /opt/{app_name}/   ← code + venv      │
+│  S3 Bucket               │        │  /opt/apps/{app_name}/   ← code + venv      │
 │  IAM Managed Policies    │        │  /var/log/apps/{app_name}/  ← logs          │
 │  Secrets Manager         │        │                                        │
 │  CloudWatch              │        │  Supervisor     ← per-app process mgr  │
@@ -131,8 +131,8 @@ Each app on the shared server gets its own `{app_user}` and `{app_name}` group. 
 
 | Path | Owner | Group | Mode | Purpose |
 |------|-------|-------|------|---------|
-| `/opt/{app_name}/` | `{app_user}` | `{app_name}` | `2775` | App code |
-| `/opt/{app_name}/instance/` | `{app_user}` | `{app_name}` | `2775` | Data |
+| `/opt/apps/{app_name}/` | `{app_user}` | `{app_name}` | `2775` | App code |
+| `/opt/apps/{app_name}/instance/` | `{app_user}` | `{app_name}` | `2775` | Data |
 | `/var/log/apps/{app_name}/` | `{app_user}` | `{app_name}` | `2775` | Logs |
 
 ### Secret management
@@ -202,12 +202,10 @@ deployment/
 │   └── hosts.yml           # Shared server IP and SSH key (gitignored)
 │
 ├── scripts/
-│   ├── app-deploy.sh       # CLI wrapper for common playbook operations
-│   ├── infra-complete-setup.sh  # Full setup in one command
 │   ├── decommission.sh     # Interactive teardown with confirmation
 │   └── load-vars.sh        # Exports vault variables to shell
 │
 └── docs/
-    ├── guides/             # Numbered step-by-step guides (Ch. 1–13)
+    ├── guides/             # Numbered step-by-step guides (Ch. 1–11)
     └── reference/          # Background and architecture references
 ```

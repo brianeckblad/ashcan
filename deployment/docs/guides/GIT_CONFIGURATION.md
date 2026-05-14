@@ -240,7 +240,7 @@ cd /path/to/any/repo
 
 ## Next step
 
-Continue to [Chapter 13: Decommission](DECOMMISSION.md).
+Continue to [Chapter 11: Decommission](DECOMMISSION.md).
 
 ## See also
 
