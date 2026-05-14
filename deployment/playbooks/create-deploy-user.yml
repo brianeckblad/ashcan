@@ -1,10 +1,18 @@
 ---
 # Bootstrap the dedicated AWS deploy IAM user for this project.
 #
-# Run ONCE with root or admin AWS credentials in your shell:
-#     export AWS_PROFILE=root        # or AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+# REQUIRES: root or IAM admin credentials (iam:CreateUser, iam:AttachUserPolicy).
+# This is a ONE-TIME bootstrap — all other playbooks use the deploy user after this.
+#
+# Recommended: export temporary credentials (overrides any named profile):
+#
+#     export AWS_ACCESS_KEY_ID="AKIA..."
+#     export AWS_SECRET_ACCESS_KEY="..."
 #     ansible-playbook playbooks/create-deploy-user.yml \
 #         --vault-password-file ~/.vault_pass
+#     unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+#
+# Then delete the temporary root access key in the AWS Console.
 #
 # What it does:
 #   1. Creates IAM user  {{ app_name }}-deploy           (idempotent)
@@ -51,6 +59,44 @@
       fail:
         msg: "aws_region is required (set in vault.yml)."
       when: aws_region is not defined or aws_region | trim | length == 0
+
+    - name: "Preflight — display current AWS caller identity"
+      command: aws sts get-caller-identity
+      register: caller_identity
+      changed_when: false
+
+    - name: "Preflight — show which identity will be used"
+      debug:
+        msg: "Running as: {{ (caller_identity.stdout | from_json).Arn }}"
+
+    - name: "Preflight — verify iam:CreateUser permission"
+      command: >
+        aws iam simulate-principal-policy
+        --policy-source-arn {{ (caller_identity.stdout | from_json).Arn }}
+        --action-names iam:CreateUser
+        --query "EvaluationResults[0].EvalDecision"
+        --output text
+      register: iam_check
+      changed_when: false
+      failed_when: false
+
+    - name: "Preflight — fail if iam:CreateUser is denied"
+      fail:
+        msg: |
+          Current identity lacks iam:CreateUser permission.
+          Identity: {{ (caller_identity.stdout | from_json).Arn }}
+
+          This playbook needs root or IAM admin credentials. The AWS_PROFILE
+          environment variable overrides aws configure — unset it first:
+
+            unset AWS_PROFILE
+            export AWS_ACCESS_KEY_ID="AKIA..."
+            export AWS_SECRET_ACCESS_KEY="..."
+            ansible-playbook playbooks/create-deploy-user.yml --vault-password-file ~/.vault_pass
+            unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+      when:
+        - iam_check.rc == 0
+        - iam_check.stdout | trim == "explicitDeny" or iam_check.stdout | trim == "implicitDeny"
 
     - name: Resolve a SINGLE temp path for the decrypted vault
       # Bug to avoid: putting this in vars: — lookup('pipe', 'date +%s')
@@ -132,7 +178,7 @@
     - name: "Step 4/6 — Decrypt vault.yml to temp file"
       command: >
         ansible-vault decrypt {{ vault_file }}
-        --vault-password-file {{ ansible_env.HOME }}/.vault_pass
+        --vault-password-file {{ lookup('env', 'HOME') }}/.vault_pass
         --output {{ vault_tmp }}
       changed_when: true
 
@@ -174,7 +220,7 @@
     - name: "Step 4/6 — Re-encrypt vault.yml from temp file"
       command: >
         ansible-vault encrypt {{ vault_tmp }}
-        --vault-password-file {{ ansible_env.HOME }}/.vault_pass
+        --vault-password-file {{ lookup('env', 'HOME') }}/.vault_pass
         --output {{ vault_file }}
       changed_when: true
 
