@@ -39,7 +39,27 @@
 
     - name: Check if gunicorn port is already in use by a different app
       shell: |
-        ss -tlnp 2>/dev/null | grep ':{{ gunicorn_port }} ' | grep -v '{{ service_name }}' || true
+        # Get supervisor PID for this app, if running
+        OUR_PID=$(supervisorctl pid {{ service_name }} 2>/dev/null || echo "0")
+        # Check if port is bound by a process NOT in our process group
+        BOUND=$(ss -tlnp 2>/dev/null | grep ':{{ gunicorn_port }} ' || true)
+        if [ -z "$BOUND" ]; then
+          exit 0
+        fi
+        # If our app owns the port, it's fine (re-deploy scenario)
+        if echo "$BOUND" | grep -q "pid=${OUR_PID}"; then
+          exit 0
+        fi
+        # Check if any gunicorn on this port belongs to our app's supervisor group
+        PIDS=$(echo "$BOUND" | grep -oP 'pid=\K[0-9]+' || true)
+        for pid in $PIDS; do
+          CMDLINE=$(cat /proc/$pid/cmdline 2>/dev/null | tr '\0' ' ' || true)
+          if echo "$CMDLINE" | grep -q "{{ app_dir }}"; then
+            exit 0
+          fi
+        done
+        # Port is genuinely in use by something else
+        echo "$BOUND"
       register: port_check
       changed_when: false
       failed_when: false
@@ -92,7 +112,15 @@
       file:
         path: "{{ app_dir }}/instance"
         state: directory
-        owner: "{{ server_admin_user }}"
+        owner: "{{ app_runtime_user }}"
+        group: "{{ app_name }}"
+        mode: '2775'
+
+    - name: Create instance data directory
+      file:
+        path: "{{ app_dir }}/instance/data"
+        state: directory
+        owner: "{{ app_runtime_user }}"
         group: "{{ app_name }}"
         mode: '2775'
 

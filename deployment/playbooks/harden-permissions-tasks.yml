@@ -21,6 +21,7 @@
   loop:
     - "{{ app_dir }}"
     - "{{ app_dir }}/instance"
+    - "{{ app_dir }}/instance/data"
     - "{{ log_dir }}"
 
 
@@ -41,6 +42,7 @@
     mode: '2775'
   loop:
     - uploads
+    - exports
     - all_comic_delete
     - single_comic_delete
   failed_when: false
@@ -88,5 +90,3 @@
     group: "{{ app_name }}"
     mode: '2775'
     recurse: yes
-
-
