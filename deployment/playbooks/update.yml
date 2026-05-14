@@ -103,6 +103,18 @@
       register: csv_migration
       changed_when: "'[migrated]' in csv_migration.stdout or '[created]' in csv_migration.stdout"
 
+    - name: Rewrite stale S3 image URLs to current bucket
+      become_user: "{{ app_runtime_user }}"
+      command: >
+        {{ venv_dir }}/bin/python {{ app_dir }}/app/scripts/util_rewrite_image_urls.py
+        --new-bucket {{ s3_bucket_name }}
+      args:
+        chdir: "{{ app_dir }}"
+      vars:
+        ansible_remote_tmp: /tmp
+      register: csv_url_rewrite
+      changed_when: "'[updated]' in csv_url_rewrite.stdout"
+
     - name: Ensure log directory exists
       file:
         path: "{{ log_dir }}"
