@@ -128,6 +128,15 @@
         git checkout -f {{ git_branch }}
       when: not git_dir_exists.stat.exists
 
+    - name: Fix application directory ownership before git pull
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ server_admin_user }}"
+        group: "{{ app_name }}"
+        recurse: yes
+      when: git_dir_exists.stat.exists
+
     - name: Update application code from git
       become_user: "{{ server_admin_user }}"
       git:
