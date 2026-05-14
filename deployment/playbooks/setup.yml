@@ -230,7 +230,6 @@
 
 
     - name: Install logrotate configuration
-    - name: Install logrotate configuration
       template:
         src: ../templates/logrotate.conf.j2
         dest: /etc/logrotate.d/{{ app_name }}
