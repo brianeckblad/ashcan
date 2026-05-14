@@ -289,16 +289,23 @@ try:
 except: pass
 " 2>/dev/null)
 
+    # Resolve ssh_key_file — expand ~ to actual home path
+    _ssh_key="${ssh_key_file:-}"
+    _ssh_key="${_ssh_key/#\~/$HOME}"
+
     if [ "$_cur_host" != "$server_host" ] || \
        [ "$_cur_user" != "$server_admin_user" ]; then
 
         python3 << PYEOF
-content = """\
+import os
+ssh_key = "${_ssh_key}"
+key_line = f"              ansible_ssh_private_key_file: {ssh_key}" if ssh_key else ""
+content = f"""\
 # ===========================================================================
 # Server Inventory  — LOCAL FILE, NOT COMMITTED (gitignored)
 # ===========================================================================
 # DO NOT add Jinja2 templates here. Ansible resolves connection keywords
-# before vault variables are available, so any {{ var }} reference fails.
+# before vault variables are available, so any \{{ var }} reference fails.
 # All values are plain literals written from vault.yml by load-vars.sh.
 # To regenerate:  source scripts/load-vars.sh
 # ===========================================================================
@@ -313,13 +320,14 @@ all:
               ansible_host: ${server_host}
               ansible_connection: ssh
               ansible_user: ${server_admin_user}
+{key_line}
 
   vars:
     ansible_python_interpreter: /usr/bin/python3
 """
 open("$INVENTORY_FILE", "w").write(content)
 PYEOF
-        echo -e "${YELLOW}ℹ️  Wrote inventories/hosts.yml from vault (host=$server_host user=$server_admin_user)${NC}"
+        echo -e "${YELLOW}ℹ️  Wrote inventories/hosts.yml from vault (host=$server_host user=$server_admin_user key=${_ssh_key:-not set})${NC}"
     fi
 fi
 

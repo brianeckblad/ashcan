@@ -87,6 +87,21 @@ deploy_aws_secret_access_key: ""
 server_iam_role_name: ""                     # e.g., "shared-server-ec2-role"
 
 # ============================================================================
+# SSH ACCESS
+# ============================================================================
+# ssh_key_file: Path to the private key used to SSH into the server.
+#   load-vars.sh writes this into inventories/hosts.yml as
+#   ansible_ssh_private_key_file so every deploy machine works without
+#   a manual  ~/.ssh/config  entry.
+#   Find your key in the EC2 Console → Key Pairs, or wherever you saved it.
+ssh_key_file: "~/.ssh/your-key.pem"
+
+# ec2_ssh_security_group_id: The security group attached to the shared server.
+#   Used to open/close port 22 for your current IP without the AWS Console.
+#   Find it: EC2 Console → Instances → your server → Security tab.
+ec2_ssh_security_group_id: "sg-xxxxxxxxxxxxxxxxx"
+
+# ============================================================================
 # APPLICATION CREDENTIALS (REQUIRED)
 # ============================================================================
 app_default_username: "admin"
