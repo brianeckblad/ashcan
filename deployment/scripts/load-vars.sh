@@ -242,6 +242,9 @@ if [ -n "$_raw_vault_content" ]; then
                 continue
             fi
             if [[ "$_j2_val" == *"{{"* ]]; then
+                # Strip inline comments (same as first pass)
+                _j2_val="${_j2_val%% #*}"
+                # Strip quotes
                 _j2_val="${_j2_val//\"/}"
                 _j2_val="${_j2_val//\'/}"
                 _j2_val=$(echo "$_j2_val" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
@@ -349,7 +352,7 @@ echo -e "  ${YELLOW}AWS${NC}"
 echo "    aws_region=$aws_region"
 echo "    s3_bucket_name=${s3_bucket_name:-}"
 echo "    secret_name=${secret_name:-${app_name}/production}"
-echo "    aws_profile=${app_name}-deploy"
+echo "    aws_profile=${app_deploy_user:-${app_name}-deployer}"
 echo ""
 echo -e "  ${YELLOW}SSL / Domain${NC}"
 echo "    ssl_email=${ssl_email:-}"
