@@ -98,7 +98,6 @@ def login_required(f):
             session.clear()
             if request.path.startswith('/api/'):
                 return jsonify({'success': False, 'error': 'Session expired after server restart. Please log in again.'}), 401
-            flash('Your session expired after server restart. Please log in again.', 'warning')
             return redirect(url_for('auth.login'))
 
         # Enforce idle session timeout based on per-user preference (5–120 minutes).
