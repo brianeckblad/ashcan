@@ -38,6 +38,34 @@ def validate_username(username):
     return True, candidate
 
 
+def _coerce_session_timestamp(value, default=0.0):
+    """Return ``value`` as a positive timestamp, or ``default`` if invalid."""
+    try:
+        timestamp = float(value)
+    except (TypeError, ValueError):
+        return default
+    return timestamp if timestamp >= 0 else default
+
+
+def _clear_totp_pending_session():
+    """Remove transient TOTP login state without clearing flashed messages."""
+    session.pop('totp_pending', None)
+    session.pop('totp_username', None)
+    session.pop('totp_session_created', None)
+    session.pop('totp_next', None)
+
+
+def _is_totp_pending_session_valid(now):
+    """Return True when the pending TOTP login state is complete and fresh."""
+    pending_username = session.get('totp_username', '')
+    pending_created = _coerce_session_timestamp(session.get('totp_session_created'), 0.0)
+    return bool(
+        pending_username
+        and user_manager.is_totp_enabled(pending_username)
+        and now - pending_created <= 300
+    )
+
+
 def login_required(f):
     """
     Decorator that restricts access to authenticated users only.
@@ -61,9 +89,11 @@ def login_required(f):
             flash('Please log in to access this page.', 'warning')
             return redirect(url_for('auth.login'))
 
+        now = time.time()
+
         # Security check: Invalidate sessions that existed before app restart
         # This ensures stale sessions don't persist across deployments
-        session_created = session.get('session_created', 0)
+        session_created = _coerce_session_timestamp(session.get('session_created'), 0.0)
         if session_created < APP_START_TIME:
             session.clear()
             if request.path.startswith('/api/'):
@@ -75,7 +105,9 @@ def login_required(f):
         # last_activity falls back to session_created for sessions created before
         # this feature was introduced.
         username_for_timeout = session.get('username', '')
-        last_activity = session.get('last_activity', session_created)
+        last_activity = _coerce_session_timestamp(
+            session.get('last_activity'), session_created
+        )
         timeout_minutes = 60  # safe default
         if username_for_timeout:
             try:
@@ -86,7 +118,7 @@ def login_required(f):
             except Exception:
                 pass  # keep safe default on any error
 
-        idle_seconds = time.time() - last_activity
+        idle_seconds = now - last_activity
         if idle_seconds > timeout_minutes * 60:
             session.clear()
             if request.path.startswith('/api/'):
@@ -95,7 +127,7 @@ def login_required(f):
             return redirect(url_for('auth.login'))
 
         # Refresh last-activity timestamp on every authenticated request
-        session['last_activity'] = time.time()
+        session['last_activity'] = now
 
         # Store username in Flask's g object for use in logging and other contexts
         g.username = session.get('username', 'unknown')
@@ -249,15 +281,15 @@ def login():
 
         from app.security import rate_limiter, get_real_ip  # Deferred: avoids circular import
         client_ip = get_real_ip(request)
+        now = time.time()
 
         # ------------------------------------------------------------------
         # TOTP verification step (second phase of two-factor login)
         # ------------------------------------------------------------------
         if session.get('totp_pending'):
             # Guard against a stale pending session (5-minute window)
-            totp_created = session.get('totp_session_created', 0)
-            if time.time() - totp_created > 300:
-                session.clear()
+            if not _is_totp_pending_session_valid(now):
+                _clear_totp_pending_session()
                 flash('Authentication timed out. Please log in again.', 'error')
                 return redirect(url_for('auth.login'))
 
@@ -265,7 +297,7 @@ def login():
             if rate_limiter and rate_limiter.is_rate_limited(
                 totp_key, max_requests=6, window_seconds=300
             ):
-                session.clear()
+                _clear_totp_pending_session()
                 flash('Too many failed verification attempts. Please log in again.', 'error')
                 return redirect(url_for('auth.login'))
 
@@ -275,13 +307,11 @@ def login():
             if user_manager.verify_totp(username, code):
                 # TOTP verified — complete the login
                 totp_next = session.pop('totp_next', None)
-                session.pop('totp_pending', None)
-                session.pop('totp_username', None)
-                session.pop('totp_session_created', None)
+                _clear_totp_pending_session()
                 session['logged_in'] = True
                 session['username'] = username
-                session['session_created'] = time.time()
-                session['last_activity'] = time.time()
+                session['session_created'] = now
+                session['last_activity'] = now
                 session.permanent = True
                 session.pop('_csrf_token', None)
                 if rate_limiter and totp_key in rate_limiter.requests:
@@ -320,9 +350,10 @@ def login():
             # If TOTP is enabled, start the second step
             if user_manager.is_totp_enabled(canonical):
                 next_page = request.args.get('next')
+                _clear_totp_pending_session()
                 session['totp_pending'] = True
                 session['totp_username'] = canonical
-                session['totp_session_created'] = time.time()
+                session['totp_session_created'] = now
                 if next_page and is_safe_url(next_page):
                     session['totp_next'] = next_page
                 return redirect(url_for('auth.login'))
@@ -330,8 +361,8 @@ def login():
             # No TOTP — complete login immediately
             session['logged_in'] = True
             session['username'] = canonical
-            session['session_created'] = time.time()
-            session['last_activity'] = time.time()
+            session['session_created'] = now
+            session['last_activity'] = now
             session.permanent = True
             session.pop('_csrf_token', None)
             flash('Login successful!', 'success')
@@ -353,9 +384,8 @@ def login():
 
     # TOTP second step — render the code-entry form
     if session.get('totp_pending'):
-        totp_created = session.get('totp_session_created', 0)
-        if time.time() - totp_created > 300:
-            session.clear()
+        if not _is_totp_pending_session_valid(time.time()):
+            _clear_totp_pending_session()
             flash('Authentication timed out. Please log in again.', 'error')
             return redirect(url_for('auth.login'))
         return render_template('login.html', totp_pending=True)

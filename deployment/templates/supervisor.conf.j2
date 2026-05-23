@@ -32,6 +32,8 @@
 #   --access-logfile: Track all HTTP requests
 #   --error-logfile: Gunicorn process errors (worker crashes, timeouts)
 #   --log-level: Verbosity (debug, info, warning, error)
+#   --max-requests / jitter: recycle workers before memory drift accumulates
+#   --forwarded-allow-ips: only trust proxy headers from local nginx
 #
 #   NOTE: Do NOT use --capture-output. Flask writes its own app.log and error.log.
 #         --capture-output would duplicate INFO into
@@ -39,7 +41,7 @@
 # ============================================================================
 # gunicorn_workers and gunicorn_threads from vault.yml.
 # On a shared server: 1 worker + 4 threads per app balances memory and concurrency.
-command={{ venv_dir }}/bin/gunicorn -w {{ gunicorn_workers | default(1) }} --threads {{ gunicorn_threads | default(4) }} -b {{ gunicorn_bind }} --timeout {{ gunicorn_timeout }} --worker-tmp-dir /tmp --control-socket /tmp/{{ service_name }}-gunicorn.ctl --access-logfile {{ log_dir }}/access.log --error-logfile {{ log_dir }}/error.log --log-level warning "runapp:app"
+command={{ venv_dir }}/bin/gunicorn -w {{ gunicorn_workers | default(1) }} --threads {{ gunicorn_threads | default(4) }} -b {{ gunicorn_bind }} --timeout {{ gunicorn_timeout }} --max-requests {{ gunicorn_max_requests | default(1000) }} --max-requests-jitter {{ gunicorn_max_requests_jitter | default(100) }} --forwarded-allow-ips 127.0.0.1 --worker-tmp-dir /tmp --control-socket /tmp/{{ service_name }}-gunicorn.ctl --access-logfile {{ log_dir }}/access.log --error-logfile {{ log_dir }}/error.log --log-level warning "runapp:app"
 
 # Working directory for the process
 directory={{ app_dir }}

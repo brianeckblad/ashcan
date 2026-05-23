@@ -1,6 +1,7 @@
 """Application configuration."""
-import os
+import base64
 import json
+import os
 import boto3
 from pathlib import Path
 from datetime import timedelta
@@ -34,7 +35,6 @@ def get_secrets_from_aws():
             return json.loads(response['SecretString'])
         else:
             # Decode binary secret (if stored as binary)
-            import base64
             return json.loads(base64.b64decode(response['SecretBinary']))
 
     except ClientError as e:
@@ -175,13 +175,11 @@ class ProductionConfig(Config):
     and requires the SECRET_KEY to be explicitly set via Secrets
     Manager or environment variables.
 
-    Secure cookies can be explicitly disabled for local HTTPS-less
-    smoke tests by setting ``ALLOW_INSECURE_COOKIES=1``.
+    Secure cookies are always enabled in production. Use DevelopmentConfig for
+    local HTTP-only smoke tests.
     """
     DEBUG = False
-    # Default to Secure=True in production. An operator running behind
-    # plain HTTP for a one-off test can opt out with ALLOW_INSECURE_COOKIES=1.
-    SESSION_COOKIE_SECURE = os.environ.get('ALLOW_INSECURE_COOKIES', '').lower() not in ('1', 'true', 'yes')
+    SESSION_COOKIE_SECURE = True
 
     @classmethod
     def init_app(cls, app):

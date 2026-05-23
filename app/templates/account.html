@@ -749,6 +749,19 @@
                     >
                 </div>
 
+                <div class="form-group">
+                    <label class="form-label" for="totpEnablePassword">Confirm with your current password</label>
+                    <div class="password-input-wrapper">
+                        <input type="password" id="totpEnablePassword" class="form-input" autocomplete="current-password" placeholder="Enter your password">
+                        <button type="button" class="password-toggle" onclick="togglePassword('totpEnablePassword')">
+                            <svg id="totpEnablePassword-eye" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
                 <div id="totpSetupMessage" style="display: none; padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 12px;"></div>
 
                 <div style="display: flex; gap: 12px; justify-content: center; padding-top: 12px; border-top: 1px solid var(--color-elevated);">
@@ -794,7 +807,7 @@
 
             <div style="display: flex; gap: 12px; justify-content: center; padding-top: 12px; border-top: 1px solid var(--color-elevated);">
                 <button type="button" class="btn btn-secondary" onclick="closeTotpDisableModal()">Cancel</button>
-                <button type="button" class="btn btn-danger" id="totpDisableBtn" onclick="disableTotp()" style="background: var(--color-danger); color: #fff; border-color: var(--color-danger);">Disable 2FA</button>
+                <button type="button" class="btn btn-danger" id="totpDisableBtn" onclick="disableTotp()">Disable 2FA</button>
             </div>
         </div>
     </div>
@@ -1873,6 +1886,7 @@
     function openTotpSetupModal() {
         pendingTotpSecret = null;
         document.getElementById('totpVerifyCode').value = '';
+        document.getElementById('totpEnablePassword').value = '';
         document.getElementById('totpQrCodeContainer').innerHTML = '<div style="color: var(--color-text-muted); font-size: 13px;">Generating…</div>';
         document.getElementById('totpSecretDisplay').textContent = '—';
         setTotpSetupMessage('', '');
@@ -1938,12 +1952,17 @@
 
     async function enableTotp() {
         const code = document.getElementById('totpVerifyCode').value.trim();
+        const password = document.getElementById('totpEnablePassword').value;
         if (!pendingTotpSecret) {
             setTotpSetupMessage('Setup not ready. Please wait for the QR code to load.', 'error');
             return;
         }
         if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
             setTotpSetupMessage('Enter a valid 6-digit code from your authenticator app.', 'error');
+            return;
+        }
+        if (!password) {
+            setTotpSetupMessage('Enter your current password to enable 2FA.', 'error');
             return;
         }
 
@@ -1955,7 +1974,7 @@
             const response = await fetch('/api/account/totp/enable', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.csrfToken },
-                body: JSON.stringify({ secret: pendingTotpSecret, code })
+                body: JSON.stringify({ password, code })
             });
             const data = await response.json();
             if (data.success) {
@@ -1969,6 +1988,7 @@
             } else {
                 setTotpSetupMessage(data.error || 'Verification failed. Try again.', 'error');
                 document.getElementById('totpVerifyCode').value = '';
+                document.getElementById('totpEnablePassword').value = '';
                 document.getElementById('totpVerifyCode').focus();
             }
         } catch (error) {

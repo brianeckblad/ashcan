@@ -335,6 +335,15 @@ def update_comic(sku):
 All state-changing JS calls add `X-CSRF-Token` from that variable.
 `@csrf_required` compares the session token against `request.headers.get('X-CSRF-Token')` or `request.form.get('_csrf_token')`.
 
+### TOTP / session-security pattern
+
+- TOTP enrollment must require the current password before enabling 2FA. A stolen active session alone must not be enough to enroll an attacker-controlled authenticator.
+- TOTP setup secrets are short-lived setup state. Clear pending setup state after success or expiry; do not log TOTP secrets, QR payloads, or one-time codes.
+- TOTP login is a two-step flow: password success creates `totp_pending`; only a valid TOTP code creates `logged_in=True`.
+- Pending TOTP sessions must expire quickly (5 minutes), validate that the user still has TOTP enabled, and be rate-limited separately from password attempts.
+- Session timestamps (`session_created`, `last_activity`, TOTP timestamps) must be coerced/validated before arithmetic so malformed or legacy sessions fail closed.
+- Production cookies must always be `Secure`, `HttpOnly`, and `SameSite=Lax`; do not add environment overrides that disable secure cookies in production.
+
 ---
 
 ## Persistence Expectations
@@ -375,18 +384,21 @@ Deleted comics go to `instance/data/{username}/trash/recent/` for 30-day soft-de
 
 ## Production Deployment
 
-### Gunicorn (`gunicorn.conf.py`)
+### Gunicorn (`deployment/templates/supervisor.conf.j2`)
 
-- `bind = "127.0.0.1:8000"`; workers = 2 × CPU + 1; `timeout = 120`
-- `max_requests = 1000` with `max_requests_jitter = 100`
+- Bind only to `127.0.0.1:{gunicorn_port}`; Nginx is the public edge.
+- Shared-server default: `gunicorn_workers=1`, `gunicorn_threads=4`, `gunicorn_timeout=120`.
+- Recycle workers with `--max-requests 1000` and `--max-requests-jitter 100`.
 - Logs to `LOG_DIR/app.log` and `LOG_DIR/error.log` (set by Systemd service)
-- `forwarded_allow_ips = "127.0.0.1"` — only trust X-Forwarded-For from Nginx
+- `--forwarded-allow-ips 127.0.0.1` — only trust X-Forwarded-For from Nginx.
 
 ### Nginx (`deployment/templates/nginx.conf.j2`)
 
 - HTTP → HTTPS redirect; TLS 1.2/1.3 via Let's Encrypt
 - Static assets served directly with cache headers
 - `client_max_body_size` aligned with Flask `MAX_CONTENT_LENGTH` (96 MB for multi-image uploads)
+- API `proxy_read_timeout` / `proxy_send_timeout` should be just above `gunicorn_timeout`, not several minutes longer, so failures surface predictably.
+- CSP currently keeps `'unsafe-inline'` only because legacy templates still have inline CSS/JS. Do not add new inline scripts/styles; move new behavior into static assets or a nonce-based CSP migration.
 
 ### Version (`inject_version()` context processor in `app/__init__.py`)
 
@@ -452,6 +464,8 @@ below when generating, refactoring, or reviewing Flask code.
 | `Content-Security-Policy` | `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'` |
 | `Strict-Transport-Security` | `max-age=31536000; includeSubDomains; preload` (production only) |
 
+Legacy CSP exception: existing templates still require `'unsafe-inline'`. Treat that as technical debt, not permission for new inline JavaScript or page-specific style expansion.
+
 ### 6. Rate limiting & brute-force protection
 
 - Login: rate-limited per IP in `security.py`; auto-block after repeated attack patterns.
@@ -505,7 +519,9 @@ Shared component classes (`.btn`, `.modal`, `.card`, etc.) are in `app/static/cs
 ### Rules
 
 - **Never hard-code hex colors** — always use `var(--color-*)` tokens.
+- This includes quick one-offs like `#fff`; use `var(--color-text)` / `var(--color-accent-text)` or the shared component class.
 - **Never re-declare `.btn`, `.modal`, `.card`** in `{% block extra_css %}` — use `components.css` classes.
+- Prefer shared component classes over inline `style` attributes. Inline style is tolerated only for small layout values already common in legacy templates; do not use it for colors, hover/focus states, or component variants.
 - **No inline `onmouseover`/`onmouseout`** for styling — use CSS classes.
 - **No colored glow shadows** — use `var(--shadow-sm/md/lg)` (neutral, dark).
 - Border radius: buttons/inputs → `var(--radius-sm)`, cards → `var(--radius-md)`, modals/sections → `var(--radius-lg)`.

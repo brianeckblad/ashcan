@@ -1,8 +1,10 @@
 """User authentication and profile management."""
 import json
 from pathlib import Path
-from werkzeug.security import generate_password_hash, check_password_hash
+
+import pyotp
 from flask import current_app
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 def _log_user_message(message, level='info'):
@@ -762,7 +764,6 @@ class UserManager:
         Returns:
             bool: True if the code is valid.
         """
-        import pyotp  # Deferred: heavy import, only needed at auth-check time
         secret = self.get_totp_secret(username)
         if not secret:
             return False

@@ -133,6 +133,8 @@ flask_port: "{{ gunicorn_port }}"
 gunicorn_workers: 1
 gunicorn_threads: 4
 gunicorn_timeout: 120
+gunicorn_max_requests: 1000
+gunicorn_max_requests_jitter: 100
 
 # ============================================================================
 # LOG RETENTION

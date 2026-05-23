@@ -78,25 +78,27 @@ server {
     server_tokens off;
 
     # Security headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Frame-Options "DENY" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
 
-    # Content Security Policy (adjust as needed for your app)
-    # Allow S3 images and eBay images via connect-src for fetch() API
-    # style-src-elem allows external stylesheets, manifest-src allows site.webmanifest
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.amazonaws.com https://*.ebayimg.com; manifest-src 'self';" always;
+    # Content Security Policy.
+    # NOTE: legacy templates still contain inline JS/CSS, so unsafe-inline is
+    # temporarily required. Do not add new inline JS/CSS; move toward nonces or
+    # external assets so unsafe-inline can be removed safely.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.amazonaws.com https://*.ebayimg.com; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;" always;
 
-    # Upload limit — 50M covers images and moderate CSV/archive imports.
+    # Upload limit — aligns with Flask MAX_CONTENT_LENGTH (96 MB) for
+    # 8 images x 10 MB plus multipart overhead.
     # Do not raise to multi-GB on a shared server; a single stalled upload
     # would buffer to disk and starve other apps of space.
-    client_max_body_size 50M;
+    client_max_body_size 96M;
 
     # Drop clients that stall while sending the request body (shared-server safety).
     client_body_timeout 60s;
-    proxy_read_timeout 300s;
+    proxy_read_timeout {{ (gunicorn_timeout | default(120) | int) + 10 }}s;
 
     # Access and error logs
     access_log /var/log/nginx/{{ service_name }}_access.log;
@@ -310,10 +312,11 @@ server {
         proxy_buffers 8 4k;
         proxy_busy_buffers_size 8k;
 
-        # Timeout settings for eBay API calls (can take longer)
-        proxy_connect_timeout 300s;
-        proxy_send_timeout 300s;
-        proxy_read_timeout 300s;
+        # Timeout settings for eBay/API calls. Keep just above gunicorn timeout
+        # so nginx does not wait minutes after gunicorn has killed a worker.
+        proxy_connect_timeout 30s;
+        proxy_send_timeout {{ (gunicorn_timeout | default(120) | int) + 10 }}s;
+        proxy_read_timeout {{ (gunicorn_timeout | default(120) | int) + 10 }}s;
     }
 
     # Root path (home/dashboard)
