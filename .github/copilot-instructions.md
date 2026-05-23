@@ -399,6 +399,7 @@ Deleted comics go to `instance/data/{username}/trash/recent/` for 30-day soft-de
 - `client_max_body_size` aligned with Flask `MAX_CONTENT_LENGTH` (96 MB for multi-image uploads)
 - API `proxy_read_timeout` / `proxy_send_timeout` should be just above `gunicorn_timeout`, not several minutes longer, so failures surface predictably.
 - CSP currently keeps `'unsafe-inline'` only because legacy templates still have inline CSS/JS. Do not add new inline scripts/styles; move new behavior into static assets or a nonce-based CSP migration.
+- In production, Nginx is the source of truth for overlapping headers like `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Content-Security-Policy`, and `Strict-Transport-Security`. Do not emit a second copy of those from Flask in production or browsers will receive duplicate header values.
 
 ### Version (`inject_version()` context processor in `app/__init__.py`)
 

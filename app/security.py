@@ -13,7 +13,6 @@ import re
 from collections import defaultdict
 from datetime import datetime
 from flask import request, abort, g, current_app
-from functools import wraps
 from pathlib import Path
 from typing import Optional
 import json
@@ -359,23 +358,23 @@ def add_security_headers(response):
     Returns:
         response: Modified response with security headers
     """
-    # Prevent clickjacking
-    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-
-    # Prevent MIME type sniffing
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-
-    # X-XSS-Protection is deprecated and ignored by modern browsers — rely on CSP instead.
-
-    # Referrer policy
-    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-
-    # Content Security Policy
-    # NOTE: CSP is set by Nginx (deployment/templates/nginx.conf.j2) which is
-    # the single source of truth. Setting it here too creates a double-header
-    # problem — the browser enforces BOTH, so the most restrictive one wins.
-    # Only set CSP in Flask for local development (no Nginx).
+    # In production, Nginx is the single source of truth for security headers.
+    # Emitting them from Flask too causes duplicate header values on live traffic.
+    # Keep the Flask copy only for local development, where requests may hit the
+    # app directly without Nginx in front.
     if current_app.debug:
+        # Prevent clickjacking
+        response.headers['X-Frame-Options'] = 'DENY'
+
+        # Prevent MIME type sniffing
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+
+        # X-XSS-Protection is deprecated and ignored by modern browsers — rely on CSP instead.
+
+        # Referrer policy
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+
+        # Content Security Policy
         response.headers['Content-Security-Policy'] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline'; "
@@ -384,12 +383,15 @@ def add_security_headers(response):
             "img-src 'self' data: https:; "
             "font-src 'self' data: https://fonts.gstatic.com; "
             "connect-src 'self' https://*.amazonaws.com https://*.ebayimg.com; "
-            "manifest-src 'self';"
+            "manifest-src 'self'; "
+            "object-src 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'; "
+            "frame-ancestors 'none';"
         )
-
-    # HTTPS-only (in production)
-    if current_app.config.get('SESSION_COOKIE_SECURE'):
-        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+        # HTTPS-only (in local HTTPS dev)
+        if current_app.config.get('SESSION_COOKIE_SECURE'):
+            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
 
     return response
 
