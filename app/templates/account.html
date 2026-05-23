@@ -561,6 +561,53 @@
             </div>
 
 
+            <!-- Two-Factor Authentication (TOTP) -->
+            <div class="action-section" id="totpSection">
+                <div class="section-label">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    Two-Factor Authentication
+                </div>
+                <p class="section-help">Require a time-based one-time code from an authenticator app every time you log in.</p>
+
+                <!-- Status indicator -->
+                <div id="totpStatusBadge" style="margin-bottom: 14px; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-text-muted);">
+                    Loading…
+                </div>
+
+                <!-- TOTP not enabled -->
+                <div id="totpDisabledView" style="display: none;">
+                    <div style="background: var(--color-warning-subtle); border: 1px solid var(--color-warning); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12px; color: var(--color-warning); margin-bottom: 14px; line-height: 1.5;">
+                        Two-factor authentication is <strong>not enabled</strong>. Your account is protected by password only.
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="openTotpSetupModal()" style="width: 100%;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="16"></line>
+                            <line x1="8" y1="12" x2="16" y2="12"></line>
+                        </svg>
+                        Set Up Two-Factor Authentication
+                    </button>
+                </div>
+
+                <!-- TOTP enabled -->
+                <div id="totpEnabledView" style="display: none;">
+                    <div style="background: var(--color-success-subtle); border: 1px solid var(--color-success); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12px; color: var(--color-success); margin-bottom: 14px; line-height: 1.5;">
+                        Two-factor authentication is <strong>active</strong>. A code from your authenticator app is required at each login.
+                    </div>
+                    <button type="button" class="btn btn-secondary" onclick="openTotpDisableModal()" style="width: 100%; border-color: var(--color-danger); color: var(--color-danger);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+                            <line x1="1" y1="1" x2="23" y2="23"></line>
+                        </svg>
+                        Disable Two-Factor Authentication
+                    </button>
+                </div>
+            </div>
+
             <!-- eBay API Credentials -->
             <div class="action-section">
                 <div class="section-label">
@@ -641,6 +688,116 @@
             Back to Home
         </a>
     </footer>
+
+    <!-- TOTP Setup Modal -->
+    <div id="totpSetupModal" class="settings-modal" onclick="closeTotpSetupOnBackdrop(event)">
+        <div class="settings-modal-content" onclick="event.stopPropagation()" style="max-width: 480px;">
+            <div class="settings-modal-header">
+                <h2>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    Set Up Two-Factor Authentication
+                </h2>
+                <button type="button" class="close-settings-modal" onclick="closeTotpSetupModal()">&times;</button>
+            </div>
+
+            <!-- Step 1: Scan QR code -->
+            <div id="totpSetupStep1">
+                <p style="color: var(--color-text-muted); font-size: 13px; margin-bottom: 16px; line-height: 1.6; text-align: center;">
+                    Scan the QR code below in your authenticator app<br>
+                    <span style="font-size: 12px;">(Google Authenticator, Authy, 1Password, etc.)</span>
+                </p>
+
+                <div id="totpQrCodeContainer" style="text-align: center; margin-bottom: 16px; min-height: 220px; display: flex; align-items: center; justify-content: center;">
+                    <div style="color: var(--color-text-muted); font-size: 13px;">Generating…</div>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <div style="font-size: 11px; color: var(--color-text-dim); margin-bottom: 6px; text-align: center;">Can't scan? Enter this key manually:</div>
+                    <div id="totpSecretDisplay" style="
+                        background: var(--color-inset);
+                        border: 1px solid var(--color-border);
+                        border-radius: var(--radius-sm);
+                        padding: 8px 12px;
+                        font-family: monospace;
+                        font-size: 14px;
+                        letter-spacing: 0.1em;
+                        text-align: center;
+                        color: var(--color-accent);
+                        word-break: break-all;
+                        cursor: pointer;
+                    " onclick="copyTotpSecret()" title="Click to copy">
+                        —
+                    </div>
+                    <div style="font-size: 11px; color: var(--color-text-dim); text-align: center; margin-top: 4px;">Click to copy</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="totpVerifyCode">Enter the 6-digit code from your app to confirm setup</label>
+                    <input
+                        type="text"
+                        id="totpVerifyCode"
+                        class="form-input"
+                        inputmode="numeric"
+                        pattern="[0-9]{6}"
+                        maxlength="6"
+                        placeholder="000000"
+                        autocomplete="one-time-code"
+                        style="letter-spacing: 0.3em; text-align: center; font-size: 20px; font-weight: 600;"
+                    >
+                </div>
+
+                <div id="totpSetupMessage" style="display: none; padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 12px;"></div>
+
+                <div style="display: flex; gap: 12px; justify-content: center; padding-top: 12px; border-top: 1px solid var(--color-elevated);">
+                    <button type="button" class="btn btn-secondary" onclick="closeTotpSetupModal()">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="totpEnableBtn" onclick="enableTotp()">Enable 2FA</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOTP Disable Modal -->
+    <div id="totpDisableModal" class="settings-modal" onclick="closeTotpDisableOnBackdrop(event)">
+        <div class="settings-modal-content" onclick="event.stopPropagation()" style="max-width: 420px;">
+            <div class="settings-modal-header">
+                <h2>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+                    </svg>
+                    Disable Two-Factor Authentication
+                </h2>
+                <button type="button" class="close-settings-modal" onclick="closeTotpDisableModal()">&times;</button>
+            </div>
+
+            <div style="background: var(--color-danger-subtle); border: 1px solid var(--color-danger); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 16px; font-size: 13px; color: var(--color-danger); line-height: 1.5;">
+                Disabling 2FA reduces your account security. Your account will only be protected by your password.
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="totpDisablePassword">Confirm with your current password</label>
+                <div class="password-input-wrapper">
+                    <input type="password" id="totpDisablePassword" class="form-input" autocomplete="current-password" placeholder="Enter your password">
+                    <button type="button" class="password-toggle" onclick="togglePassword('totpDisablePassword')">
+                        <svg id="totpDisablePassword-eye" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div id="totpDisableMessage" style="display: none; padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 12px;"></div>
+
+            <div style="display: flex; gap: 12px; justify-content: center; padding-top: 12px; border-top: 1px solid var(--color-elevated);">
+                <button type="button" class="btn btn-secondary" onclick="closeTotpDisableModal()">Cancel</button>
+                <button type="button" class="btn btn-danger" id="totpDisableBtn" onclick="disableTotp()" style="background: var(--color-danger); color: #fff; border-color: var(--color-danger);">Disable 2FA</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Default Settings Modal -->
     <div id="defaultSettingsModal" class="settings-modal" onclick="closeDefaultSettingsOnBackdrop(event)">
@@ -1669,6 +1826,243 @@
         }
     }
 
+    // ============================================================================
+    // TOTP TWO-FACTOR AUTHENTICATION FUNCTIONS
+    // ============================================================================
+
+    let pendingTotpSecret = null;  // Holds the unconfirmed secret during setup
+
+    async function loadTotpStatus() {
+        try {
+            const response = await fetch('/api/account/totp/status');
+            const data = await response.json();
+            if (data.success) {
+                updateTotpStatusUI(data.enabled);
+            }
+        } catch (error) {
+            console.error('Error loading TOTP status:', error);
+        }
+    }
+
+    function updateTotpStatusUI(enabled) {
+        const badge = document.getElementById('totpStatusBadge');
+        const disabledView = document.getElementById('totpDisabledView');
+        const enabledView = document.getElementById('totpEnabledView');
+
+        if (enabled) {
+            badge.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span style="color: var(--color-success); font-weight: 600;">Enabled</span>`;
+            disabledView.style.display = 'none';
+            enabledView.style.display = 'block';
+        } else {
+            badge.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span style="color: var(--color-warning);">Not enabled</span>`;
+            disabledView.style.display = 'block';
+            enabledView.style.display = 'none';
+        }
+    }
+
+    function openTotpSetupModal() {
+        pendingTotpSecret = null;
+        document.getElementById('totpVerifyCode').value = '';
+        document.getElementById('totpQrCodeContainer').innerHTML = '<div style="color: var(--color-text-muted); font-size: 13px;">Generating…</div>';
+        document.getElementById('totpSecretDisplay').textContent = '—';
+        setTotpSetupMessage('', '');
+        document.getElementById('totpSetupModal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+        generateTotpSetup();
+    }
+
+    function closeTotpSetupModal() {
+        document.getElementById('totpSetupModal').classList.remove('active');
+        document.body.style.overflow = '';
+        pendingTotpSecret = null;
+    }
+
+    function closeTotpSetupOnBackdrop(event) {
+        if (event.target === document.getElementById('totpSetupModal')) {
+            closeTotpSetupModal();
+        }
+    }
+
+    async function generateTotpSetup() {
+        const btn = document.getElementById('totpEnableBtn');
+        if (btn) btn.disabled = true;
+        try {
+            const response = await fetch('/api/account/totp/setup', {
+                method: 'POST',
+                headers: { 'X-CSRF-Token': window.csrfToken }
+            });
+            const data = await response.json();
+            if (data.success) {
+                pendingTotpSecret = data.secret;
+                document.getElementById('totpQrCodeContainer').innerHTML = `
+                    <img src="${data.qr_code}" alt="TOTP QR Code"
+                         style="border-radius: var(--radius-sm); border: 4px solid white; width: 200px; height: 200px;">`;
+                document.getElementById('totpSecretDisplay').textContent = data.secret;
+                if (btn) btn.disabled = false;
+            } else {
+                document.getElementById('totpQrCodeContainer').innerHTML =
+                    `<div style="color: var(--color-danger); font-size: 13px;">Failed to generate setup code. Please try again.</div>`;
+            }
+        } catch (error) {
+            console.error('Error generating TOTP setup:', error);
+            document.getElementById('totpQrCodeContainer').innerHTML =
+                `<div style="color: var(--color-danger); font-size: 13px;">Connection error. Please try again.</div>`;
+        }
+    }
+
+    function setTotpSetupMessage(text, type) {
+        const el = document.getElementById('totpSetupMessage');
+        if (!text) { el.style.display = 'none'; return; }
+        el.textContent = text;
+        el.style.display = 'block';
+        if (type === 'success') {
+            el.style.background = 'var(--color-success-subtle)';
+            el.style.border = '1px solid var(--color-success)';
+            el.style.color = 'var(--color-success)';
+        } else {
+            el.style.background = 'var(--color-danger-subtle)';
+            el.style.border = '1px solid var(--color-danger)';
+            el.style.color = 'var(--color-danger)';
+        }
+    }
+
+    async function enableTotp() {
+        const code = document.getElementById('totpVerifyCode').value.trim();
+        if (!pendingTotpSecret) {
+            setTotpSetupMessage('Setup not ready. Please wait for the QR code to load.', 'error');
+            return;
+        }
+        if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
+            setTotpSetupMessage('Enter a valid 6-digit code from your authenticator app.', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('totpEnableBtn');
+        const originalText = btn?.textContent;
+        if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
+
+        try {
+            const response = await fetch('/api/account/totp/enable', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.csrfToken },
+                body: JSON.stringify({ secret: pendingTotpSecret, code })
+            });
+            const data = await response.json();
+            if (data.success) {
+                setTotpSetupMessage('Two-factor authentication enabled!', 'success');
+                pendingTotpSecret = null;
+                setTimeout(() => {
+                    closeTotpSetupModal();
+                    updateTotpStatusUI(true);
+                    showNotification?.('Two-factor authentication is now active.', 'success');
+                }, 1200);
+            } else {
+                setTotpSetupMessage(data.error || 'Verification failed. Try again.', 'error');
+                document.getElementById('totpVerifyCode').value = '';
+                document.getElementById('totpVerifyCode').focus();
+            }
+        } catch (error) {
+            setTotpSetupMessage('Connection error. Please try again.', 'error');
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = originalText || 'Enable 2FA'; }
+        }
+    }
+
+    function copyTotpSecret() {
+        const secret = document.getElementById('totpSecretDisplay').textContent;
+        if (!secret || secret === '—') return;
+        navigator.clipboard?.writeText(secret).then(() => {
+            showNotification?.('Secret key copied to clipboard.', 'success');
+        }).catch(() => {
+            // Fallback for older browsers
+            const el = document.getElementById('totpSecretDisplay');
+            const range = document.createRange();
+            range.selectNode(el);
+            window.getSelection()?.removeAllRanges();
+            window.getSelection()?.addRange(range);
+        });
+    }
+
+    function openTotpDisableModal() {
+        document.getElementById('totpDisablePassword').value = '';
+        setTotpDisableMessage('', '');
+        document.getElementById('totpDisableModal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeTotpDisableModal() {
+        document.getElementById('totpDisableModal').classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    function closeTotpDisableOnBackdrop(event) {
+        if (event.target === document.getElementById('totpDisableModal')) {
+            closeTotpDisableModal();
+        }
+    }
+
+    function setTotpDisableMessage(text, type) {
+        const el = document.getElementById('totpDisableMessage');
+        if (!text) { el.style.display = 'none'; return; }
+        el.textContent = text;
+        el.style.display = 'block';
+        if (type === 'success') {
+            el.style.background = 'var(--color-success-subtle)';
+            el.style.border = '1px solid var(--color-success)';
+            el.style.color = 'var(--color-success)';
+        } else {
+            el.style.background = 'var(--color-danger-subtle)';
+            el.style.border = '1px solid var(--color-danger)';
+            el.style.color = 'var(--color-danger)';
+        }
+    }
+
+    async function disableTotp() {
+        const password = document.getElementById('totpDisablePassword').value;
+        if (!password) {
+            setTotpDisableMessage('Please enter your current password.', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('totpDisableBtn');
+        const originalText = btn?.textContent;
+        if (btn) { btn.disabled = true; btn.textContent = 'Disabling…'; }
+
+        try {
+            const response = await fetch('/api/account/totp/disable', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.csrfToken },
+                body: JSON.stringify({ password })
+            });
+            const data = await response.json();
+            if (data.success) {
+                setTotpDisableMessage('Two-factor authentication disabled.', 'success');
+                setTimeout(() => {
+                    closeTotpDisableModal();
+                    updateTotpStatusUI(false);
+                    showNotification?.('Two-factor authentication has been disabled.', 'success');
+                }, 1000);
+            } else {
+                setTotpDisableMessage(data.error || 'Failed to disable 2FA.', 'error');
+                document.getElementById('totpDisablePassword').value = '';
+            }
+        } catch (error) {
+            setTotpDisableMessage('Connection error. Please try again.', 'error');
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = originalText || 'Disable 2FA'; }
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         const sandboxRadio = document.getElementById('ebayEnvSandbox');
         const productionRadio = document.getElementById('ebayEnvProduction');
@@ -1704,6 +2098,7 @@
 
         loadPreferences();
         loadEbayCredentials();
+        loadTotpStatus();
 
         // Handle escape key to close modals
         document.addEventListener('keydown', (e) => {

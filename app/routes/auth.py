@@ -232,11 +232,12 @@ def login():
     """
     Handle login page display and authentication.
 
-    GET: Display the login form.
-    POST: Authenticate user credentials and create session.
+    GET: Display the login form (or TOTP step if pending).
+    POST: Authenticate credentials, then verify TOTP if enabled.
 
     Brute-force defence: 10 failed attempts per IP per 15 minutes get a
     429 response. Successful logins reset the counter for that IP.
+    TOTP defence: 6 failed code attempts per IP per 5 minutes.
     """
     if request.method == 'POST':
         # Validate CSRF token on form submission
@@ -246,9 +247,58 @@ def login():
             flash('Invalid session. Please try again.', 'error')
             return redirect(url_for('auth.login'))
 
-        # Throttle per-IP login attempts to slow brute-force password guessing
         from app.security import rate_limiter, get_real_ip  # Deferred: avoids circular import
         client_ip = get_real_ip(request)
+
+        # ------------------------------------------------------------------
+        # TOTP verification step (second phase of two-factor login)
+        # ------------------------------------------------------------------
+        if session.get('totp_pending'):
+            # Guard against a stale pending session (5-minute window)
+            totp_created = session.get('totp_session_created', 0)
+            if time.time() - totp_created > 300:
+                session.clear()
+                flash('Authentication timed out. Please log in again.', 'error')
+                return redirect(url_for('auth.login'))
+
+            totp_key = f"totp_attempts_{client_ip}"
+            if rate_limiter and rate_limiter.is_rate_limited(
+                totp_key, max_requests=6, window_seconds=300
+            ):
+                session.clear()
+                flash('Too many failed verification attempts. Please log in again.', 'error')
+                return redirect(url_for('auth.login'))
+
+            username = session.get('totp_username', '')
+            code = request.form.get('totp_code', '').strip()
+
+            if user_manager.verify_totp(username, code):
+                # TOTP verified — complete the login
+                totp_next = session.pop('totp_next', None)
+                session.pop('totp_pending', None)
+                session.pop('totp_username', None)
+                session.pop('totp_session_created', None)
+                session['logged_in'] = True
+                session['username'] = username
+                session['session_created'] = time.time()
+                session['last_activity'] = time.time()
+                session.permanent = True
+                session.pop('_csrf_token', None)
+                if rate_limiter and totp_key in rate_limiter.requests:
+                    rate_limiter.requests.pop(totp_key, None)
+                flash('Login successful!', 'success')
+                if totp_next and is_safe_url(totp_next):
+                    return redirect(totp_next)
+                return redirect(url_for('main.landing'))
+            else:
+                if rate_limiter:
+                    rate_limiter.record_request(totp_key)
+                flash('Invalid verification code. Please try again.', 'error')
+                return redirect(url_for('auth.login'))
+
+        # ------------------------------------------------------------------
+        # Phase 1 — username / password
+        # ------------------------------------------------------------------
         login_key = f"login_attempts_{client_ip}"
         if rate_limiter and rate_limiter.is_rate_limited(
             login_key, max_requests=10, window_seconds=900
@@ -256,45 +306,61 @@ def login():
             flash('Too many failed login attempts. Try again in 15 minutes.', 'error')
             return redirect(url_for('auth.login'))
 
-        # Get username and password from form
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
 
-        # Verify credentials using user manager (case-insensitive username)
         if user_manager.verify_password(username, password):
             user = user_manager.get_user(username)
-            # Create session for authenticated user — normalize to lowercase
-            # so downstream path/S3 helpers see a single canonical value.
-            session['logged_in'] = True
             canonical = (user['username'] or '').lower()
-            session['username'] = canonical
-            session['session_created'] = time.time()  # Track session creation time
-            session['last_activity'] = time.time()    # Track idle timeout
-            session.permanent = True
-            session.pop('_csrf_token', None)  # Clear old CSRF token
-            # Reset the failed-attempts counter for this IP on success
+
+            # Reset failed-attempts counter for this IP on success
             if rate_limiter and login_key in rate_limiter.requests:
                 rate_limiter.requests.pop(login_key, None)
+
+            # If TOTP is enabled, start the second step
+            if user_manager.is_totp_enabled(canonical):
+                next_page = request.args.get('next')
+                session['totp_pending'] = True
+                session['totp_username'] = canonical
+                session['totp_session_created'] = time.time()
+                if next_page and is_safe_url(next_page):
+                    session['totp_next'] = next_page
+                return redirect(url_for('auth.login'))
+
+            # No TOTP — complete login immediately
+            session['logged_in'] = True
+            session['username'] = canonical
+            session['session_created'] = time.time()
+            session['last_activity'] = time.time()
+            session.permanent = True
+            session.pop('_csrf_token', None)
             flash('Login successful!', 'success')
 
-            # Redirect to the page they were trying to access, or to landing page
             next_page = request.args.get('next')
             if next_page and is_safe_url(next_page):
                 return redirect(next_page)
             return redirect(url_for('main.landing'))
         else:
-            # Authentication failed — record this attempt against the IP
             if rate_limiter:
                 rate_limiter.record_request(login_key)
             flash('Invalid username or password.', 'error')
             return redirect(url_for('auth.login'))
 
-    # GET request - show login page
+    # GET request -------------------------------------------------------
     # If already logged in, redirect to landing page
     if session.get('logged_in'):
         return redirect(url_for('main.landing'))
 
-    return render_template('login.html')
+    # TOTP second step — render the code-entry form
+    if session.get('totp_pending'):
+        totp_created = session.get('totp_session_created', 0)
+        if time.time() - totp_created > 300:
+            session.clear()
+            flash('Authentication timed out. Please log in again.', 'error')
+            return redirect(url_for('auth.login'))
+        return render_template('login.html', totp_pending=True)
+
+    return render_template('login.html', totp_pending=False)
 
 
 @auth_bp.route('/logout')

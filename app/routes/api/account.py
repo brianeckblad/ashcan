@@ -6,9 +6,14 @@ This module handles:
 - User preferences (get/update)
 - User CRUD operations (list, create, delete)
 - User debugging and cache management
+- TOTP two-factor authentication setup and management
 
 All functions include type hints and comprehensive docstrings for better IDE support.
 """
+import io
+import base64
+import pyotp
+import qrcode
 from flask import request, jsonify, current_app, session, Response
 import traceback
 from app.utils.logging_utils import safe_error_message
@@ -1002,3 +1007,157 @@ def delete_ebay_credentials() -> Response:
         current_app.logger.error(f"[User: {username}] Error deleting eBay credentials: {e}")
         return jsonify({'success': False, 'error': 'An error occurred while deleting eBay credentials'}), 500
 
+
+# ==============================================================================
+# TOTP Two-Factor Authentication routes
+# ==============================================================================
+
+
+@api_bp.route('/account/totp/status', methods=['GET'])
+@login_required
+def get_totp_status() -> Response:
+    """Return whether TOTP 2FA is currently enabled for the authenticated user.
+
+    Returns:
+        Response: JSON ``{"success": true, "enabled": bool}``
+    """
+    try:
+        username = session.get('username')
+        if not username:
+            return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+        enabled = user_manager.is_totp_enabled(username)
+        return jsonify({'success': True, 'enabled': enabled}), 200
+    except Exception as e:
+        username = session.get('username', 'unknown')
+        current_app.logger.error(f"[User: {username}] Error getting TOTP status: {e}")
+        return jsonify({'success': False, 'error': safe_error_message(e)}), 500
+
+
+@api_bp.route('/account/totp/setup', methods=['POST'])
+@login_required
+@csrf_required
+def setup_totp() -> Response:
+    """Generate a new TOTP secret and QR code for the authenticated user.
+
+    The secret is **not** saved here — it is returned to the client so the
+    user can scan the QR code, then confirmed via ``/api/account/totp/enable``.
+
+    Returns:
+        Response: JSON containing ``secret`` (base32) and ``qr_code`` (PNG data URL).
+    """
+    try:
+        username = session.get('username')
+        if not username:
+            return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+
+        secret = pyotp.random_base32()
+        totp = pyotp.TOTP(secret)
+        uri = totp.provisioning_uri(name=username, issuer_name="Dockyard")
+
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=8,
+            border=4,
+        )
+        qr.add_data(uri)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color='black', back_color='white')
+        buf = io.BytesIO()
+        img.save(buf, format='PNG')
+        qr_data_url = 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode()
+
+        current_app.logger.info(f"[User: {username}] TOTP setup initiated")
+        return jsonify({'success': True, 'secret': secret, 'qr_code': qr_data_url}), 200
+
+    except Exception as e:
+        username = session.get('username', 'unknown')
+        current_app.logger.error(f"[User: {username}] Error generating TOTP setup: {e}")
+        return jsonify({'success': False, 'error': safe_error_message(e)}), 500
+
+
+@api_bp.route('/account/totp/enable', methods=['POST'])
+@login_required
+@csrf_required
+def enable_totp() -> Response:
+    """Verify a TOTP code against a pending secret and enable 2FA.
+
+    Request Body (JSON)::
+
+        {"secret": "<base32>", "code": "<6-digit>"}
+
+    The ``secret`` is the one returned by ``/api/account/totp/setup``.
+    The ``code`` must be valid for that secret right now.
+
+    Returns:
+        Response: JSON success/error.
+    """
+    try:
+        username = session.get('username')
+        if not username:
+            return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+
+        data = request.get_json() or {}
+        secret = (data.get('secret') or '').strip()
+        code = (data.get('code') or '').strip()
+
+        if not secret or not code:
+            return jsonify({'success': False, 'error': 'Secret and verification code are required'}), 400
+
+        if len(code) != 6 or not code.isdigit():
+            return jsonify({'success': False, 'error': 'Verification code must be 6 digits'}), 400
+
+        # Verify the code matches the provided secret before persisting
+        try:
+            totp = pyotp.TOTP(secret)
+            if not totp.verify(code, valid_window=1):
+                return jsonify({'success': False, 'error': 'Invalid verification code. Check your authenticator app and try again.'}), 400
+        except Exception:
+            return jsonify({'success': False, 'error': 'Invalid TOTP secret format'}), 400
+
+        success, message = user_manager.enable_totp(username, secret)
+        if success:
+            current_app.logger.info(f"[User: {username}] TOTP 2FA enabled")
+            return jsonify({'success': True, 'message': message}), 200
+        return jsonify({'success': False, 'error': message}), 400
+
+    except Exception as e:
+        username = session.get('username', 'unknown')
+        current_app.logger.error(f"[User: {username}] Error enabling TOTP: {e}")
+        return jsonify({'success': False, 'error': safe_error_message(e)}), 500
+
+
+@api_bp.route('/account/totp/disable', methods=['POST'])
+@login_required
+@csrf_required
+def disable_totp() -> Response:
+    """Disable TOTP 2FA after password verification.
+
+    Request Body (JSON)::
+
+        {"password": "<current-password>"}
+
+    Returns:
+        Response: JSON success/error.
+    """
+    try:
+        username = session.get('username')
+        if not username:
+            return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+
+        data = request.get_json() or {}
+        password = data.get('password', '')
+
+        if not password:
+            return jsonify({'success': False, 'error': 'Password is required to disable 2FA'}), 400
+
+        success, message = user_manager.disable_totp(username, password)
+        if success:
+            current_app.logger.info(f"[User: {username}] TOTP 2FA disabled")
+            return jsonify({'success': True, 'message': message}), 200
+        return jsonify({'success': False, 'error': message}), 400
+
+    except Exception as e:
+        username = session.get('username', 'unknown')
+        current_app.logger.error(f"[User: {username}] Error disabling TOTP: {e}")
+        return jsonify({'success': False, 'error': safe_error_message(e)}), 500

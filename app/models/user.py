@@ -684,6 +684,94 @@ class UserManager:
         except Exception as e:
             return False, f"Error updating admin flag: {e}"
 
+    # ------------------------------------------------------------------
+    # TOTP two-factor authentication
+    # ------------------------------------------------------------------
+
+    def is_totp_enabled(self, username: str) -> bool:
+        """Return True if TOTP 2FA is active for this user."""
+        user = self.get_user(username)
+        if user:
+            return bool(user.get('totp_enabled', False))
+        return False
+
+    def get_totp_secret(self, username: str):
+        """Return the stored TOTP base32 secret, or None if not set."""
+        user = self.get_user(username)
+        if user:
+            return user.get('totp_secret')
+        return None
+
+    def enable_totp(self, username: str, secret: str):
+        """Save TOTP secret and mark 2FA as enabled.
+
+        Args:
+            username: The user's username.
+            secret: A validated base32 TOTP secret.
+
+        Returns:
+            tuple: (bool, str) success and message.
+        """
+        users = self._load_users()
+        key = username.lower()
+        if key not in users:
+            return False, "User not found"
+        users[key]['totp_secret'] = secret
+        users[key]['totp_enabled'] = True
+        try:
+            self._save_users(users)
+            self._users_cache = users
+            return True, "Two-factor authentication enabled"
+        except Exception as e:
+            return False, f"Error saving 2FA settings: {e}"
+
+    def disable_totp(self, username: str, password: str):
+        """Disable TOTP after verifying the user's password.
+
+        Args:
+            username: The user's username.
+            password: Current plain-text password for verification.
+
+        Returns:
+            tuple: (bool, str) success and message.
+        """
+        if not self.verify_password(username, password):
+            return False, "Password is incorrect"
+        users = self._load_users()
+        key = username.lower()
+        if key not in users:
+            return False, "User not found"
+        users[key]['totp_secret'] = None
+        users[key]['totp_enabled'] = False
+        try:
+            self._save_users(users)
+            self._users_cache = users
+            return True, "Two-factor authentication disabled"
+        except Exception as e:
+            return False, f"Error disabling 2FA: {e}"
+
+    def verify_totp(self, username: str, code: str) -> bool:
+        """Verify a TOTP code for the given user.
+
+        Allows a ±1 window (30 seconds tolerance) to accommodate clock drift.
+
+        Args:
+            username: The user's username.
+            code: The 6-digit code from the authenticator app.
+
+        Returns:
+            bool: True if the code is valid.
+        """
+        import pyotp  # Deferred: heavy import, only needed at auth-check time
+        secret = self.get_totp_secret(username)
+        if not secret:
+            return False
+        try:
+            totp = pyotp.TOTP(secret)
+            return totp.verify(code, valid_window=1)
+        except Exception:
+            return False
+
 
 # Global user manager instance
 user_manager = UserManager()

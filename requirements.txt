@@ -25,3 +25,8 @@ ebaysdk
 
 # Environment variable management (for local dev, production uses Secrets Manager)
 python-dotenv
+
+# TOTP two-factor authentication
+pyotp
+qrcode
+
