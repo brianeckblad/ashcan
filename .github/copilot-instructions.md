@@ -400,6 +400,8 @@ Deleted comics go to `instance/data/{username}/trash/recent/` for 30-day soft-de
 - API `proxy_read_timeout` / `proxy_send_timeout` should be just above `gunicorn_timeout`, not several minutes longer, so failures surface predictably.
 - CSP currently keeps `'unsafe-inline'` only because legacy templates still have inline CSS/JS. Do not add new inline scripts/styles; move new behavior into static assets or a nonce-based CSP migration.
 - In production, Nginx is the source of truth for overlapping headers like `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Content-Security-Policy`, and `Strict-Transport-Security`. Do not emit a second copy of those from Flask in production or browsers will receive duplicate header values.
+- Apply `server_tokens off;` to every server block that can answer requests, including plain-HTTP redirect blocks. Putting it only on the main HTTPS app block still leaks version info on port 80 responses.
+- Remove the stock `/etc/nginx/sites-enabled/default` site during setup even on shared hosts. It is safe to remove and otherwise can answer unmatched requests with Ubuntu's default nginx behavior.
 
 ### Version (`inject_version()` context processor in `app/__init__.py`)
 

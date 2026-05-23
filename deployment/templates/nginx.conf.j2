@@ -356,6 +356,10 @@ server {
     listen 80;
     server_name {{ server_name }};
 
+    # Hide nginx version on redirect responses too. Without this, port 80 can
+    # still leak the package version even if the main HTTPS block disables it.
+    server_tokens off;
+
     # Allow Let's Encrypt certificate renewals
     location ^~ /.well-known/acme-challenge/ {
         allow all;

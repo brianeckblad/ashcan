@@ -268,21 +268,13 @@
         state: link
       notify: restart nginx
 
-    # Only remove the nginx default site when this is the ONLY enabled site.
-    # On a shared server with multiple apps, removing another app's site would
-    # take that app offline.
-    - name: Count currently enabled nginx sites (excluding this app)
-      find:
-        paths: /etc/nginx/sites-enabled
-        file_type: any
-        excludes: "{{ service_name }}"
-      register: other_nginx_sites
-
-    - name: Remove default nginx site (only when this is the sole site on the server)
+    # Always remove the stock Ubuntu/Debian default site. This does not affect
+    # other app-specific sites, but it does prevent the default vhost from
+    # leaking nginx version info or answering unmatched requests on shared hosts.
+    - name: Remove default nginx site
       file:
         path: /etc/nginx/sites-enabled/default
         state: absent
-      when: other_nginx_sites.matched == 0
       notify: restart nginx
       failed_when: false
 
