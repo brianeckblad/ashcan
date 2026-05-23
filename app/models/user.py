@@ -42,6 +42,7 @@ class UserManager:
         'default_sort': 'sku_asc',
         'default_view': 'grid',  # Default view layout: 'grid' or 'list'
         'micro_card_size': 60,  # 60% of normal card size (40% smaller as default)
+        'session_timeout_minutes': 60,  # Idle session timeout: 5–120 minutes
         'ebay_format': 'FixedPrice',
         'ebay_duration': 'GTC',
         'ebay_listing_mode': 'future',

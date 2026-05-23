@@ -538,6 +538,26 @@
                     </div>
                     <button type="submit" class="btn btn-primary" id="submitBtn" style="width: 100%;">Change Password</button>
                 </form>
+
+                <!-- Session Timeout -->
+                <form id="sessionTimeoutForm" onsubmit="saveSessionTimeout(event)" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-elevated);">
+                    <div style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 12px;">Session Timeout</div>
+                    <div class="form-group">
+                        <label class="form-label" for="sessionTimeoutMinutes">Idle Timeout Duration</label>
+                        <p style="font-size: 12px; color: var(--color-text-dim); margin: 4px 0 8px; line-height: 1.45;">Automatically log out after this much idle time. Applies on your next login.</p>
+                        <select id="sessionTimeoutMinutes" name="sessionTimeoutMinutes" class="form-input" style="cursor: pointer;">
+                            <option value="5">5 minutes</option>
+                            <option value="10">10 minutes</option>
+                            <option value="15">15 minutes</option>
+                            <option value="30">30 minutes</option>
+                            <option value="45">45 minutes</option>
+                            <option value="60" selected>1 hour</option>
+                            <option value="90">1 hour 30 minutes</option>
+                            <option value="120">2 hours</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="sessionTimeoutSubmitBtn" style="width: 100%;">Save Timeout</button>
+                </form>
             </div>
 
 
@@ -1141,6 +1161,45 @@
         }
     }
 
+    async function saveSessionTimeout(event) {
+        event.preventDefault();
+        const btn = document.getElementById('sessionTimeoutSubmitBtn');
+        const originalText = btn?.textContent;
+        const timeoutEl = document.getElementById('sessionTimeoutMinutes');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+        }
+
+        try {
+            const response = await fetch('/api/account/preferences', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': window.csrfToken
+                },
+                body: JSON.stringify({
+                    preferences: {
+                        session_timeout_minutes: parseInt(timeoutEl.value, 10)
+                    }
+                })
+            });
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to save timeout');
+            }
+            showNotification?.('Session timeout saved. Takes effect on next login.', 'success');
+        } catch (error) {
+            console.error('Failed to save session timeout:', error);
+            setMessage(error.message || 'Failed to save session timeout', 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = originalText || 'Save Timeout';
+            }
+        }
+    }
+
     async function loadPreferences() {
         try {
             const response = await fetch('/api/account/preferences');
@@ -1165,6 +1224,25 @@
                 document.getElementById('microCardSizeValue').textContent = microCardSize + '%';
 
                 applyEnv(prefs.ebay_environment || 'production');
+
+                // Set session timeout
+                const timeoutEl = document.getElementById('sessionTimeoutMinutes');
+                if (timeoutEl && prefs.session_timeout_minutes) {
+                    const savedTimeout = String(prefs.session_timeout_minutes);
+                    // Select the closest option (exact match or closest lower value)
+                    const options = Array.from(timeoutEl.options).map(o => parseInt(o.value, 10));
+                    const exactMatch = options.includes(parseInt(savedTimeout, 10));
+                    if (exactMatch) {
+                        timeoutEl.value = savedTimeout;
+                    } else {
+                        // Pick the closest option
+                        const target = parseInt(savedTimeout, 10);
+                        const closest = options.reduce((prev, curr) =>
+                            Math.abs(curr - target) < Math.abs(prev - target) ? curr : prev
+                        );
+                        timeoutEl.value = String(closest);
+                    }
+                }
             }
         } catch (error) {
             console.error('Error loading preferences:', error);

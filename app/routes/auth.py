@@ -45,6 +45,7 @@ def login_required(f):
     Checks if the user is logged in and their session is still valid.
     If not logged in, redirects to the login page. If the session was created
     before the application last restarted, invalidates the session for security.
+    Also enforces per-user idle session timeout (5–120 minutes).
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -69,6 +70,32 @@ def login_required(f):
                 return jsonify({'success': False, 'error': 'Session expired after server restart. Please log in again.'}), 401
             flash('Your session expired after server restart. Please log in again.', 'warning')
             return redirect(url_for('auth.login'))
+
+        # Enforce idle session timeout based on per-user preference (5–120 minutes).
+        # last_activity falls back to session_created for sessions created before
+        # this feature was introduced.
+        username_for_timeout = session.get('username', '')
+        last_activity = session.get('last_activity', session_created)
+        timeout_minutes = 60  # safe default
+        if username_for_timeout:
+            try:
+                prefs = user_manager.get_preferences(username_for_timeout)
+                if prefs:
+                    raw = prefs.get('session_timeout_minutes', 60)
+                    timeout_minutes = max(5, min(120, int(raw)))
+            except Exception:
+                pass  # keep safe default on any error
+
+        idle_seconds = time.time() - last_activity
+        if idle_seconds > timeout_minutes * 60:
+            session.clear()
+            if request.path.startswith('/api/'):
+                return jsonify({'success': False, 'error': 'Session timed out due to inactivity. Please log in again.'}), 401
+            flash('Your session timed out due to inactivity. Please log in again.', 'warning')
+            return redirect(url_for('auth.login'))
+
+        # Refresh last-activity timestamp on every authenticated request
+        session['last_activity'] = time.time()
 
         # Store username in Flask's g object for use in logging and other contexts
         g.username = session.get('username', 'unknown')
@@ -242,6 +269,7 @@ def login():
             canonical = (user['username'] or '').lower()
             session['username'] = canonical
             session['session_created'] = time.time()  # Track session creation time
+            session['last_activity'] = time.time()    # Track idle timeout
             session.permanent = True
             session.pop('_csrf_token', None)  # Clear old CSRF token
             # Reset the failed-attempts counter for this IP on success

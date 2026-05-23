@@ -297,7 +297,8 @@ def update_preferences() -> Response:
 
         # Validate preferences
         valid_keys = ['timezone', 'mobile_per_page', 'desktop_per_page', 'default_sort',
-                      'default_view', 'micro_card_size', 'ebay_format', 'ebay_duration',
+                      'default_view', 'micro_card_size', 'session_timeout_minutes',
+                      'ebay_format', 'ebay_duration',
                       'ebay_listing_mode', 'ebay_environment', 'ebay_location', 'ebay_postal_code']
         filtered_prefs = {k: v for k, v in preferences.items() if k in valid_keys}
 
@@ -332,6 +333,16 @@ def update_preferences() -> Response:
                 filtered_prefs['micro_card_size'] = size
             except (ValueError, TypeError):
                 return jsonify({'success': False, 'error': 'Invalid micro card size value'}), 400
+
+        # Validate session_timeout_minutes (5–120 minutes)
+        if 'session_timeout_minutes' in filtered_prefs:
+            try:
+                timeout = int(filtered_prefs['session_timeout_minutes'])
+                if timeout < 5 or timeout > 120:
+                    return jsonify({'success': False, 'error': 'Session timeout must be between 5 and 120 minutes'}), 400
+                filtered_prefs['session_timeout_minutes'] = timeout
+            except (ValueError, TypeError):
+                return jsonify({'success': False, 'error': 'Invalid session timeout value'}), 400
 
         # Validate eBay fields
         if 'ebay_format' in filtered_prefs:
