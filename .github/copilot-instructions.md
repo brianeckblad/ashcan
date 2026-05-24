@@ -29,9 +29,37 @@ Short forms are the primary triggers. Longer natural-language forms still work.
 | `ctx` / `show context` / `recall` / `what were we doing` | Read the file and summarize recent entries. |
 | `wipe` / `clear memory` / `start fresh` / `forget everything` | Truncate the file's **Sessions** section (keep the header), confirm what was cleared. |
 | `arc` / `archive memory` | Move all session entries to `.copilot/SESSION_NOTES.archive.md`, then clear. |
+| `gitp` / `git push` / `commit and push` | Stage all changes (`git add -A`), commit with a generated message, push to `origin/main`, then print the server update command (see below). |
+| `ucp` / `update copilot instructions` / `update instructions` | Review what was just built or decided in this session and append or update the relevant rules, patterns, and architecture notes in `.github/copilot-instructions.md`. Confirm what was added/changed. |
+| `synca` / `sync agents` / `sync instructions` | Copy all rules, trigger phrases, and architecture notes from `.github/copilot-instructions.md` into `AGENTS.md` so both files are identical in content. Confirm what was updated. |
 
-A short trigger (`ck`, `ctx`, `wipe`, `arc`) is a command only when it is the
+A short trigger (`ck`, `ctx`, `wipe`, `arc`, `gitp`, `ucp`, `synca`) is a command only when it is the
 entire user message. Inside a longer sentence, treat it as normal text.
+
+### `gitp` — Stage, Commit, Push, and Print Update Command
+
+When the user says `gitp` (or any natural-language equivalent):
+
+1. Run `git add -A` to stage all changes.
+2. Inspect `git diff --staged --stat` to summarize what changed.
+3. Write a conventional-commit message (no internal quotes) describing the changes.
+4. Commit using the simple `-m` form (or the `/tmp/msg.txt` file method for multi-line messages).
+5. Push to `origin/main`.
+6. Print the server update command so the user can copy-paste it:
+
+```bash
+cd deployment && ansible-playbook playbooks/update.yml --vault-password-file ~/.vault_pass
+```
+
+### `synca` — Sync AGENTS.md with Copilot Instructions
+
+When the user says `synca` (or any natural-language equivalent):
+
+1. Read `.github/copilot-instructions.md` (the source of truth).
+2. Read `AGENTS.md` to identify sections that are out of date or missing.
+3. Update `AGENTS.md` to match — trigger table, architecture notes, rules, and any new patterns added via `ucp`.
+4. Keep the `AGENTS.md` header (`# Agent Operational Guidelines`) and its opening note pointing back to this file.
+5. Confirm in chat what sections were updated.
 
 ### Proactively offer to checkpoint when
 

@@ -643,6 +643,18 @@
                     <input type="hidden" id="ebayEnvironment" value="production">
                 </div>
 
+                <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                    <button type="button" id="saveEbayEnvBtn" class="btn btn-secondary" onclick="saveEbayEnvironment()" style="flex: 1; border-color: var(--color-accent);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                        Save Environment
+                    </button>
+                </div>
+                <div id="ebayEnvMessage" style="display: none; padding: 8px 12px; border-radius: var(--radius-sm); font-size: 12px; margin-bottom: 12px;"></div>
+
                 <button type="button" class="btn btn-secondary" onclick="openEbayCredentialsModal()" style="width: 100%; border-color: var(--color-info);">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -1632,6 +1644,52 @@
             sandboxRadio.checked = true;
         } else if (normalized === 'production' && productionRadio) {
             productionRadio.checked = true;
+        }
+    }
+
+    async function saveEbayEnvironment() {
+        const btn = document.getElementById('saveEbayEnvBtn');
+        const messageEl = document.getElementById('ebayEnvMessage');
+        const originalText = btn.innerHTML;
+
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+
+        const env = document.getElementById('ebayEnvironment').value;
+
+        try {
+            const response = await fetch('/api/account/preferences', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': window.csrfToken
+                },
+                body: JSON.stringify({ preferences: { ebay_environment: env } })
+            });
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to save');
+            }
+
+            if (window.userPreferences) {
+                window.userPreferences.ebay_environment = env;
+            }
+
+            messageEl.textContent = `Environment set to ${env.charAt(0).toUpperCase() + env.slice(1)}`;
+            messageEl.style.display = 'block';
+            messageEl.style.background = 'var(--color-success-subtle)';
+            messageEl.style.border = '1px solid var(--color-success)';
+            messageEl.style.color = 'var(--color-success)';
+            setTimeout(() => { messageEl.style.display = 'none'; }, 3000);
+        } catch (error) {
+            messageEl.textContent = error.message;
+            messageEl.style.display = 'block';
+            messageEl.style.background = 'var(--color-danger-subtle)';
+            messageEl.style.border = '1px solid var(--color-danger)';
+            messageEl.style.color = 'var(--color-danger)';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
         }
     }
 

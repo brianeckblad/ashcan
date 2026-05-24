@@ -1,4 +1,4 @@
-# Agent Operational Guidelines
+a# Agent Operational Guidelines
 
 **Instructions for AI agents working on this project**
 
@@ -165,10 +165,13 @@ natural-language forms also work and can appear in any reasonable wording.
 
 | Phrase                                                     | Action |
 |------------------------------------------------------------|--------|
-| `ck`, ` you`, `save context`, `remember this`              | Append a new dated entry using the file's entry template. Set the date to current local time, set `<branch>` to `git branch --show-current`, summarize the active goal, decisions, files touched, open questions, and a one-line "next step". |
+nd | `ck`, `checkpoint`, `save context`, `remember this`        | Append a new dated entry using the file's entry template. Set the date to current local time, set `<branch>` to `git branch --show-current`, summarize the active goal, decisions, files touched, open questions, and a one-line "next step". |
 | `ctx`, `show context`, `recall`, `what were we doing`      | Read the file and summarize recent entries (1–3 most recent depending on density). Confirm understanding before proceeding with new work. |
 | `wipe`, `clear memory`, `start fresh`, `forget everything` | Truncate the **Sessions** section of the file. Keep the header (table, template, headings). Reply in chat with one line stating how many entries were cleared. |
 | `arc`, `archive memory`                                    | Append all current session entries to `.copilot/SESSION_NOTES.archive.md` (creating it if needed), then clear as above. |
+| `gitp`, `git push`, `commit and push`                      | Stage all changes (`git add -A`), commit with a generated message, push to `origin/main`, then print the server update command: `cd deployment && ansible-playbook playbooks/update.yml --vault-password-file ~/.vault_pass` |
+| `ucp`, `update copilot instructions`, `update instructions` | Review what was just built or decided and append or update the relevant rules, patterns, and architecture notes in `.github/copilot-instructions.md`. Confirm what was added/changed. |
+| `synca`, `sync agents`, `sync instructions`                | Copy all rules, trigger phrases, and architecture notes from `.github/copilot-instructions.md` into `AGENTS.md` so both files are identical in content. Confirm what was updated. |
 
 ### Entry template
 
