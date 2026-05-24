@@ -1,102 +1,791 @@
-a# Agent Operational Guidelines
+# Agent Operational Guidelines
 
 **Instructions for AI agents working on this project**
 
-> **Auto-loaded rules:** The critical rules from this file are also in
+> **Source of truth:** This file is synced from
 > [`.github/copilot-instructions.md`](.github/copilot-instructions.md),
 > which GitHub Copilot reads automatically at the start of every session.
+> Run `synca` after updating Copilot instructions so this file stays aligned.
 
 ---
+
+<!--
+  ╔══════════════════════════════════════════════════════════════════╗
+  ║  PART 1 — GENERAL WORKFLOW                                       ║
+  ║  Reusable rules that apply to any project.                       ║
+  ║  Copy this section verbatim to bootstrap a new repo.             ║
+  ╚══════════════════════════════════════════════════════════════════╝
+-->
+
+## Session Memory - READ FIRST EVERY SESSION
+
+AI agents have no memory between conversations, and connections time out. To
+bridge that, this repo keeps a `SESSION.md` file at the repo root that every
+agent reads at the start of every session and updates automatically as work
+progresses. The file persists until the user explicitly clears it, so a
+reconnect or new session picks up exactly where the last one left off.
+
+**File:** `SESSION.md` (repo root, gitignored — local working memory only)
+
+### At the start of every session
+
+1. Use the `read_file` tool to read `SESSION.md`.
+2. If it has a **Current Work** block, summarize it in 2–3 lines so the user
+   can confirm the context before starting new work.
+3. If the file is empty or missing, proceed normally — do not create it yet.
+
+### Automatic session maintenance (no trigger needed)
+
+The agent must keep `SESSION.md` current **without being asked**:
+
+- **After completing any significant unit of work** — feature added, bug fixed,
+  decision made, file edited — append or update the **Current Work** block.
+- **Before any risky or multi-step operation** — write the current state first
+  so a timeout mid-operation leaves a recoverable record.
+- **On reconnect** — read the file, confirm context with the user, then continue.
+
+The goal: if the connection drops at any moment, the next session can read
+`SESSION.md` and resume without the user re-explaining anything.
+
+### Trigger phrases the user can say
+
+Short forms are the primary triggers. Longer natural-language forms still work.
+
+| User says | Agent does |
+|-----------|------------|
+| `ck` / `checkpoint` / `save context` / `remember this` | Append a full dated checkpoint entry to `SESSION.md` using the entry template below. |
+| `ctx` / `show context` / `recall` / `what were we doing` | Read `SESSION.md` and summarize recent entries. |
+| `wipe` / `clear memory` / `start fresh` / `forget everything` | Truncate `SESSION.md` (keep the header template), confirm what was cleared. |
+| `arc` / `archive memory` | Move all session entries to `SESSION.archive.md`, then clear. |
+| `gitp` / `git push` / `commit and push` | Stage all changes (`git add -A`), commit with a generated message, push to `origin/main`, then print the server update command (see below). |
+| `ucp` / `update copilot instructions` / `update instructions` | Review what was just built or decided in this session and append or update the relevant rules, patterns, and architecture notes in `.github/copilot-instructions.md`. Confirm what was added/changed. |
+| `synca` / `sync agents` / `sync instructions` | Copy all rules, trigger phrases, and architecture notes from `.github/copilot-instructions.md` into `AGENTS.md` so both files are identical in content. Confirm what was updated. |
+| `evala` / `evaluate agents` / `evaluate instructions` | Evaluate AI instruction files for clean general vs app-specific separation. Move reusable practices to Part 1, app-only facts to Part 2, then run `synca`. |
+
+A short trigger (`ck`, `ctx`, `wipe`, `arc`, `gitp`, `ucp`, `synca`, `evala`) is a command only when it is the
+entire user message. Inside a longer sentence, treat it as normal text.
+
+### SESSION.md structure
+
+```markdown
+# Session Notes
+<!-- Gitignored. Read by all agents at session start. Updated automatically. -->
+<!-- Clear with: wipe | Clear and archive with: arc -->
+
+## Current Work
+**Goal:** one line describing what is being worked on right now.
+**Branch:** (git branch name)
+**Status:** in-progress | blocked | done
+
+**Recent progress:**
+- bullet — what was just completed
+- bullet — next up
+
+**Key decisions:**
+- bullet (or "none yet")
+
+**Files in play:**
+- path/to/file — why
+
+**Open questions / blockers:**
+- bullet (or "none")
+
+---
+
+## Checkpoints
+
+<!-- Full dated entries appended here by `ck` / auto-checkpoint -->
+```
+
+### `gitp` — Stage, Commit, Push, and Print Update Command
+
+When the user says `gitp` (or any natural-language equivalent):
+
+1. Run `git add -A` to stage all changes.
+2. Inspect `git diff --staged --stat` to summarize what changed.
+3. Write a conventional-commit message (no internal quotes) describing the changes.
+4. Commit using the simple `-m` form (or the `/tmp/msg.txt` file method for multi-line messages).
+5. Push to `origin/main`.
+6. Print the server update command so the user can copy-paste it (update this for your project):
+
+```bash
+cd deployment && ansible-playbook playbooks/update.yml --vault-password-file ~/.vault_pass
+```
+
+### `synca` — Sync AGENTS.md with Copilot Instructions
+
+When the user says `synca` (or any natural-language equivalent):
+
+1. Read `.github/copilot-instructions.md` (the source of truth).
+2. Read `AGENTS.md` to identify sections that are out of date or missing.
+3. Update `AGENTS.md` to match — trigger table, architecture notes, rules, and any new patterns added via `ucp`.
+4. Keep the `AGENTS.md` header (`# Agent Operational Guidelines`) and its opening note pointing back to this file.
+5. Confirm in chat what sections were updated.
+
+### `evala` — Evaluate Agent Instructions for General/App Separation
+
+When the user says `evala` (or any natural-language equivalent):
+
+1. Read `.github/copilot-instructions.md`, `AGENTS.md`, and any other local agent instruction files.
+2. Identify rules that are in the wrong layer:
+   - General engineering, security, design, workflow, or deployment-hardening practices sitting in app-specific sections.
+   - App names, file paths, cloud resources, exact commands, architecture diagrams, product/domain language, or app-only helper names sitting in reusable general sections.
+3. Move generalizable practices into **Part 1 — General Workflow**.
+4. Move project-only facts into **Part 2 — App-specific**.
+5. Remove duplicates, stale rules, and contradictions while preserving useful project facts.
+6. Run `synca` afterward so `AGENTS.md` matches `.github/copilot-instructions.md`.
+7. Confirm what moved from app-specific → general, what moved from general → app-specific, and what was removed.
+
+### Proactively offer to checkpoint when
+
+- A non-trivial decision was just made (architecture, library choice, abandoned approach).
+- The user is about to switch tasks or branches.
+- A long debugging session just resolved.
+
+---
+
+## IDE Diagnostic False Positives — Known Noise
+
+Before acting on any IDE diagnostic, identify its category.
+
+### Authoritative validators
+
+| Context | Real validator | IDE diagnostics |
+|---------|---------------|-----------------|
+| Python | `python3 -m py_compile file.py` | Mostly trustworthy, except Flask note below |
+| JS inside `.html` | `node --check extracted-js.js` | **High noise — do not chase** |
+
+### False positive categories (do NOT fix these)
+
+| Category | IDE message | Why it's false |
+|----------|-------------|----------------|
+| **JS template literals** | `Unused constant x` / `Expression expected` / `Closing '}' expected` | Variables used inside `${x}` are invisible to the HTML parser |
+| **Flask route returns** | `Expected type 'Response', got 'tuple[Response, int]'` | `(jsonify(...), 400)` IS correct Flask — JetBrains can't infer the union type |
+| **SVG self-closing tags** | `Empty tag doesn't work in some browsers` | `<path/>`, `<circle/>`, `<rect/>` are valid HTML5/SVG |
+| **onclick-wired params** | `Unused parameter x` | Functions called by HTML `onclick` — IDE can't see the caller |
+| **Missing label** | `Missing associated label` | Hidden inputs and internal state fields don't need visible labels |
+| **throw in try/catch** | `'throw' of exception caught locally` | Intentional re-throw pattern for error propagation |
+
+**Key rule:** `node --check` passing clean means JS is correct. IDE template errors in `.html`
+files are noise from the HTML parser misreading JS — ignore them.
+
+---
+
+## Shell Command Safety - CRITICAL
+
+### Never Output Jinja2 Braces Through the Terminal
+
+The zsh shell interprets `{{ }}` as glob patterns. Commands that output Jinja2 content will hang or produce empty output.
+
+```bash
+# BAD - causes empty output or hangs
+cat file_with_jinja.yml
+grep "pattern" file_with_jinja.yml
+
+# GOOD - use the read_file / grep_search tools instead (they bypass the shell)
+# GOOD - if terminal is required, use Python:
+python3 -c "print(open('file.yml').read()[:500])"
+```
+
+### Never Use Unquoted Heredocs with Dynamic Content
+
+```bash
+# BAD - shell interprets {{ }} and $vars, causes heredoc> hang
+cat > file.yml << EOF
+name: "{{ app_name }}"
+EOF
+
+# GOOD - single-quote the delimiter
+cat > file.yml << 'EOF'
+name: "{{ app_name }}"
+EOF
+
+# BEST - use Python or the insert_edit_into_file tool to write files
+```
+
+### Prefer Non-Terminal Tools
+
+| Task | Use This | Not This |
+|------|----------|----------|
+| Read a file | `read_file` tool | `cat` / `head` / `tail` in terminal |
+| Search in file | `grep_search` tool | `grep` in terminal |
+| Write / edit a file | `insert_edit_into_file` or `replace_string_in_file` tool | `cat > file << EOF` in terminal |
+| Verify edits applied | `read_file` tool | `cat file` in terminal |
+
+### If Terminal Hangs (no output, or dquote> / heredoc> / quote>)
+
+1. **Do NOT keep waiting** - it will not recover
+2. **Run a new terminal command** - the tool starts a fresh session
+3. **Switch to a non-terminal tool** to accomplish the task
+
+### Ansible Playbooks
+
+- Run with `isBackground: true` and retrieve output with `get_terminal_output` for long-running playbooks
+- Pipe short playbook runs through `2>&1` to capture all output
+
+---
+
+## Git Branching Rules
+
+**Default: do not create feature branches.** Commit directly to whatever branch
+the user is currently on (typically `main`). The user controls branching
+strategy — only create a branch when the user explicitly asks for one.
+
+If you genuinely believe a branch is warranted (large refactor, risky
+multi-step change), **ask before creating it** — do not create one preemptively.
+
+---
+
+## Git Commit Rules
+
+```bash
+# ALWAYS - simple messages, no internal quotes
+git commit -m "docs: add deployment guide"
+git commit -m "fix: correct IAM role permissions"
+
+# NEVER - nested quotes cause dquote> hangs
+git commit -m "docs: add 'comprehensive' guide"
+
+# FOR COMPLEX MESSAGES - use file method
+cat > /tmp/msg.txt << 'EOF'
+feat: multi-line commit message
+
+- Detail one
+- Detail two
+EOF
+git commit -F /tmp/msg.txt && rm /tmp/msg.txt
+```
+
+---
+
+## General Python Coding Standards
+
+- **Never `str(e)` in JSON responses** — use a safe error helper that sanitizes the client message and logs full detail server-side only.
+- **All imports at module level** — never inside functions, route handlers, or `except` blocks. Two allowed exceptions (both require a comment): `# Deferred: avoids circular import` and `# Deferred: requires app context`.
+- **Initialize before `try`** — any variable referenced in `except`/`finally` must be assigned before the `try` block, not inside it.
+- **Use Pythonic style** — follow PEP 8 and PEP 257. `snake_case` names, clear docstrings. Pragmatic exception: do not force line-length wrapping when the wrapped version is less readable; readability wins over strict character counts.
+- **Prefer named callables over inline `lambda`** — use `def` for any non-trivial logic.
+- **Use type hints where applicable** — annotate public functions/methods and complex return types.
+- **Format with `black` and sort imports with `isort`** — keep import order stable, but do not contort code solely to satisfy line length; extract a helper or named value when that improves readability.
+- **Catch specific exceptions first** — avoid broad `except Exception` unless you log and re-raise.
+- **No side effects at import time** — module import should define symbols only.
+- **No global mutable state** — avoid module-level mutable variables as implicit shared state; pass state explicitly or use a proper singleton.
+- **Use context managers** — use `with` for all resource management (files, locks, connections, DB sessions). Never manual cleanup.
+- **Fail fast, raise early** — validate inputs at boundaries and raise specific, descriptive exceptions immediately; don't let bad data propagate silently.
+- **Functions do one thing** — keep functions focused and short (≤50 lines is the guideline); extract helpers rather than growing a single function.
+- **Meaningful names** — avoid generic names like `data`, `temp`, `result`, `stuff`, `info`; name things by what they represent in the domain.
+- **Prefer built-ins and stdlib** — reach for `collections.Counter`, `collections.defaultdict`, `itertools.chain`, `functools` before writing equivalent loops.
+- **Prefer comprehensions** — use list/dict/set comprehensions over equivalent `for` loops that build a collection, when the result is readable.
+- **Pin dependencies** — lock exact versions in `requirements.txt`; use `pip-audit` to check for CVEs before each deployment.
+- **Virtual environments** — always develop inside a `venv`; never install project dependencies into the system Python.
+
+---
+
+## General JavaScript Coding Standards
+
+### Modal / Pending-State Lifecycle
+
+Confirm flows that mutate pending state must follow a strict single-owner pattern.
+The **confirm function** owns the full lifecycle: snapshot → execute → clean up.
+Executors never read or reset `pending*` / `bulk*` state directly.
+
+```javascript
+// GOOD — single owner, try/finally guarantees cleanup even on error
+async function confirmDelete() {
+    const sku = pendingAction.sku;   // 1. Snapshot state before any async work
+    try {
+        await executeDelete(sku);    // executor takes values as args
+    } finally {
+        pendingAction = { type: null, sku: null };  // always runs
+    }
+}
+
+// Cancel path clears immediately — no async, no try/finally needed
+function cancelDelete() {
+    pendingAction = { type: null, sku: null };
+    closeModal();
+}
+
+// Executor accepts values as parameters — never reads/resets global state
+async function executeDelete(sku) { ... }
+```
+
+### Declare Related State Variables Together
+
+All variables that form a single logical state group must be declared in one
+contiguous block at the top of their scope. Do not scatter or redeclare.
+
+```javascript
+// GOOD — all related state in one block
+let currentAction   = null;
+let selectedItems   = [];
+let scheduleDays    = 0;
+```
+
+### Use Registry Arrays for Grouped DOM Operations
+
+When multiple modals (or other elements) must be hidden/reset together, define a
+constant array of their IDs and iterate — do not duplicate calls across functions.
+
+```javascript
+const MODAL_IDS = ['confirmModal', 'selectionModal', 'actionModal'];
+
+function closeAllModals() {
+    MODAL_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+}
+```
+
+---
+
+## General Coding Workflow
+
+- Start from clear requirements; if scope is ambiguous, propose small options before implementing.
+- Prefer small, focused edits that preserve existing behavior unless a change is requested.
+- Keep naming and structure consistent with the current codebase.
+- There is no smoke test — validate Python changes with `python3 -m py_compile` and JS changes with `node --check`.
+- Highlight risks, assumptions, and missing data explicitly instead of silently guessing.
+- Optimize for maintainability: straightforward code paths, minimal side effects, clear data ownership.
+
+---
+
+## Senior Engineering Standards — Junior-Readable Code
+
+Write code the next developer can safely modify, even if they are new to the
+project. Senior-quality code is simple, explicit, tested, and boring in the best
+way.
+
+- **Clarity beats cleverness** — prefer obvious control flow over compressed tricks.
+- **Name by domain meaning** — use names that explain what a value represents, not its type (`listing_status`, not `data`).
+- **Explain why, not what** — comments should capture decisions, constraints, tradeoffs, and non-obvious edge cases.
+- **Keep public APIs predictable** — functions should validate inputs, return consistent shapes, and document side effects.
+- **Make errors actionable** — include enough context for logs/debugging without leaking secrets or internals to users.
+- **Minimize hidden coupling** — avoid magic globals, implicit file paths, import-time state, and order-dependent behavior.
+- **Prefer boring dependencies** — choose stdlib or already-present libraries unless a new dependency clearly pays for itself.
+- **Leave the code easier to review** — small diffs, focused functions, no unrelated formatting churn.
+- **Teach through structure** — when code has a pattern, extract a helper or registry so junior devs can follow one example.
+
+### Definition of done for code changes
+
+- Requirements are satisfied with the smallest maintainable change.
+- Edge cases and failure paths are handled intentionally.
+- Relevant validators/tests were run, or the reason they cannot run is stated.
+- Security checklist is satisfied: input validation, authorization, secrets/logging, dependency risk.
+- New or changed behavior is discoverable through names, docstrings, UI copy, or docs.
+
+---
+
+## General Secure Coding Baseline — All Apps
+
+Apply these rules to every app, CLI, worker, script, and service — not just web
+apps.
+
+- **Threat-model before coding** — identify inputs, trust boundaries, secrets, filesystem/network access, and destructive actions.
+- **Validate at boundaries** — parse and validate external input before it reaches business logic.
+- **Authorize server-side** — never trust a client-provided user, role, path, tenant, or account identifier for authorization.
+- **Keep secrets out of code** — use environment variables or a secrets manager; never commit `.env`, tokens, private keys, or decrypted vault data.
+- **Sanitize logs** — never log credentials, tokens, cookies, passwords, MFA codes, private URLs, or full auth request bodies.
+- **Avoid dangerous primitives** — no `eval`, `exec`, unsafe deserialization, shell interpolation, or raw SQL/XML/HTML string concatenation with user input.
+- **Use safe subprocess calls** — pass argument lists with `shell=False`; never concatenate user input into commands.
+- **Use timeouts for I/O** — network calls, subprocesses, locks, and long operations need explicit timeouts where supported.
+- **Fail closed** — malformed state, missing authorization, expired sessions, and invalid config should deny access, not guess permissively.
+- **Prefer least privilege** — credentials, IAM roles, file permissions, and API tokens should have only the access required.
+- **Audit dependencies** — pin versions and check for known CVEs before deployment.
+- **Handle destructive actions carefully** — require explicit confirmation, scope operations narrowly, and log enough metadata to audit without exposing secrets.
+
+---
+
+## Web App Security — General Rules
+
+Apply these rules to any Flask / Python web application. They are language and
+framework patterns, not project-specific policy.
+
+### Error responses — never leak internals
+
+Never return a raw exception message to the client. Use a sanitized error helper
+that returns a generic message to the caller and logs the full detail server-side:
+
+```python
+# BAD
+return jsonify({'error': str(e)}), 500
+
+# GOOD
+logger.exception("operation failed")
+return jsonify({'error': safe_error_message(e)}), 500
+```
+
+### Logging — never log sensitive material
+
+Never log: auth tokens, API keys, session cookies, third-party OAuth tokens,
+passwords, MFA codes, QR payloads, AWS/cloud credentials, or full request bodies
+for authentication endpoints.
+
+### Authentication fundamentals
+
+- Never hardcode credentials, API keys, or secrets in source code or committed config files.
+- Read all secrets from environment variables or a secrets manager — never from git-tracked files.
+- `SECRET_KEY` / session secret must be unique per deployment; auto-randomize in dev, require from secrets store in prod.
+- Session cookies in production: `HttpOnly=True`, `Secure=True`, `SameSite=Lax`, explicit lifetime.
+- Authorization is always derived from the server-side session — never from a request parameter, body field, or header claiming identity.
+
+### TOTP / 2FA — implementation rules
+
+- TOTP enrollment **must require the current password**. A stolen active session alone must not enroll an attacker-controlled authenticator.
+- TOTP setup secrets are short-lived. Clear pending setup state after success or expiry; never log TOTP secrets, QR payloads, or one-time codes.
+- Implement a two-step login flow: password success → `totp_pending`; valid TOTP code → `logged_in=True`.
+- Pending TOTP sessions must expire quickly (≤5 minutes), validate that the user still has TOTP enabled, and be rate-limited separately from password attempts.
+- Session timestamps (created, last-activity, TOTP pending) must be coerced/validated before arithmetic so malformed or legacy sessions fail closed.
+
+### Input validation
+
+- Validate every incoming field: required, type, explicit length cap, numeric range, allow-list of values.
+- Cap string lengths server-side — never rely on browser/client-side validation.
+- Reject unknown or unexpected fields rather than silently ignoring them.
+- Output encoding: template auto-escaping must always be on; never use `| safe` on user-controlled data.
+
+### File uploads
+
+- Sanitize every client-supplied filename with `werkzeug.utils.secure_filename()` before using it in a path or storage key.
+- Validate file content server-side (e.g., `PIL.Image.open(stream).verify()` for images) — do not trust file extension or `Content-Type` header.
+- Allow-list extensions and MIME types; deny-lists are incomplete.
+- Generate the stored filename (UUID, hash, or app-defined key) — never reuse the user-supplied filename in storage.
+- Enforce server-side size caps; catch decompression-bomb errors and return 400.
+
+### Path safety
+
+- Never build filesystem paths by string concatenation with user input — use `pathlib.Path` or `os.path.join` + `secure_filename`, then resolve and confine:
+  ```python
+  base = Path(allowed_dir).resolve()
+  target = (base / secure_filename(user_input)).resolve()
+  if not target.is_relative_to(base):
+      abort(400)
+  ```
+- Reject `..`, absolute paths, and null bytes from any user-supplied path component.
+
+### Security response headers
+
+Emit these on every response in production. If a reverse proxy (Nginx) also sets
+them, set them in only one place — duplicate headers confuse browsers:
+
+| Header | Value |
+|--------|-------|
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `DENY` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'` |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains; preload` (HTTPS only) |
+
+### Rate limiting & brute-force protection
+
+- Rate-limit login, registration, password-reset, and MFA verification endpoints separately from general API endpoints — they need tighter limits.
+- Auto-block IPs that hit repeated attack patterns; persist the block list so it survives app restarts.
+- Apply rate limiting at the reverse proxy layer (Nginx) and optionally also at the app layer for defense-in-depth.
+
+### Dependency & supply-chain security
+
+- Audit dependencies with `pip-audit` (Python) or `npm audit` (Node) before each deployment.
+- HIGH or CRITICAL CVE = deployment blocker; do not ship until resolved or explicitly accepted.
+- Do not add a new dependency without justification; prefer stdlib or already-present packages.
+
+---
+
+## Nginx / Reverse Proxy Hardening
+
+Apply these rules whenever deploying a web app behind Nginx (or any reverse proxy).
+
+### Never duplicate security headers
+
+The reverse proxy is the single source of truth for `X-Frame-Options`,
+`X-Content-Type-Options`, `Referrer-Policy`, `Content-Security-Policy`, and
+`Strict-Transport-Security`. If the app also emits them, browsers receive duplicate
+values and CSP/HSTS behavior becomes unpredictable. Pick one layer; emit from the other
+layer only in development.
+
+### server_tokens off — every server block
+
+```nginx
+# BAD — only on the HTTPS block; HTTP block still leaks nginx/1.24.0 (Ubuntu)
+server { listen 80; ... }  # no server_tokens here
+server { listen 443 ssl; server_tokens off; ... }
+
+# GOOD — every block that can respond to a request
+server { listen 80; server_tokens off; return 301 https://$host$request_uri; }
+server { listen 443 ssl; server_tokens off; ... }
+```
+
+### Remove the default site
+
+```bash
+rm /etc/nginx/sites-enabled/default
+```
+
+The default Ubuntu Nginx site answers unmatched `Host` headers and leaks version info.
+Remove it during setup — it is safe to remove on any dedicated app host.
+
+### HTTP → HTTPS redirect
+
+Every HTTP request must redirect to HTTPS. The redirect server block needs
+`server_tokens off` (see above) and nothing else:
+
+```nginx
+server {
+    listen 80;
+    server_name example.com;
+    server_tokens off;
+    return 301 https://$host$request_uri;
+}
+```
+
+### Rate zones
+
+Define Nginx rate zones for at minimum two tiers:
+
+```nginx
+# In http { } block
+limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;
+limit_req_zone $binary_remote_addr zone=api:10m   rate=60r/m;
+```
+
+Apply the tighter `login` zone to `/login`, `/register`, `/reset-password`, and any
+MFA verification endpoint. Apply `api` to the general app location.
+
+### Proxy timeout alignment
+
+Set `proxy_read_timeout` and `proxy_send_timeout` to just above the app/Gunicorn
+timeout — not several minutes longer. If Gunicorn times out at 120 s, set proxy
+timeouts to 125–130 s so failures surface predictably to the client.
+
+### client_max_body_size
+
+Align `client_max_body_size` with the app's `MAX_CONTENT_LENGTH`. If they differ,
+Nginx will silently drop oversized bodies before Flask can return a helpful error.
+
+---
+
+<!--
+  ╔══════════════════════════════════════════════════════════════════╗
+  ║  PART 2 — ASHCAN APP (project-specific)                          ║
+  ║  Rules, architecture, and patterns specific to this codebase.    ║
+  ║  Do not copy to other projects without review.                   ║
+  ╚══════════════════════════════════════════════════════════════════╝
+-->
 
 ## Project Context
 
-- **Stack:** Python 3.8+ / Flask 3.0+ web application
-- **Storage:** CSV files (inventory), AWS S3 (images), JSON (settings/preferences) — no database
-- **Deployment:** Ansible playbooks to AWS EC2 (Ubuntu 22.04), Gunicorn + Nginx + Systemd
-- **Shell:** zsh on macOS (development)
-- **Secrets:** AWS Secrets Manager in production; `.env` file for local dev (generated from vault)
-- **Deployment config:** `deployment/group_vars/vault.yml` (Ansible-vault encrypted, contains all variables)
-- **Vault access:** `ansible-vault view group_vars/vault.yml --vault-password-file ~/.vault_pass`
-- **S3 bucket name:** Comes from `s3_bucket_name` in vault (not derived from `app_name`)
-- **No tests:** The project has no test suite. There is no CI/CD pipeline.
+- **App name:** Ashcan — a comic book inventory and listing management tool
+- **Stack:** Python / Flask with Ansible deployment to AWS EC2
+- **Storage:** CSV files (inventory), AWS S3 (images + exports), JSON (user preferences) — no database
+- **Shell:** zsh on macOS
+- **Entry points:** `runapp.py` (web server), `main.py` (CLI batch/S3 utility)
+- **Deployment config:** `deployment/` directory with Ansible playbooks, group_vars, vault
+- **Ansible variables:** All configuration in encrypted `deployment/group_vars/vault.yml`
+- **Vault secrets:** Access with `ansible-vault view group_vars/vault.yml --vault-password-file ~/.vault_pass`
+- **Secrets in production:** AWS Secrets Manager at `ashcan/production` via `get_secret()` in `app/config.py`
+- **S3 bucket name:** Comes from `S3_BUCKET_NAME` in vault (not derived from `app_name`)
+- **Local dev:** Generate `.env` from vault via `deployment/scripts/local_dev_setup_env.py`, or fill in manually
+- **No test suite:** The project has no automated tests and no CI/CD pipeline
 
 ---
 
-## Architecture
+## Interaction Style
 
-### Entry points
+Think like a comic collector and seller:
+- Users manage inventory to sell on eBay and WhatNot
+- Prioritize friction-free listing flows over decorative UI changes
+- Keep bulk operations fast and reliable — sellers move high volume
+- Keep the dark yellow-accent design palette consistent; color communicates action state, not decoration
+- Emphasize data the seller needs: SKU, title, condition, price, listing status
 
-| Entry | Purpose |
-|-------|---------|
-| `runapp.py` | Web server (Flask app via `create_app()` factory) |
-| `main.py` | CLI tool for batch CSV processing, S3 image management |
+---
 
-### Application structure
+## Architecture Overview
 
 ```
-app/
-├── __init__.py          # App factory (create_app), logging, S3 sync on startup
-├── config.py            # Config classes (Dev/Prod), secrets from AWS Secrets Manager
-├── security.py          # IP blocklist, rate limiting, attack detection middleware
-├── models/              # Dataclasses (Comic, User, Snapshot, TrashItem, Analytics)
-│   └── user.py          # UserManager: auth, credentials, preferences (JSON file)
-├── routes/
-│   ├── auth.py          # login_required, csrf_required, sync_not_locked decorators
-│   ├── main.py          # Page routes (landing, browse, add, add-from-image, trash, download, price-lookup, account, ebay-listings, analytics)
-│   └── api/             # 11 API modules (67 routes), registered on api_bp at /api
-├── services/            # Business logic layer
-│   ├── comic_service.py # Comic CRUD orchestration (user-specific CSV + SKU)
-│   ├── csv_service.py   # CSV read/write with file locking
-│   ├── s3_service.py    # S3 uploads, thumbnails (WebP), sync, restore
-│   ├── ebay_service.py  # eBay API integration (search, listings, taxonomy)
-│   ├── snapshot_service.py  # Manual backup/restore to S3
-│   ├── trash_service.py     # Soft-delete with 30-day retention
-│   ├── health_check_service.py  # CSV ↔ S3 image consistency checks
-│   ├── cloudwatch_service.py    # CloudWatch metrics
-│   ├── sns_service.py           # SNS notifications
-│   ├── user_secrets_service.py  # Per-user eBay credentials in Secrets Manager
-│   └── analytics_service.py     # Click heatmap analytics
-├── scripts/             # App-level utility scripts (image checks, CSV validation, labels)
-├── utils/               # Helpers, validators, logging, monitoring decorators
-│   ├── user_context.py  # Multi-user file path resolution (CSV, SKU, S3, trash, exports)
-│   ├── logging_utils.py # Service/cleanup/app logger helpers
-│   ├── mass_deletion_protection.py  # Safety circuit breakers
-│   ├── whatnot_validators.py        # CSV field validation rules
-│   ├── ebay_validators.py          # eBay CSV export field definitions
-│   ├── ebay_helpers.py             # eBay description parsing helpers
-│   ├── defaults_helpers.py         # User preferences and app defaults
-│   ├── helpers.py                  # Filename generation, CSRF tokens, directory size
-│   ├── monitoring.py               # CloudWatch @monitor_endpoint decorator
-│   ├── sync_state.py              # Thread-safe singleton for S3 sync progress
-│   ├── csv_sanitizer.py           # CSV injection prevention (cell sanitization)
-│   └── upload_security.py         # Image upload validation helpers
-├── templates/           # Jinja2 HTML templates (10 pages)
-└── static/              # CSS, JS, images, error pages
+Browser
+  │
+  ▼
+Nginx  (SSL termination, static files, rate limiting, offline error pages)
+  │     deployment/templates/nginx.conf.j2 — rate zones, error_page → app/static/
+  ▼
+Gunicorn WSGI  (gunicorn.conf.py — workers=2×CPU+1, bind=127.0.0.1:8000)
+  │
+  ▼
+Flask app factory  create_app()  in  app/__init__.py
+  │   On startup: load .env (dev) or pull from AWS Secrets Manager (prod)
+  │   Sync user_preferences.json ↔ S3 (mtime wins)
+  │   Sync per-user items.csv and sku.txt ↔ S3 (newest/highest wins)
+  │   Cleanup expired trash items
+  │   Background thread: sync images + exports ↔ S3, then run health check
+  │
+  ├── app/security.py          before_request — IP blocklist, attack detection,
+  │                            global rate limit, periodic in-memory cleanup
+  │
+  ├── auth_bp     /login  /logout
+  ├── main_bp     /  /browse  /add  /add-from-image  /trash  /download
+  │               /price-lookup  /account  /ebay-listings  /analytics
+  └── api_bp      /api/**  (67 routes across 11 modules)
+        ├── admin.py          Admin settings and security (8 routes)
+        ├── analytics.py      Analytics tracking (1 route)
+        ├── comics.py         Comic CRUD operations (11 routes)
+        ├── ebay.py           eBay listing operations (10 routes)
+        ├── ebay_listings.py  eBay account listings management (3 routes)
+        ├── ebay_search.py    eBay price lookup and search (4 routes)
+        ├── ebay_taxonomy.py  eBay category/taxonomy operations (4 routes)
+        ├── account.py        User account management (13 routes)
+        ├── snapshots.py      Snapshot operations (4 routes)
+        ├── system.py         System stats and utilities (6 routes)
+        └── trash.py          Trash management (3 routes)
 ```
 
-### Key patterns
+---
 
-- **App factory:** `create_app(config_name)` in `app/__init__.py` — handles config, logging, security, S3 sync, blueprint registration.
-- **Blueprints:** Three blueprints — `auth_bp`, `main_bp`, `api_bp` (mounted at `/api`). API routes split into 11 domain modules in `app/routes/api/`.
-- **Service singletons:** Most services are module-level instances (`s3_service`, `comic_service`, `ebay_service`). Import and use directly; do not re-instantiate.
-- **Multi-user isolation:** Each user gets their own subdirectory (`instance/data/{username}/`) containing `items.csv`, `sku.txt`, snapshots, trash, exports, and images. Use `app/utils/user_context.py` helpers.
-- **Secret precedence:** AWS Secrets Manager → environment variable → default value (see `get_secret()` in `config.py`).
-- **Logging:** Three dedicated loggers — `app.logger` (app.log), `service` (service.log), `cleanup` (cleanup.log). Use helpers from `app/utils/logging_utils.py`.
-- **Authentication:** Session-based via `login_required` decorator in `app/routes/auth.py`. Sessions invalidated on app restart. Additional decorators: `csrf_required`, `sync_not_locked`, `disk_space_required`.
-- **User management:** `UserManager` in `app/models/user.py` — credentials and preferences stored in `instance/user_preferences.json`, synced to S3.
-- **Startup sync:** On boot, the app factory syncs SKU (highest-wins), CSV inventory, and user preferences between local files and S3. Images/exports sync in a background thread, followed by a health check.
-- **Version injection:** `inject_version()` context processor reads `instance/app_version` (set by deploy), falls back to `git rev-list --count HEAD`.
+## Key File Roles (never mix these)
 
-### Local development
+| File | Role |
+|------|------|
+| `app/__init__.py` | App factory, startup S3 sync, blueprint registration, eBay cache init, version injection |
+| `app/config.py` | All config via `get_secret()` — never read `os.environ` directly in routes |
+| `app/security.py` | IP blocklist, attack detection, global rate limit, cleanup sweep |
+| `app/routes/auth.py` | `auth_bp`, `login_required`, `csrf_required`, `admin_required`, `sync_not_locked`, `disk_space_required` |
+| `app/routes/api/` | Thin route handlers — validate input, call services, return JSON |
+| `app/services/comic_service.py` | Comic CRUD orchestration (user-specific CSV + SKU) |
+| `app/services/csv_service.py` | CSV read/write with file locking; all CSV writes go here |
+| `app/services/s3_service.py` | S3 uploads, thumbnail generation (WebP), sync, restore |
+| `app/services/ebay_service.py` | eBay API integration (search, list, end, relist, taxonomy) |
+| `app/services/snapshot_service.py` | Manual backup/restore to S3 |
+| `app/services/trash_service.py` | Soft-delete with 30-day retention |
+| `app/services/health_check_service.py` | CSV ↔ S3 image consistency checks, orphan cleanup |
+| `app/models/user.py` | `UserManager`: credentials, preferences, admin flag — stored in `instance/user_preferences.json` |
+| `app/utils/user_context.py` | Per-request path resolution: `get_user_csv_file()`, `get_user_image_dir()`, `get_user_sku_file()`, etc. |
+| `app/utils/logging_utils.py` | `safe_error_message(exc)` — **always use this in error responses, never `str(e)`** |
+| `app/utils/csv_sanitizer.py` | CSV injection prevention (prefix `=`, `+`, `-`, `@` cells) |
+| `app/utils/upload_security.py` | Image upload validation helpers |
+| `app/utils/helpers.py` | `generate_csrf_token()`, filename generation, directory size |
+| `app/utils/sync_state.py` | Thread-safe singleton for S3 sync progress / cross-worker lock |
 
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-# Generate .env from vault (requires ansible-vault):
-cd deployment && python scripts/local_dev_setup_env.py && cd ..
-# Or create .env manually (see README.md)
-python runapp.py   # http://localhost:8000
+---
+
+## Multi-User Architecture
+
+- `app/models/user.py` (`UserManager`) owns all user CRUD: `create_user`, `delete_user`, `update_password`, `credentials_valid`, `list_users`, `is_admin`.
+- User preferences and credentials stored in `instance/user_preferences.json`, synced to S3.
+- Per-user data lives at `instance/data/{username}/`:
+  `items.csv`, `sku.txt`, `snapshots/`, `trash/`, `exports/`, and per-user images on S3.
+- **All route handlers that need per-user paths** must use helpers from `app/utils/user_context.py`
+  (`get_user_csv_file`, `get_user_sku_file`, `get_user_image_dir`, `get_user_trash_dir`, etc.)
+  — never hand-craft `instance/data/{username}/...` strings manually.
+- Username rules: 3–32 chars, alphanumeric + underscore + hyphen, validated by `validate_username()` in `app/routes/auth.py`.
+- Authorization is always derived from `session['username']` — never from request parameters.
+
+### Startup sync order
+
+1. Sync `user_preferences.json` ↔ S3 (mtime wins; safety check if local has more users)
+2. Load `UserManager` from the synced preferences to discover registered users
+3. For each user: sync `sku.txt` (highest value wins), sync `items.csv` (newest mtime wins)
+4. Background thread: sync images + exports ↔ S3, then run `HealthCheckService`
+
+---
+
+## Security Architecture
+
+### Layer stack (outermost to innermost)
+
+1. **Nginx** — SSL/TLS (TLS 1.2+), request body limit, static file serving, rate zones, offline error pages
+2. **`app/security.py` `_security_gate`** — IP blocklist (persistent JSON), regex attack-pattern detection, auto-block after 5+ hits/60 s, global app-layer rate limit
+3. **`app/routes/auth.py` decorators** — `login_required` (session check + restart invalidation), `csrf_required` (POST/PUT/DELETE), `admin_required`, `sync_not_locked`, `disk_space_required`
+4. **Input validation** — every field validated in route handlers before touching storage
+5. **Service layer** — `csv_service.py` file locking; `csv_sanitizer.py` on writes; `upload_security.py` on image uploads
+
+### Authorization decorators (`app/routes/auth.py`)
+
+| Decorator | Effect |
+|-----------|--------|
+| `login_required` | Returns 401/redirect if session absent; invalidates pre-restart sessions |
+| `csrf_required` | Returns 403 if X-CSRF-Token header or `_csrf_token` form field does not match session token on POST/PUT/DELETE |
+| `admin_required` | Returns 403 if session user is not admin |
+| `sync_not_locked` | Returns 503 if S3 sync is currently running |
+| `disk_space_required` | Returns 507 if disk is below threshold |
+
+Stack decorators after the route decorator:
+
+```python
+@api_bp.post("/comic/<sku>")
+@login_required
+@csrf_required
+def update_comic(sku):
+    ...
 ```
+
+### CSRF pattern
+
+`app/utils/helpers.py` `generate_csrf_token()` is registered as a Jinja2 global.
+`base.html` injects it as a `<meta name="csrf-token">` and in a JS variable.
+All state-changing JS calls add `X-CSRF-Token` from that variable.
+`@csrf_required` compares the session token against `request.headers.get('X-CSRF-Token')` or `request.form.get('_csrf_token')`.
+
+---
+
+## Persistence Expectations
+
+- `instance/data/{username}/items.csv` is the canonical per-user inventory record.
+- All CSV writes go through `csv_service.py` — never `open(csv_path, 'w')` directly from a route.
+- `instance/user_preferences.json` holds all user credentials and preferences; synced to S3 on every write.
+- Images stored on S3 under `{S3_FOLDER}/{username}/images/`; thumbnails generated as WebP.
+- `instance/data/` and log directories are gitignored — never commit them.
+
+### Snapshot service
+
+Snapshots are per-user ZIPs uploaded to S3 at `{S3_FOLDER}/{username}/snapshots/`.
+Routes: `POST /api/snapshots` (create), `GET /api/snapshots` (list),
+`POST /api/snapshots/<id>/restore`, `DELETE /api/snapshots/<id>`.
+
+### Trash service
+
+Deleted comics go to `instance/data/{username}/trash/recent/` for 30-day soft-delete.
+`TrashService.cleanup_expired()` runs on startup for each registered user.
+
+---
+
+## Adding a New Feature — Checklist
+
+1. **Route**: add to the appropriate `app/routes/api/*.py` module.
+   - Decorate with `@login_required` (and `@csrf_required` for state-changing methods).
+   - If admin-only, also add `@admin_required`.
+   - Use `user_context` helpers for all per-user paths — never build them manually.
+   - Return errors via `safe_error_message(exc)`, never `str(e)`.
+2. **Register**: add an import in `app/routes/api/__init__.py` if creating a new module.
+3. **Service**: if new business logic, put it in `app/services/` not in the route handler.
+4. **Validation**: validate all input fields (type, length, range, allow-list) before storage.
+5. **Security checklist**: run through the pre-commit security checklist in `AGENTS.md`.
+6. **Instructions**: update this file if the architecture or a decision pattern changes.
+
+---
+
+## Production Deployment
+
+General Nginx hardening rules (server_tokens, headers, rate zones, default site removal) are in Part 1.
+The entries below are Ashcan-specific deployment details.
+
+### Gunicorn (`deployment/templates/supervisor.conf.j2`)
+
+- Bind only to `127.0.0.1:{gunicorn_port}`; Nginx is the public edge.
+- Shared-server default: `gunicorn_workers=1`, `gunicorn_threads=4`, `gunicorn_timeout=120`.
+- Recycle workers with `--max-requests 1000` and `--max-requests-jitter 100`.
+- Logs to `LOG_DIR/app.log` and `LOG_DIR/error.log` (set by Systemd service).
+- `--forwarded-allow-ips 127.0.0.1` — only trust X-Forwarded-For from Nginx.
+
+### Nginx (`deployment/templates/nginx.conf.j2`)
+
+- `client_max_body_size` = 96 MB (aligned with Flask `MAX_CONTENT_LENGTH` for multi-image uploads).
+- API `proxy_read_timeout` / `proxy_send_timeout` = 125 s (just above `gunicorn_timeout=120`).
+- In production, Nginx owns all security headers — Flask's `app/security.py` skips header injection in production to avoid duplicates.
+
+### Version (`inject_version()` context processor in `app/__init__.py`)
+
+Lookup order: `instance/app_version` file → `git rev-list --count HEAD` (+850 offset) → `"unavailable"`.
+Injected into every template as `{{ app_version }}` and `{{ app_version_display }}`.
 
 ### Deployment commands
 
@@ -112,677 +801,86 @@ ansible-playbook playbooks/update.yml --vault-password-file ~/.vault_pass
 
 ---
 
-## Session Memory — Cross-Conversation Continuity
+## Flask Security Rules — Ashcan-Specific
 
-### Why this exists
+The general rules (error responses, logging, auth, headers, rate limiting) are in
+Part 1. The entries below are the Ashcan-specific implementations of those rules.
 
-AI coding agents (Copilot, Claude, Cursor, etc.) have **no memory between
-chat sessions**. Every new conversation starts blank — the agent has no idea
-what was decided yesterday, which approach was already tried and abandoned, or
-what branch the work was on.
+### File uploads (Ashcan limits)
 
-To bridge that gap without bloating git history, this repo uses a single local
-session-notes file the agent reads at session start and appends to on request.
+- Per-file cap: **10 MB**; `MAX_CONTENT_LENGTH` = **96 MB** for multi-image batches.
+- Allowed extensions: `.jpg`, `.jpeg`, `.png`, `.webp` only.
+- Catch `PIL.UnidentifiedImageError` and `PIL.Image.DecompressionBombError` → return 400.
+- Use `app/utils/upload_security.py` helpers at every upload site.
 
-### The file
+### Path handling (Ashcan)
 
-| Path | `.copilot/SESSION_NOTES.md` |
-|------|------------------------------|
-| Tracked? | **No** — gitignored. Local to each developer's checkout. |
-| Purpose | Cross-session working memory for AI agents. Not a project log. |
-| Lifecycle | The developer controls it via trigger phrases (below). |
-| Archive | On `archive memory`, contents move to `.copilot/SESSION_NOTES.archive.md` (also gitignored). |
+- Use `app/utils/user_context.py` helpers for all per-user paths — never hand-craft `instance/data/{username}/...` strings.
+- `_assert_safe_username()` in `user_context.py` guards all path construction; it rejects `..`, absolute paths, and null bytes.
+- Never accept a `username` from request body, query string, or header for authorization — use `session['username']` only.
 
-The file itself contains the full convention and entry template. Read it.
+### Secrets (Ashcan)
 
-### Agent rules
+- All secrets via `get_secret()` in `app/config.py` (Secrets Manager → env var → default).
+- Per-user third-party credentials live in AWS Secrets Manager via `app/services/user_secrets_service.py` — never write them to CSV, JSON, logs, or responses.
 
-**At session start:**
+### Error responses (Ashcan helper)
 
-1. Use the `read_file` tool to read `.copilot/SESSION_NOTES.md` if it exists.
-2. If it has entries, summarize the most recent 1–2 to the user in 2–3 lines
-   before starting new work, so they can confirm the context.
-3. If the file is empty or missing, proceed normally — do not create it
-   unsolicited.
+- Use `safe_error_message(exc)` from `app/utils/logging_utils.py` in every `jsonify` error response.
 
-**During the session, proactively offer to checkpoint when:**
+### Input encoding (Ashcan)
 
-- A non-trivial architectural / library / approach decision was just made.
-- An approach was tried and abandoned (record *why* so the next session
-  doesn't redo it).
-- The user is about to switch branches or tasks.
-- A long debugging session just resolved.
+- Jinja2 auto-escaping is always on — never use `{{ value|safe }}` on user-controlled data.
+- CSV cell values must go through `app/utils/csv_sanitizer.py` before write (prefixes `=`, `+`, `-`, `@` cells to prevent spreadsheet injection).
 
-A proactive offer is one short sentence: *"Want me to checkpoint this before
-we move on?"* — never write to the file without permission **except** when
-the user uses an explicit trigger phrase below.
+### CSP technical debt
 
-### Trigger phrases (developer → agent)
-
-Short forms are the primary triggers and only count as commands when they are
-the entire user message (so `ck` inside a sentence is just text). The longer
-natural-language forms also work and can appear in any reasonable wording.
-
-| Phrase                                                     | Action |
-|------------------------------------------------------------|--------|
-nd | `ck`, `checkpoint`, `save context`, `remember this`        | Append a new dated entry using the file's entry template. Set the date to current local time, set `<branch>` to `git branch --show-current`, summarize the active goal, decisions, files touched, open questions, and a one-line "next step". |
-| `ctx`, `show context`, `recall`, `what were we doing`      | Read the file and summarize recent entries (1–3 most recent depending on density). Confirm understanding before proceeding with new work. |
-| `wipe`, `clear memory`, `start fresh`, `forget everything` | Truncate the **Sessions** section of the file. Keep the header (table, template, headings). Reply in chat with one line stating how many entries were cleared. |
-| `arc`, `archive memory`                                    | Append all current session entries to `.copilot/SESSION_NOTES.archive.md` (creating it if needed), then clear as above. |
-| `gitp`, `git push`, `commit and push`                      | Stage all changes (`git add -A`), commit with a generated message, push to `origin/main`, then print the server update command: `cd deployment && ansible-playbook playbooks/update.yml --vault-password-file ~/.vault_pass` |
-| `ucp`, `update copilot instructions`, `update instructions` | Review what was just built or decided and append or update the relevant rules, patterns, and architecture notes in `.github/copilot-instructions.md`. Confirm what was added/changed. |
-| `synca`, `sync agents`, `sync instructions`                | Copy all rules, trigger phrases, and architecture notes from `.github/copilot-instructions.md` into `AGENTS.md` so both files are identical in content. Confirm what was updated. |
-
-### Entry template
-
-```markdown
-## YYYY-MM-DD HH:MM — <branch> — <topic>
-
-**Goal:** one line.
-
-**Decisions:**
-- bullet
-- bullet
-
-**Files touched:**
-- path/to/file — one-line reason
-
-**Open questions / TODOs:**
-- bullet (or "none")
-
-**Next step:** one sentence the next session can act on.
-```
-
-Density rule: another instance of you, three days from now, with no memory,
-must be able to resume from a single entry. Optimize for *resumability*, not
-narrative.
-
-### Anti-patterns
-
-- ❌ Writing to the file without an explicit trigger phrase or proactive
-  permission. The user's working memory is theirs to control.
-- ❌ Treating session notes as project documentation. Real decisions that
-  matter to the project belong in `deployment/docs/` or commit messages.
-- ❌ Logging secrets, tokens, or full file contents into entries. The file
-  is gitignored but still lives on disk — apply the same hygiene as logs.
-- ❌ Reading the file in the middle of a session "just in case" — read it
-  once at session start.
+Existing Ashcan templates still require `'unsafe-inline'` in `style-src`. This is
+tech debt — do not add new inline scripts or styles. Move new behavior into static
+assets or a nonce-based CSP migration.
 
 ---
 
-## IDE Diagnostic False Positives — Known Noise
-
-JetBrains (and some other IDEs) report hundreds of `WARNING(300)` and `ERROR(400)` entries
-in this project that are **not real problems**. Before acting on any IDE diagnostic, confirm
-whether it falls into one of the known false-positive categories below. Only consult the
-authoritative validators.
-
-### Authoritative validators (what actually matters)
-
-| Language / context | Authoritative check | IDE diagnostics? |
-|--------------------|---------------------|-----------------|
-| Python | `python3 -m py_compile <file>` + `black --check` + `isort --check` | Mostly trustworthy, but see Flask note below |
-| JavaScript inside `.html` templates | `node --check <extracted-js-file>` | **High noise — see below. Do not chase.** |
-| Jinja2 / HTML structure | Manual review | Mostly trustworthy |
-
-### Category 1 — JS template literals in HTML files (highest volume)
-
-JetBrains' HTML parser does not understand JavaScript template literals (`` `...${expr}...` ``).
-It reports every variable used *only* inside a `${}` expression as **"Unused constant"** /
-**"Local variable is redundant"**, and reports the `${}` expressions themselves as
-**"Expression expected"** / **"Closing '}' expected"** / **"Newline or semicolon expected"**.
-
-These warnings are **always false positives** in `.html` template files. The real test is
-`node --check` — if that passes, the JS is syntactically correct.
-
-**Never delete or rename a variable just because the IDE flags it as unused inside an HTML
-template. Check whether it is used inside a template literal first.**
-
-Examples of false positives (all pre-existing in `index.html`, `comics_list.html`, etc.):
-- `WARNING(300): Unused constant title` when `title` is used as `${title}` in a template literal
-- `ERROR(400): Expression expected` on a line like `` ${condition ? `<div>…</div>` : ''} ``
-- `WARNING(300): Local variable data is redundant` when `data` is used inside a `.then()` or template literal
-
-### Category 2 — Flask route return type warnings
-
-Every Flask route that returns `(jsonify({...}), 400)` gets:
-
-```
-WARNING(300): Expected type 'Response', got 'tuple[Response, int]' instead
-```
-
-This is a **JetBrains false positive**. `(jsonify(...), status_code)` IS the correct Flask
-pattern. JetBrains does not model Flask's response coercion correctly. These warnings appear
-in every one of the 11 API route files and are harmless. **Do not add `make_response()` wrappers
-just to silence them** — it adds boilerplate and visual noise with no benefit.
-
-### Category 3 — SVG self-closing tags
-
-```
-WARNING(300): Empty tag doesn't work in some browsers
-```
-
-Raised on every `<path/>`, `<circle/>`, `<rect/>`, `<line/>`, `<polyline/>` etc. in inline SVG.
-Self-closing SVG elements **are** valid HTML5. These are standard SVG icons used throughout
-the app. Ignore entirely.
-
-### Category 4 — `throw` of exception caught locally
-
-```
-WARNING(300): 'throw' of exception caught locally
-```
-
-JetBrains warns when a `throw` is inside a `try` whose own `catch` will catch it. This pattern
-is intentional in several places (e.g., re-throwing after logging, or surfacing errors through
-a promise chain). Evaluate each instance in context — most are deliberate, not bugs.
-
-### Category 5 — Missing associated label
-
-```
-WARNING(300): Missing associated label
-```
-
-Reported for hidden inputs (`type="hidden"`), `datetime-local` pickers inside modals, and
-`<textarea>` elements used as internal editor state. These do not need visible labels.
-Only add `<label>` where the element is a user-visible form field without one.
-
-### Category 6 — Unused parameters in onclick-wired functions
-
-```
-WARNING(300): Unused parameter sku
-```
-
-Functions called from HTML `onclick="fn(sku)"` receive parameters that may not be referenced
-in the function body (the function reads state from a global or `sessionStorage` instead).
-The IDE can't see the caller is HTML, so it flags the parameter as unused. These are not bugs.
-
-### Pre-commit validation — the correct process
-
-1. **Python files:** `python3 -m py_compile app/path/to/file.py` — zero output = clean
-2. **JS inside HTML:** Extract the `<script>` block to `/tmp/check.js`, run `node --check /tmp/check.js`
-   - For large templates with multiple script blocks, validate each relevant block (or a merged extract) so parser noise does not hide real syntax errors.
-3. **After confirming clean syntax**, run `black` and `isort` on Python files
-4. **IDE warnings** are informational only in HTML files — do not block a change on them
-
----
-
-## Shell Command Safety - CRITICAL
-
-### Problem
-Commands containing `{{ }}` (Jinja2), nested quotes, or heredocs cause the terminal to hang
-waiting for input (`dquote>`, `heredoc>`, `quote>`). The agent cannot type interactively,
-so the session freezes and the user must Ctrl-C to recover.
-
-### Rule: Never Output Jinja2 Braces Through the Terminal
-
-The zsh shell interprets `{{ }}` as glob patterns. Any command that outputs Jinja2 content
-through the shell will hang or produce empty output.
-
-```bash
-# BAD - shell interprets {{ }} braces
-cat file_with_jinja.yml
-grep "pattern" file_with_jinja.yml
-echo "{{ app_name }}"
-
-# GOOD - use read_file / grep_search tools instead (they bypass the shell)
-
-# GOOD - if terminal is required, use Python
-python3 -c "print(open('file.yml').read()[:500])"
-```
-
-### Rule: Never Use Unquoted Heredocs with Dynamic Content
-
-```bash
-# BAD - heredoc interprets variables and braces, causes heredoc> hang
-cat > file.yml << EOF
-name: "{{ app_name }}"
-EOF
-
-# GOOD - single-quote the delimiter to prevent interpretation
-cat > file.yml << 'EOF'
-name: "{{ app_name }}"
-EOF
-
-# BEST - use Python or the insert_edit_into_file tool
-```
-
-### Rule: Prefer Non-Terminal Tools
-
-| Task | Use This | Not This |
-|------|----------|----------|
-| Read a file | `read_file` tool | `cat` / `head` / `tail` in terminal |
-| Search in file | `grep_search` tool | `grep` in terminal |
-| Write / edit a file | `insert_edit_into_file` or `replace_string_in_file` tool | `cat > file << EOF` in terminal |
-| Verify edits applied | `read_file` tool | `cat file` in terminal |
-
-**When you must use the terminal** (running commands, playbooks, aws cli):
-- Pipe through `| cat` to avoid pagers
-- Use `2>&1` to capture stderr
-- Run long commands with `isBackground: true`
-
-### Rule: If Terminal Hangs (dquote>, heredoc>, quote>)
-
-If the terminal produces no output or you suspect it is stuck:
-
-1. **Do NOT keep waiting** - the session will not recover on its own
-2. **Run a new terminal command** - the tool starts a fresh session
-3. **Switch to a non-terminal tool** (read_file, grep_search, insert_edit_into_file)
-4. **Re-validate** using the appropriate tool after recovering
-
----
-
-## Git Branching Workflow
-
-### Default: do NOT create feature branches
-
-Commit changes directly to whatever branch the user is currently on
-(typically `main`). The user owns branching strategy. The agent should
-**only** create a feature branch when the user explicitly asks for one with
-unambiguous wording such as:
-
-- *"create a branch for this"*
-- *"new feature branch for X"*
-- *"work on this in a branch"*
-- *"branch this"*
-
-Words like *"try"*, *"experiment"*, *"see if"*, or any planning-style language
-do **not** authorize a new branch. When in doubt, work on the current branch.
-
-### When the agent thinks a branch is warranted
-
-If the change is large, risky, multi-step, or exploratory enough that the
-agent honestly believes a branch is the right call (large refactor, schema
-migration, parallel approach exploration), **ask the user first** — do not
-create the branch preemptively. One short question:
-
-> *"This is a sizeable change — want me to do it on a feature branch, or stay on `main`?"*
-
-### Never auto-merge or auto-push
-
-- Never merge a branch into `main` without an explicit instruction.
-- Never push to `origin` without an explicit instruction.
-- Never delete a branch (local or remote) without an explicit instruction.
-
-### Why this rule exists
-
-Past sessions defaulted to creating a feature branch for every non-trivial
-change. That added rebase / merge / push / delete steps the user did not
-ask for, fragmented commit history, and made the workflow heavier than the
-user wanted. The user prefers small, direct commits on the current branch
-unless they explicitly request branching.
-
----
-
-## Git Commit Workflow - CRITICAL
-
-### Problem Solved
-The project experienced recurring `dquote>` console errors when making git commits. This has been analyzed and resolved.
-
-### Rule 0: Split multi-file UI work by feature
-
-When a UI change spans multiple files with distinct behaviors, prefer separate commits per feature area (for example: add-flow, bulk-flow, shared-style).
-
-- Keeps review and rollback low-risk
-- Prevents unrelated template/CSS churn from being bundled together
-- Makes future audits of behavior changes much faster
-
-
-### Rule 1: Keep Git Commit Messages Simple (Primary Method)
-
-**ALWAYS use simple commit messages without internal quotes:**
-
-```bash
-# GOOD - Simple messages work perfectly
-git commit -m "docs: add deployment guide"
-git commit -m "fix: correct CloudWatch permissions"
-git commit -m "feat: add validation script"
-git commit -m "docs: update MAINTENANCE_CHECKLIST for quarterly reviews"
-
-# BAD - These cause dquote> errors
-git commit -m "docs: add 'comprehensive' guide"
-git commit -m "fix: update 'CloudWatch' 'permissions'"
-git commit -m "docs: update 'guide' with 'new' features"
-```
-
-**Why?**
-- No quote escaping needed
-- Shell interprets message correctly
-- Console shows clean output
-- Commits go through immediately
-
-### Rule 2: For Complex Messages, Use File Method (Backup Method)
-
-**If you need multi-line or complex messages, use commit message file:**
-
-```bash
-# Create message file with complex content
-cat > /tmp/commit_msg.txt << 'EOF'
-docs: comprehensive documentation update
-
-Added new guides:
-- UPDATING_APPLICATION.md: Deploy code changes
-- SECURITY_HARDENING.md: Secure your server
-- GIT_CONFIGURATION.md: Git workflow and configuration
-
-All links verified with 100% accuracy.
-EOF
-
-# Commit using file (avoids ALL quote issues)
-git commit -F /tmp/commit_msg.txt
-
-# Clean up
-rm /tmp/commit_msg.txt
-```
-
-**Why this method?**
-- No shell interpretation of file contents
-- No quotes to escape
-- Multi-line messages work perfectly
-- Special characters handled correctly
-- Always works, never fails
-
-### Rule 3: NEVER Nest Quotes in -m Parameter
-
-```bash
-# NEVER DO THIS
-git commit -m "docs: update 'guide' to 'version 2'"
-git commit -m "docs: add 'comprehensive' setup with 'best' practices"
-git commit -m "fix: handle 'special' 'characters' correctly"
-
-# DO THIS INSTEAD
-git commit -m "docs: update guide to version 2"
-git commit -m "docs: add comprehensive setup with best practices"
-git commit -m "fix: handle special characters correctly"
-
-# OR use file method if you really need quotes
-```
-
-### Rule 4: If dquote> or heredoc> Appears
-
-If you see `dquote>`, `heredoc>`, or `quote>` in console output:
-
-1. **Stop immediately** - do not send more text
-2. **Run a new terminal command** - the tool starts a fresh session
-3. **Use the file method** for the failed operation
-4. **See also:** [Shell Command Safety](#shell-command-safety---critical) for prevention rules
-
-```bash
-# Recovery: Use file method for git
-cat > /tmp/msg.txt << 'EOF'
-Your message here without worrying about quotes
-EOF
-git commit -F /tmp/msg.txt && rm /tmp/msg.txt
-```
-
----
-
-## Workflow Checklist
-
-Before committing, verify:
-
-- [ ] Using simple message format (no internal quotes)
-  - OR using file method for complex messages
-- [ ] Message is descriptive (tells what changed, not how)
-- [ ] No 'quotes' inside the -m "message" parameter
-- [ ] Related files staged with git add
-- [ ] Running from project root directory
-
----
-
-## Example Good Commits
-
-```bash
-# Fix
-git commit -m "fix: correct CloudWatch IAM policy name"
-
-# Docs
-git commit -m "docs: add comprehensive deployment guide"
-
-# Feature
-git commit -m "feat: add automated validation script"
-
-# Refactor
-git commit -m "refactor: simplify git commit handling"
-
-# Multiple changes (keep simple)
-git commit -m "docs: add guides and maintenance system"
-```
-
----
-
-## Example Bad Commits (Will Cause dquote>)
-
-```bash
-# Don't use these
-git commit -m "docs: add 'guide' with 'features'"
-git commit -m "fix: correct 'CloudWatch' 'permissions'"
-git commit -m "feat: implement 'validation' and 'testing'"
-
-# These will show dquote> error and fail
-```
-
----
-
-## Git Command Best Practices
-
-### For All Git Operations:
-
-1. **Use simple, descriptive messages**
-   - First line: One-line summary (50 chars max)
-   - Then blank line
-   - Then details if needed
-
-2. **Prefer file method for complex messages**
-   ```bash
-   cat > /tmp/msg.txt << 'EOF'
-   Summary line here
-
-   Details:
-   - Item 1
-   - Item 2
-   EOF
-   git commit -F /tmp/msg.txt && rm /tmp/msg.txt
-   ```
-
-3. **Always verify before committing**
-   ```bash
-   git status  # See what's staged
-   git diff --staged  # See exact changes
-   ```
-
-4. **Push immediately after committing**
-   ```bash
-   git push origin main
-   ```
-
----
-
-## Reference Documents
-
-- **deployment/scripts/git-commit-safe.sh** - Helper script for safe git commits
-
----
-
-## UI Design System - CRITICAL
-
-### Problem
-Every template (`base.html`, `landing.html`, `comics_list.html`, `account.html`, etc.)
-re-declares its own `.btn`, `.btn-primary`, `.modal`, `.modal-content`, `.action-section`,
-and color values — often with slight inconsistencies. This creates visual drift and makes
-palette changes require editing every file.
-
-### Rule: Use CSS Custom Properties from `app/static/css/tokens.css`
+## UI Design System
 
 All colors, spacing, radii, and shadows are defined once in `app/static/css/tokens.css`.
-Templates and inline styles must reference these variables — never hard-code hex values.
+Shared component classes (`.btn`, `.modal`, `.card`, etc.) are in `app/static/css/components.css`.
+
+### Key tokens
 
 ```css
-/* app/static/css/tokens.css — single source of truth */
 :root {
-  /* Backgrounds */
-  --color-bg:             #1B1A1B;   /* global app background */
-  --color-surface:        #242223;   /* top/bottom bars and core surfaces */
-  --color-elevated:       #2D2B2C;   /* cards, modals */
-  --color-inset:          #171616;   /* input fields, code blocks */
-
-  /* Borders */
+  --color-bg:             #1B1A1B;
+  --color-surface:        #242223;
+  --color-elevated:       #2D2B2C;
+  --color-inset:          #171616;
   --color-border:         #5A5758;
-  --color-border-hover:   #7A7778;
-  --color-border-focus:   #5C9EB8;   /* secondary accent for focus */
-
-  /* Text */
-  --color-text:           #E8E8E6;   /* primary text */
-  --color-text-muted:     #C5C2BE;   /* secondary text */
-  --color-text-dim:       #ADADAD;   /* placeholders, disabled, captions */
-
-  /* Primary Accent — bright yellow highlight */
-  --color-accent:         #E2E800;
+  --color-text:           #E8E8E6;
+  --color-text-muted:     #C5C2BE;
+  --color-accent:         #E2E800;   /* primary: bright yellow */
   --color-accent-hover:   #D1D700;
-  --color-accent-subtle:  rgba(226, 232, 0, 0.16);
-  --color-accent-text:    #141414;   /* text ON accent-colored backgrounds */
-
-  /* Secondary Accent — steel blue */
-  --color-accent-2:       #5C9EB8;
-  --color-accent-2-hover: #6DB1CB;
-  --color-accent-2-subtle: rgba(92, 158, 184, 0.16);
-
-  /* Semantic */
+  --color-accent-text:    #141414;   /* text ON accent backgrounds */
+  --color-accent-2:       #5C9EB8;   /* secondary: steel blue */
   --color-danger:         #C45C5C;
-  --color-danger-subtle:  rgba(196, 92, 92, 0.14);
   --color-success:        #5C8A5C;
-  --color-success-subtle: rgba(92, 138, 92, 0.14);
-  --color-info:           #5C9EB8;
-  --color-info-subtle:    rgba(92, 158, 184, 0.14);
-  --color-warning:        #B8A05C;
-  --color-warning-subtle: rgba(184, 160, 92, 0.14);
-
-  /* Platform Brand Colors */
-  --color-ebay:           #00BFFF;   /* eBay brand blue */
-  --color-ebay-subtle:    rgba(0, 191, 255, 0.14);
-  --color-whatnot:        #FF00FF;   /* WhatNot brand magenta */
-  --color-whatnot-subtle: rgba(255, 0, 255, 0.14);
-
-  /* Status feedback surfaces */
-  --color-status-surface: #312E2F;
-
-  /* Typography */
-  --font-family:          'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-size-xs:         11px;
-  --font-size-sm:         13px;
-  --font-size-base:       14px;
-  --font-size-md:         16px;
-  --font-size-lg:         20px;
-  --font-size-xl:         28px;
-  --font-size-2xl:        48px;
-
-  /* Spacing */
-  --space-xs:  4px;
-  --space-sm:  8px;
-  --space-md:  16px;
-  --space-lg:  24px;
-  --space-xl:  48px;
-
-  /* Radii */
-  --radius-sm:  6px;    /* buttons, inputs, tags */
-  --radius-md:  10px;   /* cards, small containers */
-  --radius-lg:  14px;   /* modals, sections, large containers */
-
-  /* Shadows (neutral — no colored glows) */
-  --shadow-sm:  0 1px 2px   rgba(0, 0, 0, 0.36);
-  --shadow-md:  0 4px 12px  rgba(0, 0, 0, 0.5);
-  --shadow-lg:  0 8px 24px  rgba(0, 0, 0, 0.6);
+  --color-ebay:           #00BFFF;
+  --color-whatnot:        #FF00FF;
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  14px;
+  --shadow-md:  0 4px 12px rgba(0, 0, 0, 0.5);
 }
 ```
 
-### Rule: Use Shared Component Classes from `app/static/css/components.css`
+### Rules
 
-Common UI components are defined once in `app/static/css/components.css`. Templates must
-use these classes — never re-declare `.btn`, `.btn-primary`, `.modal`, etc. in `<style>` blocks.
-
-**Shared components** (defined in `components.css`, used everywhere):
-
-| Component | Class(es) | Notes |
-|-----------|-----------|-------|
-| Buttons | `.btn`, `.btn-primary`, `.btn-secondary`, `.btn-danger`, `.btn-sm` | Consistent padding, radius, hover |
-| Modals | `.modal`, `.modal-content`, `.modal-header`, `.modal-body`, `.close-btn` | Escape-to-close in `base.html` JS |
-| Cards | `.card`, `.stat-card` | Surface background, border, radius |
-| Forms | `.form-group`, `.form-label`, `.form-input`, `.form-select` | Focus ring uses `--color-border-focus` |
-| Section labels | `.section-label` | Uppercase, letter-spaced, with optional icon |
-| Page header | `.page-header`, `.page-header h1`, `.page-header p` | Consistent across all pages |
-| Action section | `.action-section` | Grouped actions with border and hover |
-| Notifications | `.notification`, `.notification.success/error/info` | Positioned top-center |
-| Footer bar | `.footer-bar` | Fixed bottom bar with actions |
-
-**Page-specific styles** remain in each template's `{% block extra_css %}` block, but only
-for layout and features unique to that page (grid columns, table tweaks, page-specific modals).
-
-### Rule: Never Hard-Code Colors
-
-```css
-/* BAD — color will drift across templates */
-.my-element { color: #FFE500; background: #1A1A1A; }
-
-/* GOOD — uses design tokens */
-.my-element { color: var(--color-accent); background: var(--color-surface); }
-```
-
-### Rule: Never Use Inline Style for Hover/Focus Effects
-
-```html
-<!-- BAD — cannot be overridden, causes sticky hover on mobile -->
-<button onmouseover="this.style.background='#F5DB00'" onmouseout="this.style.background='#FFE500'">
-
-<!-- GOOD — use a CSS class -->
-<button class="btn btn-primary">
-```
-
-### Rule: No Colored Glow Shadows
-
-```css
-/* BAD — dated 2018 glow effect */
-box-shadow: 0 4px 16px rgba(255, 229, 0, 0.3);
-
-/* GOOD — neutral shadow */
-box-shadow: var(--shadow-md);
-```
-
-### Rule: Consistent Border Radius
-
-| Element | Radius |
-|---------|--------|
-| Buttons, inputs, tags | `var(--radius-sm)` (6px) |
-| Cards, comic cards, small containers | `var(--radius-md)` (10px) |
-| Modals, sections, large containers | `var(--radius-lg)` (14px) |
-
-### Color Palette Reference
-
-| Name | Hex | Role |
-|------|-----|------|
-| Primary text | `#E8E8E6` | `--color-text` |
-| Secondary text | `#C5C2BE` | `--color-text-muted` |
-| App background | `#1B1A1B` | `--color-bg` |
-| Surface (bars, areas) | `#242223` | `--color-surface` |
-| Elevated (cards, modals) | `#2D2B2C` | `--color-elevated` |
-| Inset (inputs) | `#171616` | `--color-inset` |
-| Primary accent | `#E2E800` | `--color-accent` — bright yellow highlight |
-| Secondary accent | `#5C9EB8` | `--color-accent-2` — steel blue |
-| Danger | `#C45C5C` | `--color-danger` — destructive actions |
-| Success | `#5C8A5C` | `--color-success` |
-| Warning | `#B8A05C` | `--color-warning` |
-| eBay brand | `#00BFFF` | `--color-ebay` |
-| WhatNot brand | `#FF00FF` | `--color-whatnot` |
-
-### Template Checklist
-
-Before editing any template:
-
-- [ ] `tokens.css` and `components.css` are linked in `base.html` `<head>`
-- [ ] No new `.btn` / `.btn-primary` / `.modal` declarations in `{% block extra_css %}`
-- [ ] All colors reference `var(--color-*)` tokens
-- [ ] No `onmouseover` / `onmouseout` inline event handlers for styling
-- [ ] No `rgba(255, 229, 0, ...)` colored glow shadows
-- [ ] Border-radius uses `var(--radius-sm/md/lg)`
-- [ ] Page-specific styles only contain layout unique to that page
+- **Never hard-code hex colors** — always use `var(--color-*)` tokens.
+- This includes quick one-offs like `#fff`; use `var(--color-text)` / `var(--color-accent-text)` or the shared component class.
+- **Never re-declare `.btn`, `.modal`, `.card`** in `{% block extra_css %}` — use `components.css` classes.
+- Prefer shared component classes over inline `style` attributes. Inline style is tolerated only for small layout values already common in legacy templates; do not use it for colors, hover/focus states, or component variants.
+- **No inline `onmouseover`/`onmouseout`** for styling — use CSS classes.
+- **No colored glow shadows** — use `var(--shadow-sm/md/lg)` (neutral, dark).
+- Border radius: buttons/inputs → `var(--radius-sm)`, cards → `var(--radius-md)`, modals/sections → `var(--radius-lg)`.
 
 ---
 
@@ -790,597 +888,29 @@ Before editing any template:
 
 ### XML Payload Sanitization
 
-eBay's Trading API returns `Code: 5 — XML Parse error` when a title or field contains a
-bare `&` (e.g. "Street Fighter & Friends"). `EbayService` automatically sanitizes all
-`AddFixedPriceItem` and `ReviseFixedPriceItem` payloads before sending:
+eBay's Trading API returns `Code: 5 — XML Parse error` when a title contains a
+bare `&`. `EbayService` automatically sanitizes all AddFixedPriceItem and
+ReviseFixedPriceItem payloads:
 
-- `_escape_bare_ampersands(value)` — replaces bare `&` with `&amp;` using a regex that
-  skips already-valid entities (`&amp;`, `&gt;`, named entities).
-- `_sanitize_trading_payload_strings(payload)` — recursively walks dicts and lists to
-  apply the escaper to every string value.
+- `_escape_bare_ampersands(value)` — replaces bare `&` with `&amp;` (skips valid entities).
+- `_sanitize_trading_payload_strings(payload)` — recursively walks dicts/lists.
 
 Do not manually escape `&` in titles or descriptions — the sanitizer handles it.
 
 ### Scheduled ↔ Live Toggle
 
-Comics can be moved between live and scheduled eBay listings without going through the
-full list/delist flow:
+- **Single-comic page:** eBay footer dropdown shows "⚡ Move to Live" or "📅 Move to Scheduled".
+  Both call `POST /api/comic/<sku>/ebay/relist` with `mode` and optional `schedule_time`.
+- **Bulk actions (`comics_list.html`):** "Bulk Move to Live" and "Bulk Move to Scheduled".
 
-- **Single-comic page (`index.html`):** eBay footer dropdown shows "⚡ Move to Live" when
-  the listing is `Scheduled`, or "📅 Move to Scheduled" when it is `Active`. Both call
-  `/api/comic/<sku>/ebay/relist` with the appropriate `mode` and optional `schedule_time`.
-- **Bulk actions (`comics_list.html`):** "Bulk Move to Live" and "Bulk Move to Scheduled"
-  action cards in the eBay Bulk Actions modal. "Move to Scheduled" shows a day-picker
-  (1–17 days) before confirming.
+`/api/comic/<sku>/ebay/relist` ends the existing listing before relisting — no separate end call needed.
 
-The `/api/comic/<sku>/ebay/relist` endpoint (in `app/routes/api/ebay.py`) reads `mode`
-and `schedule_time` from the JSON body via `resolve_ebay_context()`. It internally ends
-the existing listing before relisting, so no separate end call is needed.
+### Bulk eBay Action Flow (three-modal pattern)
 
-### Bulk eBay Action Flow
+1. `bulkEbayModal` — choose action (List, Update, End, Unlink, Move to Live, Move to Scheduled)
+2. `bulkEbaySelectionModal` — pick "All Listed Items" or select specific items
+3. `bulkConfirmModal` — confirm; shows day-picker for `update` (push schedule) and `go-scheduled`
 
-The three-modal flow for bulk eBay operations:
-
-1. **`bulkEbayModal`** — choose action (List, Update, End, Unlink, Move to Live, Move to Scheduled)
-2. **`bulkEbaySelectionModal`** — pick "All Listed Items" or select specific items
-3. **`bulkConfirmModal`** — confirm; shows day-picker for `update` (push schedule) and
-   `go-scheduled` (set future date) actions
-
-State is tracked in `bulkCurrentAction` and `bulkCurrentPlatform` globals. The executor
-`executeBulkAction()` processes items sequentially with a 100 ms delay between calls.
+State tracked in `bulkCurrentAction` and `bulkCurrentPlatform` globals. `executeBulkAction()` processes items sequentially with 100 ms delay.
 
 ---
-
-## Secure Coding Standards - CRITICAL
-
-### Why this section exists
-
-Insecure code has slipped into this project before — image uploads that trusted the
-client-supplied filename, paths built by string concatenation, missing Pillow validation,
-and routes that forgot `@login_required`. These rules are the standing fix. Apply them on
-every change. If existing code violates a rule, fix the existing code; do not copy it.
-
-This section is the canonical source. The condensed version in
-[`.github/copilot-instructions.md`](.github/copilot-instructions.md) is auto-loaded for
-every Copilot session and points back here.
-
-### Threat model summary
-
-- **Multi-user app**: every user has their own subtree under `instance/data/{username}/`.
-  A bug that lets user A read or write user B's files is a critical defect.
-- **No database**: storage is CSV + JSON + S3 objects. Path-traversal and key-collision
-  bugs map directly to data-loss / data-leak bugs.
-- **Public S3 bucket for images**: anything written there is world-readable. Never put
-  secrets, raw uploads, or PII there.
-- **AWS-deployed Flask**: SSRF to `169.254.169.254` would leak instance role credentials.
-
-### Rule 1 — File uploads
-
-| Do | Do not |
-|----|--------|
-| Wrap every client filename with `werkzeug.utils.secure_filename()` before joining it to a path or S3 key | Pass `request.files['x'].filename` directly into `os.path.join`, `open`, or an S3 key |
-| Validate image content with `PIL.Image.open(stream).verify()` (or full re-decode) at the upload site | Trust the file extension or `Content-Type` header |
-| Enforce a server-side size cap (Flask `MAX_CONTENT_LENGTH` and/or explicit length check) | Allow unbounded uploads — they enable DoS and decompression bombs |
-| Use an allow-list of extensions and MIME types (`.jpg`, `.jpeg`, `.png`, `.webp`) | Use a deny-list — attackers will find an extension you forgot |
-| Generate the stored filename (UUID, SKU-based, hash) | Reuse the user-supplied filename in storage |
-| Catch `PIL.UnidentifiedImageError` and `PIL.Image.DecompressionBombError` and reject the request | Let Pillow exceptions bubble up as a 500 |
-
-```python
-# GOOD - canonical upload validation
-from werkzeug.utils import secure_filename
-from PIL import Image, UnidentifiedImageError
-
-ALLOWED_EXT = {'jpg', 'jpeg', 'png', 'webp'}
-MAX_BYTES = 15 * 1024 * 1024
-
-def validate_uploaded_image(file_storage):
-    name = secure_filename(file_storage.filename or '')
-    ext = name.rsplit('.', 1)[-1].lower() if '.' in name else ''
-    if ext not in ALLOWED_EXT:
-        abort(400, 'Unsupported image type')
-
-    file_storage.stream.seek(0, 2)
-    size = file_storage.stream.tell()
-    file_storage.stream.seek(0)
-    if size > MAX_BYTES:
-        abort(413, 'Image too large')
-
-    try:
-        img = Image.open(file_storage.stream)
-        img.verify()  # Pillow integrity check
-    except (UnidentifiedImageError, Image.DecompressionBombError, Exception):
-        abort(400, 'Invalid image')
-    file_storage.stream.seek(0)
-    return ext
-```
-
-### Rule 2 — Path handling
-
-- Never build filesystem paths by string concatenation with user input. Use `pathlib.Path`
-  or `os.path.join` + `secure_filename`, then **resolve and confine**:
-  ```python
-  base = Path(user_dir).resolve()
-  candidate = (base / secure_filename(name)).resolve()
-  if base not in candidate.parents and base != candidate:
-      abort(400, 'Invalid path')
-  ```
-- Reject `..`, absolute paths, null bytes (`\x00`), and symlink components from user input.
-- Multi-user file/CSV/S3 access **must** go through helpers in `app/utils/user_context.py`
-  (`get_user_csv_path`, `get_user_image_dir`, etc.). Routes and services must not hand-craft
-  `instance/data/{username}/...` strings.
-- Never accept a `username` (or any path component) from a request body, query string, or
-  header for authorization decisions. Use `session['username']` only.
-
-### Rule 3 — Subprocess, shell, SQL, templates, deserialization
-
-| Never | Use instead |
-|-------|-------------|
-| `subprocess.run(cmd, shell=True)` with user input | `subprocess.run([prog, arg1, arg2], shell=False)` |
-| f-string SQL / CSV / HTML / JSON with user input | Parameterized APIs (`csv.writer`, `json.dumps`, Jinja autoescape, DB params) |
-| `{{ value \| safe }}` on user content | Default Jinja autoescape; sanitize HTML server-side if rich text is required |
-| `eval`, `exec`, `pickle.loads` | `ast.literal_eval` for literals, JSON for data |
-| `yaml.load(s)` | `yaml.safe_load(s)` |
-| Concatenating XML for eBay | `EbayService._sanitize_trading_payload_strings()` (see eBay section) |
-
-### Rule 4 — Authentication & authorization
-
-- Every route that reads or mutates user data **must** carry `@login_required`.
-- Every state-changing route (POST / PUT / PATCH / DELETE) **must** also carry
-  `@csrf_required`.
-- Scope every file, CSV, JSON, and S3 access to `session['username']` via `user_context`.
-  Authorization is never derived from request parameters.
-- Sync-locked routes use `@sync_not_locked`; disk-sensitive routes use
-  `@disk_space_required`. Don't bypass these to "make a test work".
-- Sessions invalidate on app restart — do not add a "remember me" path that survives
-  restart without re-authentication.
-
-### Rule 5 — Secrets, logging, error responses
-
-- Read secrets only via `get_secret()` in `app/config.py` (precedence: AWS Secrets Manager
-  → environment variable → default). Never hard-code keys, tokens, passwords, or AWS
-  credentials.
-- Never commit `.env`, decrypted vault contents, or `~/.vault_pass`. Vault stays encrypted
-  in `deployment/group_vars/vault.yml`.
-- Per-user eBay credentials live in Secrets Manager via
-  `app/services/user_secrets_service.py`. Do not write them to CSV, JSON, logs, or
-  responses.
-- Use `safe_error_message(exc)` from `app/utils/logging_utils.py` when forming the
-  client-facing error string. In production it returns a generic message; full detail
-  goes to the logger only.
-- Never log: passwords, full session cookies, eBay user tokens, AWS credentials, full
-  request bodies for auth endpoints, or full S3 pre-signed URLs.
-
-### Rule 6 — External requests, SSRF, timeouts
-
-- Every `requests.*` / `urllib` call **must** set an explicit `timeout=` (connect + read).
-  Default to `timeout=(5, 30)` unless there's a reason for more.
-- Never fetch a URL supplied by the client without an allow-list of hosts and schemes.
-  Block `file://`, `gopher://`, `http://169.254.169.254`, and RFC-1918 / loopback CIDRs.
-- Disable redirects (`allow_redirects=False`) when fetching from an allow-listed host
-  unless redirects are explicitly required.
-
-### Rule 7 — Input validation & rate limiting
-
-- Validate every API input at the entry point: required fields, types, length caps,
-  numeric ranges, enum membership. Reject unknown fields rather than silently ignoring
-  them.
-- Cap string lengths server-side (titles, descriptions, SKUs). Don't rely on the browser.
-- Respect `app/security.py` rate limiting. New public endpoints must be explicitly added
-  to the rate-limit config; never bypass it.
-- Login, password reset, eBay token exchange, and bulk-action endpoints need stricter
-  rate limits than the default.
-
-### Rule 8 — CSV / JSON / S3 specifics
-
-- All CSV writes go through `app/services/csv_service.py` (file-locking + sanitization).
-  Do not open the CSV directly with `open(..., 'w')` from a route or another service.
-- CSV cell values that begin with `=`, `+`, `-`, `@`, tab, or CR must be prefixed with a
-  single quote (`csv_sanitizer.py`) to prevent CSV-injection in spreadsheet apps.
-- S3 object keys must be derived from `user_context` helpers + a generated filename.
-  Never put raw user filenames in keys.
-- `instance/user_preferences.json` is loaded with `json.load` — do not load arbitrary
-  user-supplied JSON without size caps and schema validation.
-
-### Pre-commit security checklist
-
-Before finalizing any code change, walk this list:
-
-- [ ] No `request.files[...].filename` reaches a path or S3 key without `secure_filename`
-- [ ] All image uploads run through `Image.open(...).verify()` **and** a size cap
-- [ ] No new `shell=True`, `eval`, `exec`, `pickle.loads`, `yaml.load`, or `|safe` on user data
-- [ ] Every new state-changing route has `@login_required` and `@csrf_required`
-- [ ] User-controlled filesystem paths are `secure_filename`-d, resolved, and confined under the expected base
-- [ ] No secrets, tokens, full cookies, or full request bodies appear in log calls
-- [ ] All outbound `requests` calls have an explicit `timeout`
-- [ ] CSV writes go through `csv_service`; CSV cells are sanitized
-- [ ] All colors / paths / filenames use existing helpers (`tokens.css`, `user_context`) rather than re-implementations
-- [ ] Multi-user file access uses `app/utils/user_context.py`, never hand-crafted `instance/data/{username}/...` strings
-- [ ] Error responses use `safe_error_message()`; full detail is in logs only
-
----
-
-## General Coding Standards
-
-These rules cover recurring bugs and lint warnings found during the April 2026 hardening
-pass. Apply them on every change — they are not security-specific but prevent the same
-class of defect repeatedly.
-
-### Python — Never Use `str(e)` in JSON Responses
-
-`str(e)` leaks internal paths, class names, and stack details to the client. Use
-`safe_error_message(exc)` from `app/utils/logging_utils.py` for every `jsonify` error
-response. Full detail goes to the logger only.
-
-```python
-# BAD — leaks internal error detail to the client
-except Exception as e:
-    return jsonify({'error': str(e)}), 500
-
-# GOOD — sanitized client message, full detail in logs
-from app.utils.logging_utils import safe_error_message
-except Exception as e:
-    logger.exception("operation failed")
-    return jsonify({'error': safe_error_message(e)}), 500
-```
-
-This is the enforcement companion to Rule 5 in the Secure Coding Standards section.
-
-### Python — All Imports at Module Level
-
-Never place `import` or `from … import` statements inside functions, route handlers, or
-`except` blocks. Imports inside handlers create "unresolved reference" warnings, confuse
-static analysis, and hide circular-dependency problems.
-
-```python
-# BAD — import inside a route handler / except block
-@main_bp.route('/download')
-def download_csv():
-    try:
-        ...
-    except Exception:
-        from app.utils.user_context import get_current_username  # ← wrong
-        ...
-
-# GOOD — import once at the top of the file
-from app.utils.user_context import get_current_username, get_user_csv_file
-
-@main_bp.route('/download')
-def download_csv():
-    ...
-```
-
-**Exceptions — when a deferred import is required:**
-
-1. **Circular imports** — module A imports module B which imports module A. Document with:
-   ```python
-   from app.services.s3_service import s3_service  # Deferred: avoids circular import
-   ```
-2. **Initialization-order / app-context** — service singletons are constructed at module
-   load time (before the Flask app context exists). Helpers that call `current_app` or
-   `session` must be deferred until a request is in flight.
-   ```python
-   from app.utils.user_context import get_user_csv_file  # Deferred: requires app context
-   ```
-
-In both cases, add the comment so reviewers know the deferral is intentional, not an
-oversight, and do **not** silently re-import a symbol that is already at module level.
-
-### Python — Initialize Variables Before `try` Blocks
-
-Any variable referenced in an `except` or `finally` block must be initialized before the
-`try` — not inside it. Assigning inside `try` leaves the variable unbound if an exception
-fires before that line.
-
-```python
-# BAD — data_type referenced in except, but only set inside try
-try:
-    data_type = request.args.get('type', 'summary')
-    ...
-except Exception as e:
-    logger.error("failed to load %s", data_type)   # ← may be unbound
-
-# GOOD — initialize before try
-data_type = 'summary'
-try:
-    data_type = request.args.get('type', data_type)
-    ...
-except Exception as e:
-    logger.error("failed to load %s", data_type)   # always defined
-```
-
-### Python — Use Pythonic Style and Documentation
-
-Follow PEP 8 for code style and PEP 257 for docstrings.
-
-- Use `snake_case` for functions/variables and `PascalCase` for classes.
-- Add clear docstrings for public modules, classes, and functions.
-- Keep style compatible with `black` output (line wrapping and spacing).
-
-```python
-# GOOD
-class UserExportService:
-    """Builds CSV exports for the current user."""
-
-    def build_export_rows(self) -> list[dict]:
-        ...
-```
-
-### Python — Prefer Named Functions Over Non-Trivial `lambda`
-
-Use named `def` functions for non-trivial logic. This improves stack traces, typing,
-reuse, and debugging. Tiny sort keys are acceptable as inline `lambda`.
-
-```python
-# BAD
-records.sort(key=lambda r: normalize_title(r.get('title', '').strip()))
-
-# GOOD
-def _sort_key(record: dict) -> str:
-    return normalize_title(record.get('title', '').strip())
-
-records.sort(key=_sort_key)
-```
-
-### Python — Type Hints on Public and Boundary APIs
-
-Use type hints where they provide real value, especially on route handlers, service public
-methods, and helper utilities shared across modules.
-
-- Prefer explicit return types on public methods.
-- Use `typing` aliases for repeated complex structures.
-- Keep runtime behavior unchanged; hints should clarify intent, not add noise.
-
-### Python — Formatting and Import Order
-
-- Run `black` on edited Python files.
-- Run `isort` for stable import grouping/order.
-- Do not manually micro-format around these tools.
-
-### Python — Naming, Readability, and DRY
-
-- Prefer meaningful names (`listing_status`, `analytics_dir`) over cryptic abbreviations.
-- Keep functions focused and short; extract repeated logic to shared helpers.
-- Avoid copy-paste branches when a small helper or registry can express the pattern once.
-
-### Python — Exception Specificity and Boundaries
-
-Catch specific exceptions first. Use broad `except Exception` only at clear boundaries
-(route handlers, task boundaries, service top-level operations), where errors are logged
-and sanitized for clients.
-
-### Python — No Import-Time Side Effects
-
-Module import should define symbols, not execute network/file/session-dependent work.
-
-- No API calls, filesystem mutations, or session access at module import time.
-- Defer runtime-dependent initialization to request handlers, service methods, or app startup hooks.
-
-### JavaScript — Modal / Pending-State Lifecycle
-
-Confirm flows that mutate pending state must follow a strict single-owner pattern.
-
-**Rule:** The confirm function owns the full lifecycle — snapshot, execute, and clean up.
-Executors never read or reset `pending*` / `bulk*` state directly.
-
-```javascript
-// BAD — cleanup scattered across confirm, cancel, and multiple executors
-async function confirmDelete() {
-    await executeDelete();
-    pendingAction = null;   // ← duplicated in execute too
-}
-async function executeDelete() {
-    ...
-    pendingAction = null;   // ← wrong place
-}
-
-// GOOD — single owner, try/finally guarantees cleanup even on error
-async function confirmDelete() {
-    // 1. Snapshot state before any async work
-    const sku = pendingAction.sku;
-    const type = pendingAction.type;
-
-    try {
-        await executeDelete(sku);   // executor takes values as args
-    } finally {
-        pendingAction = { type: null, sku: null };   // always runs
-    }
-}
-
-// Cancel path clears immediately (no try/finally needed — no async work)
-function cancelDelete() {
-    pendingAction = { type: null, sku: null };
-    closeModal();
-}
-
-// Executor accepts values as parameters — never reads/resets global state
-async function executeDelete(sku) {
-    const resp = await fetch(`/api/comic/${sku}`, { method: 'DELETE', ... });
-    ...
-}
-```
-
-### JavaScript — Declare Related State Variables Together
-
-All variables that form a single logical state group must be declared in one contiguous
-block at the top of their scope. Do not scatter declarations or redeclare a variable in
-a nested scope.
-
-```javascript
-// BAD — bulkGoScheduledDays declared again later, shadowing the first
-let bulkCurrentAction = null;
-let bulkCurrentPlatform = null;
-...
-// 200 lines later:
-let bulkGoScheduledDays = 0;   // ← duplicate declaration
-
-// GOOD — all bulk state in one place
-let bulkCurrentAction    = null;
-let bulkCurrentPlatform  = null;
-let bulkSelectedItems    = [];
-let bulkScheduleDays     = 0;
-let bulkGoScheduledDays  = 0;
-window.bulkActionComics  = null;
-```
-
-### JavaScript — Use Registry Arrays for Grouped DOM Operations
-
-When multiple modals (or other elements) must be hidden / reset together, define a
-constant array of their IDs and iterate — do not duplicate `hide` / `pop` calls.
-
-```javascript
-// BAD — duplicated teardown in every branch
-modal1.style.display = 'none'; popModalFromStack('modal1');
-modal2.style.display = 'none'; popModalFromStack('modal2');
-// ... repeated in 4 other functions
-
-// GOOD — single registry, one helper
-const BULK_MODAL_IDS = ['bulkConfirmModal', 'bulkEbaySelectionModal', 'bulkEbayModal'];
-
-function closeAllBulkModals() {
-    BULK_MODAL_IDS.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-        popModalFromStack(id);
-    });
-}
-```
-
-### General Coding Checklist
-
-Add these to your pre-commit review alongside the security checklist:
-
-- [ ] No `str(e)` in `jsonify` error responses — use `safe_error_message(e)`
-- [ ] All imports are at module level, not inside functions or except blocks
-- [ ] Variables referenced in `except`/`finally` are initialized before the `try`
-- [ ] PEP 8 + PEP 257 followed for modified Python modules
-- [ ] Public functions/methods include useful type hints where practical
-- [ ] Non-trivial `lambda` logic moved to named functions
-- [ ] Edited Python files are formatted with `black` and imports sorted with `isort`
-- [ ] Names are descriptive and repeated logic is extracted into helpers (DRY)
-- [ ] Broad exception handlers are only used at boundaries with logging + sanitization
-- [ ] No import-time side effects (network/file/session-dependent work)
-- [ ] JS confirm functions snapshot state, execute in `try`, reset in `finally`
-- [ ] JS executor functions accept values as arguments — no reads of `pending*` state
-- [ ] Related JS state variables declared together in one block, no re-declarations
-- [ ] Groups of modal/element operations use a registry constant + shared helper
-
----
-
-## Documentation Standards
-
-All documentation in `deployment/docs/` follows a consistent style modeled after
-professional vendor guides (Cisco, HashiCorp, AWS). Apply these rules when creating
-or editing any `.md` file in the project.
-
-When code changes alter a user-facing workflow (new required steps, new preflight behavior,
-new post-save actions), include a short matching note in docs (`README.md` or the relevant
-guide in `deployment/docs/`) in the same change set.
-
-### File Structure
-
-**Guides** (procedural, step-by-step):
-
-```markdown
-# Chapter N: Title
-
-One-line description of what this chapter covers.
-
----
-
-## Section Name
-
-Content...
-
----
-
-## Next step
-
-Continue to [Chapter N+1: Title](NEXT_FILE.md).
-
-## See also
-
-- [Chapter X: Title](FILE.md) — brief reason
-- [Reference: Title](../reference/FILE.md) — brief reason
-```
-
-**Reference docs** (descriptive, not procedural):
-
-```markdown
-# Title Reference
-
-One-line description.
-
----
-
-## Section Name
-
-Content...
-```
-
-### Rules
-
-| Rule | Do | Do Not |
-|------|----|--------|
-| Title format (guides) | `# Chapter 6: Monitoring` | `# CloudWatch Monitoring Guide` |
-| Title format (reference) | `# Architecture Reference` | `# Architecture Reference Guide v5.0` |
-| Subtitle | One plain sentence | Bold text, version numbers, dates, status badges |
-| Ending (guides) | Single `## Next step` link, optional `## See also` (2–3 links max) | Multiple "next step" sections, decision tables, "pick one" blocks |
-| Prerequisite reference | `> Prerequisite: Complete [Chapter 1](PREREQUISITES.md).` | 15-line checklist re-verifying the previous chapter |
-| Cross-references | `See [Chapter 5: Operations](OPERATIONS.md).` | `→ **[OPERATIONS.md](OPERATIONS.md)** — Full guide!` |
-| Tone | Direct, declarative prose | Emojis in headings, exclamation marks, "Think of it as…" analogies |
-| Metadata | None — use Git history | `**Version:** 5.0`, `**Date:** Feb 2026`, `**Status:** Production-Ready` |
-| Variable placeholders | Use `{app_name}` inline without explanation | Multi-line note explaining what `{app_name}` means (stated once in Ch. 1) |
-| Emoji | Allowed in verification output (`✓`) and warnings (`⚠️`) | Not in headings, not in bullet lists as decoration (`🚀`, `📋`, `🎉`) |
-
-### Chapter Numbers
-
-Guides are numbered 1–11 and live in `deployment/docs/guides/`. Reference docs live in
-`deployment/docs/reference/`. The table of contents is `deployment/docs/README.md`.
-When adding a new guide, assign the next number and update the README.
-
-| Chapter | File |
-|---------|------|
-| 1 | guides/PREREQUISITES.md |
-| 2 | guides/QUICKSTART.md |
-| 3 | guides/MANUAL_DEPLOYMENT.md |
-| 4 | guides/UPDATING_APPLICATION.md |
-| 5 | guides/OPERATIONS.md |
-| 6 | guides/MONITORING.md |
-| 7 | guides/SECRET_MANAGEMENT.md |
-| 8 | guides/SECURITY_HARDENING.md |
-| 9 | guides/MULTI_USER.md |
-| 10 | guides/GIT_CONFIGURATION.md |
-| 11 | guides/DECOMMISSION.md |
-
-### Writing Checklist
-
-Before finalizing any documentation change:
-
-- [ ] Title matches the `# Chapter N: Title` pattern (guides) or `# Title` (reference)
-- [ ] No version, date, or status metadata in the header
-- [ ] No repeated prerequisite checks from the previous chapter
-- [ ] File ends with a single `## Next step` (guides) or nothing (reference)
-- [ ] No emojis in section headings
-- [ ] Cross-references use chapter numbers: "See Chapter 5" not "See OPERATIONS.md"
-- [ ] `docs/README.md` table of contents is updated if a file was added or renamed
-
----
-
-## Summary
-
-| Aspect | Guideline |
-|--------|-----------|
-| Primary Method | Simple commit messages (no internal quotes) |
-| Backup Method | File method for complex messages |
-| Never Do | Nest quotes in -m parameter |
-| If dquote> Appears | Use file method instead |
-| Pattern | git commit -m "type: description" |
-| Example | git commit -m "docs: add deployment guide" |
-
----
-
-**Key Point:** Following Rule 1 (simple messages) and Rule 2 (file method for complex) will PREVENT all dquote> errors from happening again.
-
----
-
-**Last Updated:** April 24, 2026 (expanded General Coding Standards: Pythonic style, typing, formatting, DRY/readability)
