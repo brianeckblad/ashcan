@@ -1,4 +1,6 @@
 """Comic data model."""
+import logging
+import math
 from dataclasses import dataclass, field
 from typing import List, Optional
 from app.utils.whatnot_validators import WHATNOT_FIELD_NAMES, METADATA_FIELD_NAMES
@@ -59,7 +61,6 @@ class Comic:
             dict: A dictionary mapping Whatnot CSV headers to comic field values.
         """
         # Round price and cost to nearest dollar (ceiling) for Whatnot export
-        import math
         price_rounded = math.ceil(self.price)
         cost_rounded = math.ceil(self.cost_per_item)
 
@@ -198,7 +199,6 @@ class Comic:
                         image_urls.append(url)
 
         # Parse price: remove currency symbols, whitespace, and commas, then normalize
-        import math
         price_str = data.get(FN['PRICE']) or data.get('price') or data.get('Price') or '0'
         if isinstance(price_str, str):
             price_str = price_str.replace('$', '').replace(',', '').strip()
@@ -209,7 +209,6 @@ class Comic:
             price = max(1, math.ceil(price_float))
         except (ValueError, TypeError):
             # If price can't be parsed, log a warning and default to 1
-            import logging
             logger = logging.getLogger(__name__)
             sku_val = data.get(FN['SKU']) or data.get('sku') or 'unknown'
             logger.warning(f"Could not parse price '{price_str}' for SKU {sku_val}, defaulting to $1")

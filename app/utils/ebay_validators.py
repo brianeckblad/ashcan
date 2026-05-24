@@ -704,13 +704,12 @@ def populate_ebay_fields_from_item(item):
                 if description and ('<div>' in description or '<li>' in description
                                     or '<strong>' in description or '<br' in description
                                     or '<p>' in description):
-                    import re as _re
                     # Convert block-level and break tags to newlines BEFORE stripping
-                    description = _re.sub(r'</?(div|p|br|li|ul|ol)[^>]*/?>', '\n', description, flags=_re.IGNORECASE)
+                    description = re.sub(r'</?(div|p|br|li|ul|ol)[^>]*/?>', '\n', description, flags=re.IGNORECASE)
                     # Strip remaining HTML tags
-                    description = _re.sub(r'<[^>]+>', '', description)
+                    description = re.sub(r'<[^>]+>', '', description)
                     # Collapse multiple blank lines but keep single newlines
-                    description = _re.sub(r'\n{3,}', '\n\n', description)
+                    description = re.sub(r'\n{3,}', '\n\n', description)
                     description = '\n'.join(line.strip() for line in description.split('\n'))
                     description = description.strip()
 
@@ -980,9 +979,8 @@ def _apply_mode_overrides(item, mode='list', schedule_time_override=None):
             schedule_time = min_time
         elif schedule_time > max_time:
             try:
-                from flask import current_app
+                from flask import current_app  # Deferred: requires app context (validators run outside Flask in scripts)
                 current_app.logger.warning(
-                    f"Requested schedule time exceeds eBay's 21-day limit. Capping at 21 days from now."
                 )
             except (RuntimeError, AttributeError, ImportError):
                 # No Flask app context (e.g., running in validation script)
@@ -1006,7 +1004,7 @@ def _apply_mode_overrides(item, mode='list', schedule_time_override=None):
                 schedule_time = min_time
             elif schedule_time > max_time:
                 try:
-                    from flask import current_app
+                    from flask import current_app  # Deferred: requires app context (validators run outside Flask in scripts)
                     current_app.logger.warning(
                         f"Requested schedule time {schedule_time} exceeds eBay's 21-day limit. Capping at 21 days."
                     )
@@ -1063,7 +1061,7 @@ def build_trading_item(comic, overrides=None, mode='list', include_item_id=False
         include_item_id: bool, include ItemID for updates
         schedule_time: datetime, custom schedule time for 'future' mode
     """
-    from flask import current_app
+    from flask import current_app  # Deferred: requires app context (validators run outside Flask in scripts)
 
     ebay_fields = populate_ebay_fields_from_item(comic)
 

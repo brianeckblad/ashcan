@@ -12,7 +12,7 @@ import time
 import re
 from collections import defaultdict
 from datetime import datetime
-from flask import request, abort, g, current_app
+from flask import request, abort, g, current_app, Blueprint, jsonify
 from pathlib import Path
 from typing import Optional
 import json
@@ -441,7 +441,6 @@ def create_security_admin_blueprint():
 
     Must be registered in a protected admin area!
     """
-    from flask import Blueprint, jsonify
 
     bp = Blueprint('security_admin', __name__, url_prefix='/admin/security')
 

@@ -5,7 +5,9 @@ Provides functions to get user-specific file paths and settings.
 Each user has their own CSV file, SKU counter, and can optionally
 have their own eBay API credentials.
 """
+import logging
 import re
+import shutil
 from pathlib import Path
 from flask import session, current_app, has_request_context
 import os
@@ -431,8 +433,6 @@ def migrate_legacy_user_files(app=None):
     Args:
         app: Flask app instance. If None, uses current_app (requires app context).
     """
-    import shutil
-    import logging
     logger = logging.getLogger(__name__)
 
     if app is None:

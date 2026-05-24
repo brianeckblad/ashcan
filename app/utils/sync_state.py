@@ -23,7 +23,7 @@ def _resolve_lock_path() -> Path:
     falls back to the project root's ``instance`` subdirectory.
     """
     try:
-        from flask import current_app  # local import to avoid hard dependency at import time
+        from flask import current_app  # Deferred: requires app context
         base = Path(current_app.instance_path)
     except Exception:
         base = Path(__file__).resolve().parent.parent.parent / 'instance'

@@ -56,8 +56,9 @@ Short forms are the primary triggers. Longer natural-language forms still work.
 | `ucp` / `update copilot instructions` / `update instructions` | Review what was just built or decided in this session and append or update the relevant rules, patterns, and architecture notes in `.github/copilot-instructions.md`. Confirm what was added/changed. |
 | `synca` / `sync agents` / `sync instructions` | Copy all rules, trigger phrases, and architecture notes from `.github/copilot-instructions.md` into `AGENTS.md` so both files are identical in content. Confirm what was updated. |
 | `evala` / `evaluate agents` / `evaluate instructions` | Evaluate AI instruction files for clean general vs app-specific separation. Move reusable practices to Part 1, app-only facts to Part 2, then run `synca`. |
+| `agi` / `read agent instructions` / `read copilot instructions` | Read `.github/copilot-instructions.md` and `AGENTS.md` in full, then confirm they have been loaded into context. |
 
-A short trigger (`ck`, `ctx`, `wipe`, `arc`, `gitp`, `ucp`, `synca`, `evala`) is a command only when it is the
+A short trigger (`ck`, `ctx`, `wipe`, `arc`, `gitp`, `ucp`, `synca`, `evala`, `agi`) is a command only when it is the
 entire user message. Inside a longer sentence, treat it as normal text.
 
 ### SESSION.md structure

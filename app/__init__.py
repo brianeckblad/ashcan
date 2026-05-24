@@ -3,7 +3,9 @@ from flask import Flask, has_request_context, g
 import csv
 import hashlib
 import os
+import subprocess
 import threading
+import traceback
 from dotenv import load_dotenv
 from pathlib import Path
 import logging
@@ -533,7 +535,6 @@ def create_app(config_name='development'):
             app.logger.info("✓ eBay category cache initialized")
     except Exception as e:
         app.logger.warning(f"⚠ Failed to initialize eBay category cache: {e}")
-        import traceback
         app.logger.debug(traceback.format_exc())
 
     @app.before_request
@@ -602,7 +603,6 @@ def create_app(config_name='development'):
 
             # 2) Fallback: try to compute from git commit count
             try:
-                import subprocess
                 commit_count = subprocess.check_output(
                     ['git', 'rev-list', '--count', 'HEAD'],
                     cwd=Path(__file__).parent.parent,
