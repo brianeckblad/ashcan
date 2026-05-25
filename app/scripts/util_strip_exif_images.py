@@ -165,34 +165,155 @@ def _load_env_file(env_path: Path) -> dict:
     return env
 
 
-def _load_all_credentials() -> dict:
+# Ansible vault key → uppercase env-style key used by app/config.py
+_VAULT_KEY_MAP = {
+    "s3_bucket_name": "S3_BUCKET_NAME",
+    "s3_folder":      "S3_FOLDER",
+    "aws_region":     "AWS_REGION",
+    "secret_name":    "SECRET_NAME",
+    "aws_access_key_id":     "AWS_ACCESS_KEY_ID",
+    "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",
+}
+
+
+def _load_secrets_from_vault(vault_password_file: str) -> dict:
+    """Decrypt deployment/group_vars/vault.yml and extract S3 credentials.
+
+    Uses ``ansible-vault view`` to decrypt + ``yaml.safe_load()`` to parse —
+    the same approach as ``deployment/scripts/local_dev_setup_env.py``.
+    Falls back to a simple line parser if PyYAML is not installed.
+
+    Only extracts the keys listed in ``_VAULT_KEY_MAP`` — no sensitive
+    values are logged.
+
+    Args:
+        vault_password_file: Path to the vault password file (e.g. ``~/.vault_pass``).
+
+    Returns:
+        Dict of uppercase config-style keys (e.g. ``S3_BUCKET_NAME``), or an
+        empty dict if decryption fails.
+    """
+    import subprocess
+
+    vault_path = PROJECT_ROOT / "deployment" / "group_vars" / "vault.yml"
+    password_file = Path(vault_password_file).expanduser()
+
+    if not vault_path.exists():
+        print(f"  [vault] vault file not found: {vault_path}")
+        return {}
+    if not password_file.exists():
+        print(f"  [vault] password file not found: {password_file}")
+        return {}
+
+    print(f"  [vault] decrypting {vault_path.relative_to(PROJECT_ROOT)} ...")
+    try:
+        result = subprocess.run(
+            ["ansible-vault", "view", str(vault_path),
+             "--vault-password-file", str(password_file)],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except FileNotFoundError:
+        print("  [vault] ansible-vault not found — is ansible installed?")
+        return {}
+    except subprocess.TimeoutExpired:
+        print("  [vault] ansible-vault timed out")
+        return {}
+
+    if result.returncode != 0:
+        print(f"  [vault] decryption failed: {result.stderr.strip()}")
+        return {}
+
+    # Parse YAML content — use PyYAML when available (same as local_dev_setup_env.py)
+    vault_data: dict = {}
+    try:
+        import yaml
+        parsed = yaml.safe_load(result.stdout)
+        if isinstance(parsed, dict):
+            vault_data = parsed
+    except ImportError:
+        # PyYAML not installed — fall back to a simple line parser.
+        # Handles:  key: value  and  key: "value"  (but not complex YAML).
+        import re
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or line.startswith("---"):
+                continue
+            match = re.match(r'^([a-z_][a-z0-9_]*):\s*["\']?([^"\'#\n]+?)["\']?\s*(?:#.*)?$', line)
+            if match:
+                vault_data[match.group(1)] = match.group(2).strip()
+    except Exception as exc:
+        print(f"  [vault] YAML parse error: {exc}")
+        return {}
+
+    # Map ansible lowercase keys → uppercase app config keys.
+    # First resolve simple intra-vault Jinja2 references like {{ app_name }}
+    # (Ansible allows one variable to reference another in the same file).
+    import re as _re
+
+    def _resolve(value: str, lookup: dict) -> str:
+        """Replace {{ var }} references with values from the same vault dict."""
+        def _subst(m):
+            ref = m.group(1).strip()
+            return str(lookup.get(ref, m.group(0)))  # leave unresolved refs as-is
+        return _re.sub(r'\{\{\s*(\w+)\s*\}\}', _subst, str(value))
+
+    creds: dict = {}
+    for ansible_key, config_key in _VAULT_KEY_MAP.items():
+        value = vault_data.get(ansible_key)
+        if value is not None and str(value).strip():
+            resolved = _resolve(str(value).strip(), vault_data)
+            creds[config_key] = resolved
+
+    found = list(creds.keys())
+    print(f"  [vault] OK — extracted keys: {found}")
+    return creds
+
+
+def _load_all_credentials(vault_password_file: str | None = None) -> dict:
     """Return a merged credential dict using the same priority as app/config.py.
 
-    Secrets Manager values win over .env values, which win over env vars.
-    Prints a summary of which tier each critical key came from.
+    Priority (highest → lowest):
+      1. AWS Secrets Manager  — production EC2 via IAM role
+      2. Ansible vault        — when --vault-password-file is passed
+      3. .env file            — local dev generated from vault
+      4. Environment vars     — CI / manual override
+
+    Secrets Manager wins over everything else so the script behaves
+    identically to the running app on the server.
     """
     # Tier 1 — AWS Secrets Manager (production)
     sm_creds = _load_secrets_from_aws()
 
-    # Tier 2 — .env file (local dev)
+    # Tier 2 — Ansible vault (explicit --vault-password-file flag)
+    vault_creds: dict = {}
+    if vault_password_file:
+        vault_creds = _load_secrets_from_vault(vault_password_file)
+
+    # Tier 3 — .env file (local dev)
     env_file_creds = _load_env_file(PROJECT_ROOT / ".env")
 
-    # Tier 3 — live environment variables (lowest priority)
-    # Build merged dict: SM wins over .env wins over env vars
-    creds = dict(os.environ)           # start with env vars
-    creds.update(env_file_creds)       # .env overrides env vars
-    creds.update(sm_creds)             # Secrets Manager wins over both
+    # Tier 4 — live environment variables (lowest priority)
+    # Merge: env vars → .env → vault → Secrets Manager (SM wins)
+    creds = dict(os.environ)
+    creds.update(env_file_creds)
+    creds.update(vault_creds)
+    creds.update(sm_creds)
 
     # Report which tier resolved the bucket name
     bucket_key = "S3_BUCKET_NAME" if "S3_BUCKET_NAME" in creds else "S3_BUCKET"
     if bucket_key in sm_creds:
-        print(f"  [credentials] {bucket_key} resolved from Secrets Manager")
+        source = "Secrets Manager"
+    elif bucket_key in vault_creds:
+        source = "Ansible vault"
     elif bucket_key in env_file_creds:
-        print(f"  [credentials] {bucket_key} resolved from .env file")
+        source = ".env file"
     elif bucket_key in os.environ:
-        print(f"  [credentials] {bucket_key} resolved from environment variable")
+        source = "environment variable"
     else:
-        print(f"  [credentials] {bucket_key} NOT found in any source")
+        source = "NOT FOUND"
+    print(f"  [credentials] {bucket_key} resolved from: {source}")
 
     return creds
 
@@ -381,6 +502,12 @@ def main() -> int:
         metavar="USERNAME",
         help="Process only this user (default: all users)",
     )
+    parser.add_argument(
+        "--vault-password-file",
+        metavar="FILE",
+        help="Decrypt deployment/group_vars/vault.yml with this password file "
+             "(e.g. ~/.vault_pass) to read S3 credentials",
+    )
     args = parser.parse_args()
 
     print("=" * 70)
@@ -395,7 +522,7 @@ def main() -> int:
     #   2. .env file (local dev)
     #   3. Environment variables (CI / manual override)
     print("Loading credentials...")
-    creds = _load_all_credentials()
+    creds = _load_all_credentials(vault_password_file=args.vault_password_file)
     aws_key = creds.get("AWS_ACCESS_KEY_ID")
     aws_secret = creds.get("AWS_SECRET_ACCESS_KEY")
     aws_region = creds.get("AWS_REGION", "us-east-2")
