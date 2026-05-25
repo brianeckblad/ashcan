@@ -61,13 +61,45 @@ JPEG_QUALITY = 85
 
 
 # ---------------------------------------------------------------------------
-# .env loader
+# Credential loading — mirrors app/config.py priority order:
+#   1. AWS Secrets Manager  (production: IAM role on EC2, no keys needed)
+#   2. .env file            (local dev: generated from vault)
+#   3. Environment vars     (CI / manual override)
 # ---------------------------------------------------------------------------
+def _load_secrets_from_aws() -> dict:
+    """Fetch the app secrets from AWS Secrets Manager.
+
+    Uses the same ``SECRET_NAME`` env var the app uses (default:
+    ``ashcan/production``).  On EC2 the IAM role grants access automatically —
+    no AWS keys required.  Returns an empty dict if Secrets Manager is
+    unavailable so callers fall through to the next tier.
+    """
+    try:
+        import boto3
+        from botocore.exceptions import ClientError
+        import base64, json as _json
+
+        secret_name = os.environ.get("SECRET_NAME", "ashcan/production")
+        region = os.environ.get("AWS_REGION", "us-east-2")
+
+        client = boto3.session.Session().client(
+            service_name="secretsmanager", region_name=region
+        )
+        response = client.get_secret_value(SecretId=secret_name)
+
+        if "SecretString" in response:
+            return _json.loads(response["SecretString"])
+        return _json.loads(base64.b64decode(response["SecretBinary"]))
+
+    except Exception:
+        # Secrets Manager unavailable or not configured — fall through to .env
+        return {}
+
+
 def _load_env_file(env_path: Path) -> dict:
     """Parse key=value pairs from a .env file.
 
     Ignores blank lines and comments. Strips surrounding quotes from values.
-    Does not override variables already set in the environment.
     """
     env: dict = {}
     if not env_path.exists():
@@ -80,6 +112,26 @@ def _load_env_file(env_path: Path) -> dict:
             key, _, value = line.partition("=")
             env[key.strip()] = value.strip().strip('"').strip("'")
     return env
+
+
+def _load_all_credentials() -> dict:
+    """Return a merged credential dict using the same priority as app/config.py.
+
+    Secrets Manager values win over .env values, which win over env vars.
+    """
+    # Tier 1 — AWS Secrets Manager (production)
+    creds = _load_secrets_from_aws()
+
+    # Tier 2 — .env file (local dev)
+    env_file = _load_env_file(PROJECT_ROOT / ".env")
+    for key, val in env_file.items():
+        creds.setdefault(key, val)
+
+    # Tier 3 — live environment variables
+    for key, val in os.environ.items():
+        creds.setdefault(key, val)
+
+    return creds
 
 
 # ---------------------------------------------------------------------------
@@ -275,18 +327,17 @@ def main() -> int:
         print("Mode: DRY RUN — no files will be changed")
     print()
 
-    # Load credentials: .env file first, then live environment
-    env = _load_env_file(PROJECT_ROOT / ".env")
-    aws_key = env.get("AWS_ACCESS_KEY_ID") or os.environ.get("AWS_ACCESS_KEY_ID")
-    aws_secret = env.get("AWS_SECRET_ACCESS_KEY") or os.environ.get("AWS_SECRET_ACCESS_KEY")
-    aws_region = env.get("AWS_REGION") or os.environ.get("AWS_REGION", "us-east-2")
-    bucket = (
-        env.get("S3_BUCKET_NAME")
-        or env.get("S3_BUCKET")
-        or os.environ.get("S3_BUCKET_NAME")
-        or os.environ.get("S3_BUCKET")
-    )
-    s3_folder = env.get("S3_FOLDER") or os.environ.get("S3_FOLDER", "production")
+    # Load credentials using the same priority as app/config.py:
+    #   1. AWS Secrets Manager (production EC2 with IAM role — no keys needed)
+    #   2. .env file (local dev)
+    #   3. Environment variables (CI / manual override)
+    print("Loading credentials...")
+    creds = _load_all_credentials()
+    aws_key = creds.get("AWS_ACCESS_KEY_ID")
+    aws_secret = creds.get("AWS_SECRET_ACCESS_KEY")
+    aws_region = creds.get("AWS_REGION", "us-east-2")
+    bucket = creds.get("S3_BUCKET_NAME") or creds.get("S3_BUCKET")
+    s3_folder = creds.get("S3_FOLDER", "production")
 
     if not bucket:
         print("ERROR: S3_BUCKET_NAME not found in .env or environment.")
