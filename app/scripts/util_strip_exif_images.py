@@ -57,7 +57,7 @@ DATA_DIR = INSTANCE_DIR / "data"
 IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff"})
 
 # JPEG quality for the re-encoded output — matches the rest of the app
-JPEG_QUALITY = 85
+JPEG_QUALITY = 100
 
 
 # ---------------------------------------------------------------------------
@@ -69,30 +69,81 @@ JPEG_QUALITY = 85
 def _load_secrets_from_aws() -> dict:
     """Fetch the app secrets from AWS Secrets Manager.
 
-    Uses the same ``SECRET_NAME`` env var the app uses (default:
-    ``ashcan/production``).  On EC2 the IAM role grants access automatically —
-    no AWS keys required.  Returns an empty dict if Secrets Manager is
-    unavailable so callers fall through to the next tier.
+    Determines the secret name by checking (in order):
+      1. ``SECRET_NAME`` environment variable (set by supervisor in the app process
+         but NOT inherited when running scripts directly from the shell)
+      2. The supervisor conf file  ``/etc/supervisor/conf.d/*.conf``  —
+         parses the ``environment=`` line so shell sessions pick up the same
+         value the app process uses without requiring a manual ``export``
+      3. Hardcoded default ``ashcan/production``
+
+    On EC2 the IAM role grants Secrets Manager access automatically — no AWS
+    keys required.  Prints status so the operator can see exactly what was
+    tried.  Returns an empty dict on failure so callers fall through to
+    .env / environment variables.
     """
+    import base64
+    import json as _json
+    import re
+
     try:
         import boto3
-        from botocore.exceptions import ClientError
-        import base64, json as _json
+    except ImportError:
+        print("  [secrets-manager] boto3 not installed — skipping")
+        return {}
 
-        secret_name = os.environ.get("SECRET_NAME", "ashcan/production")
-        region = os.environ.get("AWS_REGION", "us-east-2")
+    # --- Determine SECRET_NAME ---
+    secret_name = os.environ.get("SECRET_NAME")
+    source = "environment variable"
 
+    if not secret_name:
+        # Try to read SECRET_NAME from the supervisor conf that the app uses.
+        # The conf file is at /etc/supervisor/conf.d/{app_name}.conf and
+        # contains a line like:
+        #   environment=PATH="...",SECRET_NAME="ashcan/production",AWS_REGION="..."
+        supervisor_conf_dir = Path("/etc/supervisor/conf.d")
+        if supervisor_conf_dir.exists():
+            for conf_file in supervisor_conf_dir.glob("*.conf"):
+                try:
+                    text = conf_file.read_text()
+                    match = re.search(r'SECRET_NAME="([^"]+)"', text)
+                    if match:
+                        secret_name = match.group(1)
+                        source = f"supervisor conf ({conf_file.name})"
+                        # Also extract AWS_REGION while we're here
+                        region_match = re.search(r'AWS_REGION="([^"]+)"', text)
+                        if region_match and not os.environ.get("AWS_REGION"):
+                            os.environ["AWS_REGION"] = region_match.group(1)
+                        break
+                except OSError:
+                    continue
+
+    if not secret_name:
+        secret_name = "ashcan/production"
+        source = "hardcoded default"
+
+    region = os.environ.get("AWS_REGION", "us-east-2")
+    print(f"  [secrets-manager] secret '{secret_name}' (from {source}), region {region}")
+
+    try:
         client = boto3.session.Session().client(
             service_name="secretsmanager", region_name=region
         )
         response = client.get_secret_value(SecretId=secret_name)
 
         if "SecretString" in response:
-            return _json.loads(response["SecretString"])
-        return _json.loads(base64.b64decode(response["SecretBinary"]))
+            data = _json.loads(response["SecretString"])
+        else:
+            data = _json.loads(base64.b64decode(response["SecretBinary"]))
 
-    except Exception:
-        # Secrets Manager unavailable or not configured — fall through to .env
+        # Show which relevant keys were found (never print values)
+        found = [k for k in ("S3_BUCKET_NAME", "S3_BUCKET", "S3_FOLDER", "AWS_REGION") if k in data]
+        print(f"  [secrets-manager] OK — found keys: {found}")
+        return data
+
+    except Exception as exc:
+        print(f"  [secrets-manager] FAILED: {exc}")
+        print(f"  [secrets-manager] Falling through to .env / environment variables")
         return {}
 
 
@@ -118,18 +169,30 @@ def _load_all_credentials() -> dict:
     """Return a merged credential dict using the same priority as app/config.py.
 
     Secrets Manager values win over .env values, which win over env vars.
+    Prints a summary of which tier each critical key came from.
     """
     # Tier 1 — AWS Secrets Manager (production)
-    creds = _load_secrets_from_aws()
+    sm_creds = _load_secrets_from_aws()
 
     # Tier 2 — .env file (local dev)
-    env_file = _load_env_file(PROJECT_ROOT / ".env")
-    for key, val in env_file.items():
-        creds.setdefault(key, val)
+    env_file_creds = _load_env_file(PROJECT_ROOT / ".env")
 
-    # Tier 3 — live environment variables
-    for key, val in os.environ.items():
-        creds.setdefault(key, val)
+    # Tier 3 — live environment variables (lowest priority)
+    # Build merged dict: SM wins over .env wins over env vars
+    creds = dict(os.environ)           # start with env vars
+    creds.update(env_file_creds)       # .env overrides env vars
+    creds.update(sm_creds)             # Secrets Manager wins over both
+
+    # Report which tier resolved the bucket name
+    bucket_key = "S3_BUCKET_NAME" if "S3_BUCKET_NAME" in creds else "S3_BUCKET"
+    if bucket_key in sm_creds:
+        print(f"  [credentials] {bucket_key} resolved from Secrets Manager")
+    elif bucket_key in env_file_creds:
+        print(f"  [credentials] {bucket_key} resolved from .env file")
+    elif bucket_key in os.environ:
+        print(f"  [credentials] {bucket_key} resolved from environment variable")
+    else:
+        print(f"  [credentials] {bucket_key} NOT found in any source")
 
     return creds
 
@@ -340,8 +403,16 @@ def main() -> int:
     s3_folder = creds.get("S3_FOLDER", "production")
 
     if not bucket:
-        print("ERROR: S3_BUCKET_NAME not found in .env or environment.")
-        print("       Set it in .env or export S3_BUCKET_NAME before running.")
+        print()
+        print("ERROR: S3 bucket name not found in any credential source.")
+        print("       Checked (in order):")
+        print("         1. AWS Secrets Manager  (key: S3_BUCKET_NAME or S3_BUCKET)")
+        print("         2. .env file at project root")
+        print("         3. Environment variables S3_BUCKET_NAME / S3_BUCKET")
+        print()
+        print("       On the server, ensure SECRET_NAME env var points to the")
+        print("       correct Secrets Manager secret (check supervisor.conf).")
+        print("       Locally, run: python deployment/scripts/local_dev_setup_env.py")
         return 1
 
     # Build S3 client
