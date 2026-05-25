@@ -938,25 +938,34 @@ class ComicService:
                         log_service_warning(f"Uploaded file for image {idx} is corrupted or invalid: {validate_error}")
                         raise Exception(f"Image {idx} failed validation - file may be corrupted or incomplete")
 
+                    # Strip EXIF data by re-encoding through PIL before uploading.
+                    # optimize_image() re-saves as JPEG without copying EXIF metadata,
+                    # which removes GPS coordinates, camera info, timestamps, etc.
+                    # It returns a new _optimized.jpg path on success, or the original
+                    # path if re-encoding fails (upload still proceeds either way).
+                    optimized_path = s3_service.optimize_image(str(file_path))
+
                     # Upload to S3
                     s3_key = f"{sku}_{idx}.jpg"
-                    result = s3_service.upload_file(str(file_path), s3_key, create_thumb=True)
+                    result = s3_service.upload_file(optimized_path, s3_key, create_thumb=True)
 
                     if result and result.get('full'):
                         image_urls.append(result['full'])
                     else:
-                        # Upload failed - clean up temporary file and raise exception
-                        try:
-                            os.remove(str(file_path))
-                        except Exception:
-                            pass
+                        # Upload failed - clean up all temp files and raise exception
+                        for temp in {str(file_path), optimized_path}:
+                            try:
+                                os.remove(temp)
+                            except Exception:
+                                pass
                         raise Exception(f"Failed to upload image {idx} to S3")
 
-                    # Clean up temporary file
-                    try:
-                        os.remove(str(file_path))
-                    except Exception as e:
-                        log_service_warning(f"Could not delete temp file {file_path}: {e}")
+                    # Clean up both the original temp file and the optimized copy
+                    for temp in {str(file_path), optimized_path}:
+                        try:
+                            os.remove(temp)
+                        except Exception as e:
+                            log_service_warning(f"Could not delete temp file {temp}: {e}")
 
             return image_urls
 
