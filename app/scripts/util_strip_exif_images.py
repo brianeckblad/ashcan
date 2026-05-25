@@ -167,12 +167,16 @@ def _load_env_file(env_path: Path) -> dict:
 
 # Ansible vault key → uppercase env-style key used by app/config.py
 _VAULT_KEY_MAP = {
-    "s3_bucket_name": "S3_BUCKET_NAME",
-    "s3_folder":      "S3_FOLDER",
-    "aws_region":     "AWS_REGION",
-    "secret_name":    "SECRET_NAME",
-    "aws_access_key_id":     "AWS_ACCESS_KEY_ID",
-    "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",
+    "s3_bucket_name":            "S3_BUCKET_NAME",
+    "s3_folder":                 "S3_FOLDER",
+    "aws_region":                "AWS_REGION",
+    "secret_name":               "SECRET_NAME",
+    # Direct AWS keys (rarely in vault — IAM role is preferred in production)
+    "aws_access_key_id":         "AWS_ACCESS_KEY_ID",
+    "aws_secret_access_key":     "AWS_SECRET_ACCESS_KEY",
+    # Deploy-user keys (auto-populated by create-deploy-user.yml)
+    "deploy_aws_access_key_id":     "AWS_ACCESS_KEY_ID",
+    "deploy_aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",
 }
 
 
@@ -486,8 +490,124 @@ def _process_user(
 
 
 # ---------------------------------------------------------------------------
-# Main
+# S3-direct helpers  (used when no local images exist, e.g. on dev machine)
 # ---------------------------------------------------------------------------
+def _list_s3_users_and_images(s3_client, bucket: str, s3_folder: str,
+                               username_filter: str | None) -> list:
+    """Scan S3 and return a list of (username, s3_key) pairs for full-size images.
+
+    Looks in:
+      • users/{username}/images/{file}  — multi-user layout
+      • {s3_folder}/images/{file}       — legacy single-user layout (username="default")
+
+    Thumbnails (_thumb) are excluded.
+    """
+    paginator = s3_client.get_paginator("list_objects_v2")
+    results = []  # [(username, s3_key), ...]
+
+    def _collect(prefix, username):
+        if username_filter and username != username_filter:
+            return
+        pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
+        for page in pages:
+            for obj in page.get("Contents", []):
+                key = obj["Key"]
+                filename = key.split("/")[-1]
+                if filename and "_thumb" not in filename:
+                    ext = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+                    if ext in IMAGE_EXTENSIONS:
+                        results.append((username, key))
+
+    # Multi-user: scan users/*/images/
+    try:
+        top = s3_client.list_objects_v2(Bucket=bucket, Prefix="users/", Delimiter="/")
+        for cp in top.get("CommonPrefixes", []):
+            # cp["Prefix"] = "users/{username}/"
+            parts = cp["Prefix"].rstrip("/").split("/")
+            if len(parts) == 2:
+                uname = parts[1]
+                _collect(f"users/{uname}/images/", uname)
+    except Exception as exc:
+        print(f"  [S3 scan] warning listing users/ prefix: {exc}")
+
+    # Legacy single-user: {s3_folder}/images/
+    _collect(f"{s3_folder}/images/", "default")
+
+    return results
+
+
+def _process_from_s3(s3_client, bucket: str, s3_folder: str,
+                     username_filter: str | None, dry_run: bool) -> dict:
+    """Download every full-size image from S3, strip EXIF, re-upload clean.
+
+    Works entirely in temp files — no permanent local storage required.
+    Returns summary dict: {'total', 'processed', 'errors'}.
+    """
+    import tempfile
+
+    print("Scanning S3 for images...")
+    all_images = _list_s3_users_and_images(s3_client, bucket, s3_folder, username_filter)
+
+    summary = {"total": len(all_images), "processed": 0, "errors": 0}
+
+    if not all_images:
+        print("  No images found in S3.")
+        return summary
+
+    # Group by username for readable output
+    by_user: dict = {}
+    for username, s3_key in all_images:
+        by_user.setdefault(username, []).append(s3_key)
+
+    print(f"  Found {len(all_images)} image(s) across {len(by_user)} user(s)")
+    print()
+
+    for username, keys in sorted(by_user.items()):
+        print(f"{'─' * 70}")
+        print(f"User: {username}  ({len(keys)} images)")
+        print(f"{'─' * 70}")
+
+        for i, s3_key in enumerate(sorted(keys), 1):
+            filename = s3_key.split("/")[-1]
+            print(f"  [{i}/{len(keys)}] {filename}")
+
+            if dry_run:
+                print(f"    Would download, strip EXIF, re-upload → {s3_key}")
+                summary["processed"] += 1
+                continue
+
+            # Use a temp directory so the download and clean file are on the
+            # same filesystem (enables efficient rename / avoids cross-device copy)
+            with tempfile.TemporaryDirectory(prefix="exif_strip_") as tmpdir:
+                tmp_dir = Path(tmpdir)
+                download_path = tmp_dir / filename
+                clean_path = tmp_dir / f"{Path(filename).stem}_clean.jpg"
+
+                try:
+                    # 1. Download from S3
+                    s3_client.download_file(bucket, s3_key, str(download_path))
+                except Exception as exc:
+                    print(f"    ✗ Download failed: {exc}")
+                    summary["errors"] += 1
+                    continue
+
+                # 2. Strip EXIF by re-encoding through PIL
+                if not strip_exif_to_file(download_path, clean_path):
+                    summary["errors"] += 1
+                    continue
+
+                # 3. Re-upload the clean version, replacing the original key
+                if not _upload_file(s3_client, bucket, clean_path, s3_key):
+                    summary["errors"] += 1
+                    continue
+
+                print(f"    ✓ Stripped + re-uploaded")
+                summary["processed"] += 1
+            # TemporaryDirectory cleanup happens automatically on context exit
+
+        print()
+
+    return summary
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Strip EXIF metadata from all images locally and in S3"
@@ -550,6 +670,7 @@ def main() -> int:
         return 1
 
     if aws_key and aws_secret:
+        print(f"AWS auth   : explicit key (from vault/env)")
         s3_client = boto3.client(
             "s3",
             aws_access_key_id=aws_key,
@@ -557,62 +678,107 @@ def main() -> int:
             region_name=aws_region,
         )
     else:
-        # Fall back to the default credential chain (IAM role, ~/.aws/credentials)
+        # Fall back to the default credential chain:
+        #   ~/.aws/credentials  (configured by configure-local-aws.yml)
+        #   EC2 IAM role        (on the server)
+        print(f"AWS auth   : default credential chain (~/.aws or IAM role)")
         s3_client = boto3.client("s3", region_name=aws_region)
 
-    print(f"S3 bucket : {bucket}")
-    print(f"S3 folder : {s3_folder}")
+    # Quick connectivity check before doing any real work
+    try:
+        s3_client.head_bucket(Bucket=bucket)
+        print(f"S3 access  : OK")
+    except Exception as exc:
+        err = str(exc)
+        print(f"S3 access  : FAILED — {err}")
+        if "NoCredentialsError" in err or "Unable to locate credentials" in err:
+            print()
+            print("  No AWS credentials found. Options:")
+            print("  1. Run configure-local-aws.yml to set up ~/.aws profile:")
+            print("       cd deployment && ansible-playbook playbooks/configure-local-aws.yml \\")
+            print("           --vault-password-file ~/.vault_pass")
+            print("  2. Export credentials manually:")
+            print("       export AWS_ACCESS_KEY_ID=...")
+            print("       export AWS_SECRET_ACCESS_KEY=...")
+        return 1
+
+    print(f"S3 bucket  : {bucket}")
+    print(f"S3 folder  : {s3_folder}")
+    print(f"AWS region : {aws_region}")
     print()
 
-    # Discover users
+    # Discover local users / images
     all_users = _discover_users(DATA_DIR, INSTANCE_DIR)
     if args.user:
         all_users = [(u, d) for u, d in all_users if u == args.user]
-        if not all_users:
-            print(f"ERROR: No image directory found for user '{args.user}'")
-            return 1
 
-    if not all_users:
-        print("No users with image directories found. Nothing to do.")
-        return 0
-
-    # Count total work upfront so the confirmation prompt is informative
     user_image_counts = [(u, d, _find_full_size_images(d)) for u, d in all_users]
-    total_images = sum(len(imgs) for _, _, imgs in user_image_counts)
+    total_local = sum(len(imgs) for _, _, imgs in user_image_counts)
 
-    print(f"Users found : {len(all_users)}")
-    print(f"Images found: {total_images}")
-    print()
-
-    if total_images == 0:
-        print("No images to process. Nothing to do.")
-        return 0
-
-    if not args.dry_run:
-        print("This will:")
-        print(f"  • Re-encode {total_images} full-size image(s) as clean JPEG (EXIF removed)")
-        print(f"  • Overwrite each local file with the clean version")
-        print(f"  • Upload each clean file to S3, replacing the original")
-        print()
-        response = input("Continue? [y/N]: ")
-        if response.lower() != "y":
-            print("Cancelled.")
-            return 0
+    # ------------------------------------------------------------------
+    # Choose execution mode
+    # ------------------------------------------------------------------
+    if total_local > 0:
+        # LOCAL MODE — images exist on this machine; process in-place
+        print(f"Mode: LOCAL  ({total_local} image(s) found in instance/data/)")
         print()
 
-    # Process each user
-    grand_total = grand_processed = grand_errors = 0
-    for username, images_dir, _ in user_image_counts:
-        print(f"{'─' * 70}")
-        print(f"User: {username}  ({images_dir})")
-        print(f"{'─' * 70}")
-        summary = _process_user(
-            username, images_dir, s3_client, bucket, s3_folder, args.dry_run
+        if not args.dry_run:
+            print("This will:")
+            print(f"  • Re-encode {total_local} full-size image(s) as clean JPEG (EXIF removed)")
+            print(f"  • Overwrite each local file with the clean version")
+            print(f"  • Upload each clean file to S3, replacing the original")
+            print()
+            response = input("Continue? [y/N]: ")
+            if response.lower() != "y":
+                print("Cancelled.")
+                return 0
+            print()
+
+        grand_total = grand_processed = grand_errors = 0
+        for username, images_dir, _ in user_image_counts:
+            print(f"{'─' * 70}")
+            print(f"User: {username}  ({images_dir})")
+            print(f"{'─' * 70}")
+            summary = _process_user(
+                username, images_dir, s3_client, bucket, s3_folder, args.dry_run
+            )
+            grand_total += summary["total"]
+            grand_processed += summary["processed"]
+            grand_errors += summary["errors"]
+            print()
+
+    else:
+        # S3-DIRECT MODE — no local images; download → strip EXIF → re-upload
+        # This is the normal path when running from a dev machine.
+        if args.user:
+            print(f"Mode: S3-DIRECT  (no local images found; will process user '{args.user}' from S3)")
+        else:
+            print("Mode: S3-DIRECT  (no local images found; will download, strip, and re-upload from S3)")
+        print()
+
+        if not args.dry_run:
+            target = f"user '{args.user}'" if args.user else "all users"
+            print("This will:")
+            print(f"  • Download every full-size image ({target}) from S3 to a temp file")
+            print(f"  • Re-encode as clean JPEG (EXIF removed)")
+            print(f"  • Re-upload the clean version to S3, replacing the original")
+            print(f"  • Delete the temp file immediately after each image")
+            print()
+            response = input("Continue? [y/N]: ")
+            if response.lower() != "y":
+                print("Cancelled.")
+                return 0
+            print()
+
+        summary = _process_from_s3(
+            s3_client, bucket, s3_folder,
+            username_filter=args.user,
+            dry_run=args.dry_run,
         )
-        grand_total += summary["total"]
-        grand_processed += summary["processed"]
-        grand_errors += summary["errors"]
-        print()
+        grand_total = summary["total"]
+        grand_processed = summary["processed"]
+        grand_errors = summary["errors"]
 
     # Final summary
     print("=" * 70)
